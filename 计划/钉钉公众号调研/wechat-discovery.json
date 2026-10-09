@@ -1,0 +1,81 @@
+{
+  "checkedAt": "2026-10-08T16:56:15.8635486+00:00",
+  "account": {
+    "name": "浙大体育与艺术",
+    "biz": "MzA3MDk5NDA0NA==",
+    "numericId": "3070994044"
+  },
+  "seedArticle": "https://mp.weixin.qq.com/s/4qwgIC-4Fk_6Se9NvKSXYQ",
+  "coverage": "seed_article_albums_first_page_only",
+  "completeAccountFeed": false,
+  "note": "仅演示无需登录从公开合集发现链接；不覆盖整个公众号、不保证最新、不遍历合集分页。",
+  "albums": [
+    {
+      "id": "3755673521695997955",
+      "url": "https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzA3MDk5NDA0NA%3D%3D&action=getalbum&album_id=3755673521695997955",
+      "count": 10
+    }
+  ],
+  "items": [
+    {
+      "id": "MzA3MDk5NDA0NA==:2650905243:1",
+      "title": "天朗气清日 师生共聚时——教育部学生体育协会联合秘书处副秘书长张爱龙一行访问浙大",
+      "url": "https://mp.weixin.qq.com/s?__biz=MzA3MDk5NDA0NA==&mid=2650905243&idx=1&sn=38fb43dd8b8a31c177d82dbe233764fd&chksm=84c16b88b3b6e29e76c770e5ee3b6551ffcc4cb1b73315e86ec3f812f30d6c1fc1e325152963#rd",
+      "albumId": "3755673521695997955"
+    },
+    {
+      "id": "MzA3MDk5NDA0NA==:2650905278:1",
+      "title": "恪尽职守 秉公执裁 ——我校徐曼老师全运会裁判工作获国家体育总局武术运动管理中心表扬",
+      "url": "https://mp.weixin.qq.com/s?__biz=MzA3MDk5NDA0NA==&mid=2650905278&idx=1&sn=20f8b3466c3bd2e659d506e2aaece608&chksm=84c16badb3b6e2bbd3ff19f73acf76ef8b19176fe91283e166903d397fe6e9fad14d0df38155#rd",
+      "albumId": "3755673521695997955"
+    },
+    {
+      "id": "MzA3MDk5NDA0NA==:2650905661:1",
+      "title": "浙江大学公共体育与艺术部召开中层领导班子换届宣布会",
+      "url": "https://mp.weixin.qq.com/s?__biz=MzA3MDk5NDA0NA==&mid=2650905661&idx=1&sn=799871e5ac6240e8055907ef72c6794e&chksm=84c16d2eb3b6e438e11ffc52fc9b6fa6eeabf887b2ec2bf8bbe614c2354037b8aebcc118242f#rd",
+      "albumId": "3755673521695997955"
+    },
+    {
+      "id": "MzA3MDk5NDA0NA==:2650905870:1",
+      "title": "公共体育与艺术部召开2021年全体教职工警示教育大会",
+      "url": "https://mp.weixin.qq.com/s?__biz=MzA3MDk5NDA0NA==&mid=2650905870&idx=1&sn=57fb0b785e07f5b0a7af56aef0c3c100&chksm=84c16c1db3b6e50b15899f496695c6f58d64c377dd40775fafa64e7fe128cb8e335e51fd1d51#rd",
+      "albumId": "3755673521695997955"
+    },
+    {
+      "id": "MzA3MDk5NDA0NA==:2650906336:1",
+      "title": "浙江大学体育美育“十四五”专题规划论证审议会顺利举行",
+      "url": "https://mp.weixin.qq.com/s?__biz=MzA3MDk5NDA0NA==&mid=2650906336&idx=1&sn=90b252d42b34dc83b2fd773e2cd285b3&chksm=84c16ff3b3b6e6e50da8ff973de54159bba6b2be730ea81d58f48533af845b21b27af7e0c2a9#rd",
+      "albumId": "3755673521695997955"
+    },
+    {
+      "id": "MzA3MDk5NDA0NA==:2650906776:1",
+      "title": "青春活力，梦想飞扬，浙大版《等你来》亚运MV发布",
+      "url": "https://mp.weixin.qq.com/s?__biz=MzA3MDk5NDA0NA==&mid=2650906776&idx=1&sn=84877b2ca62f9ad36a7bc42af45bd08c&chksm=84c1518bb3b6d89d637293f326fae58c8417cc95b9bd3869ebeef94303b873f64912afff76a0#rd",
+      "albumId": "3755673521695997955"
+    },
+    {
+      "id": "MzA3MDk5NDA0NA==:2650950469:1",
+      "title": "公共体育与艺术部召开干部宣布会",
+      "url": "https://mp.weixin.qq.com/s?__biz=MzA3MDk5NDA0NA==&mid=2650950469&idx=1&sn=c303b806f540db939719fdfdeff19ad3&chksm=84c2ba56b3b53340f7654ff0eb99acf01cbadd4ba9636096c1cbef15528ad249e1ee33acba9c#rd",
+      "albumId": "3755673521695997955"
+    },
+    {
+      "id": "MzA3MDk5NDA0NA==:2650950853:1",
+      "title": "亚洲大学生体育联合会（AUSF）执委会会议在浙江大学圆满落幕",
+      "url": "https://mp.weixin.qq.com/s?__biz=MzA3MDk5NDA0NA==&mid=2650950853&idx=1&sn=e13a6af9ee78ad9af5f12c30f46aa91f&chksm=84c2bdd6b3b534c020aa840076b0e939b573bd59e27f5d25e845f5fd7071892a120568ad7063#rd",
+      "albumId": "3755673521695997955"
+    },
+    {
+      "id": "MzA3MDk5NDA0NA==:2650951173:1",
+      "title": "谋篇“十五五”，启步新征程 | 公共体育与艺术部召开2025年暑期工作务虚会",
+      "url": "https://mp.weixin.qq.com/s?__biz=MzA3MDk5NDA0NA==&mid=2650951173&idx=1&sn=0a0e8027ad5fede6b9afe0bd5f2e332f&chksm=84c2bf16b3b5360017ffa02f5b20af634de97258c29e2241c33b5e6c5ce6a7c2ce92a2c48a45#rd",
+      "albumId": "3755673521695997955"
+    },
+    {
+      "id": "MzA3MDk5NDA0NA==:2650951313:1",
+      "title": "奋进新征程，壮怀谋新功 | 公共体育与艺术部召开2025年暑期工作会议",
+      "url": "https://mp.weixin.qq.com/s?__biz=MzA3MDk5NDA0NA==&mid=2650951313&idx=1&sn=86749bc4605bf6e0306da61a7b64f80a&chksm=84c2bf82b3b53694bb6a7748242d066f55b85cbafad425b4755075fa9a5acdac46ea52dc9cbb#rd",
+      "albumId": "3755673521695997955"
+    }
+  ]
+}

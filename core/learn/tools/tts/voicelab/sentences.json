@@ -1,0 +1,17 @@
+{
+ "ja": [
+  {"text": "まずは、いちばん簡単な例から始めましょう。", "seconds": 3.71},
+  {"text": "この二つを比べると、違いがはっきり見えてきます。", "seconds": 4.21},
+  {"text": "つまり、順番を入れ替えても、結果は変わりません。", "seconds": 3.82}
+ ],
+ "zh": [
+  {"text": "我们先从一个最简单的例子开始。", "seconds": 2.92},
+  {"text": "把这两个放在一起比较，区别就很清楚了。", "seconds": 3.54},
+  {"text": "也就是说，交换顺序并不会改变结果。", "seconds": 3.13}
+ ],
+ "en": [
+  {"text": "Let's start with the simplest example we can think of.", "seconds": 4.11},
+  {"text": "If you compare these two, the difference becomes clear.", "seconds": 3.58},
+  {"text": "In other words, changing the order doesn't change the result.", "seconds": 3.89}
+ ]
+}

@@ -1,0 +1,55 @@
+# 我们自己的组合层，叠在 Harness 自带的 web 组合之上。
+# 壳启动时展开 {{ui}} 和 {{apiKeys}} 的绝对路径再交给引擎。
+
+# 对话与网页搜索的 Key 统一保存到应用根目录，在界面里更换也写回这一份。
+- id: credentials
+  config:
+    path: '{{apiKeys}}'
+
+# 官方品牌包让位给我们的界面包。
+- id: ui-brand-official
+  disabled: true
+
+# 面向学生的插件页由 campus-ui 提供，保留原有工具，仅收起引擎参数页。
+- id: ui-plugin-manager
+  disabled: true
+- id: ui-settings-shell
+  disabled: true
+- id: ui-settings-agent-loop
+  disabled: true
+- id: ui-settings-subagent
+  disabled: true
+
+# 学生用不到的入口：新对话页的 Agent 模式切换和设置里的「Agent 预设」，设置里的「内置插件」清单。
+# 只收起界面，引擎里的预设和插件照常工作。
+- id: ui-agent-preset
+  disabled: true
+- id: ui-settings-plugins
+  disabled: true
+- id: ui-settings-plugin-inventory
+  disabled: true
+
+# 人设从「coding agent」换成我们的智能体。补丁会整体替换该行的 config，所以两个键都要写。
+- id: system-prompt
+  config:
+    personaSuffix: Your working directory is {{cwd}}.
+    personaPrefix: >-
+      你是面向高校学生的校园事务与学习助手，由 {{model}} 模型驱动。
+
+# 引擎默认会把完整会话日志（含工具返回的内容）随每次请求额外上传给 DeepSeek。
+# 我们的会话里会有成绩、课表这类个人信息，这里关掉；模型请求本身不受影响。
+- id: session-log-deepseek
+  config:
+    enabled: false
+
+# 引擎自带的「预览版说明」弹窗讲的是 DeepSeek Harness 本身，学生用不到。
+# 它在空白对话页上弹出，直到这里记下的版本号和引擎里的一致，所以直接记成已读。
+# 升级引擎后文案若换了版本号，这里跟着改；desktop/config.test.mjs 会对照引擎里的值。
+- id: ui-settings-general
+  config:
+    welcomeNoticeVersion: '2026-09-28.1'
+
+# 我们的界面包：品牌、左侧面板、右边栏页签。
+- insert:
+    - id: campus-ui
+      name: '{{ui}}/host.js'

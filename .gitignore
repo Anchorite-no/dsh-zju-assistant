@@ -1,0 +1,17 @@
+node_modules/
+dist/
+ui/lib/
+*.log
+api-keys.local.yaml
+core/wechat/**/__pycache__/
+计划/wechat-plugin-ui-test/
+计划/weread-plugin-ui-test/
+__pycache__/
+*.pyc
+
+# 调研时下载的第三方安装包和解包目录：不是我们的代码，单个文件也超过 GitHub 的 100 MB 上限。
+计划/钉钉公众号调研/*.exe
+计划/钉钉公众号调研/*.zip
+计划/钉钉公众号调研/dws/
+计划/钉钉公众号调研/qwen-extracted/
+计划/钉钉公众号调研/qwen-package/

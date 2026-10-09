@@ -1,0 +1,15 @@
+{
+  "backend": "windows-weixin-local-v1",
+  "status": "experimental",
+  "verifiedOn": "2026-10-09",
+  "timezone": "Asia/Taipei",
+  "wechat": {"platform": "Windows", "architecture": "x64", "fileVersion": "4.1.15.13"},
+  "runtime": {"python": ">=3.14", "powershell": ">=7.5"},
+  "database": {"name": "biz_message_0.db", "pageSize": 4096, "reserveBytes": 80, "pageCipher": "AES-256-CBC", "pageAuthentication": "HMAC-SHA512"},
+  "keyAcquisition": "Target-salt matched runtime codec; known-salt keyspec decoding; mandatory page HMAC verification",
+  "secretsPersisted": false,
+  "realAccountValidation": {"account": "浙大体育与艺术", "pushes": 40, "articles": 79, "allPagesAuthenticated": true, "sqliteQuickCheck": "ok", "repeatedSyncDeduplicated": true},
+  "incrementalValidation": {"observedOn": "2026-10-09", "previousArticles": 79, "currentArticles": 80, "newlyDiscovered": 1, "articlePublishedAt": "2026-10-09T17:00:00+08:00", "localSyncAt": "2026-10-09T17:18:08+08:00", "articleTitle": "胡金秋领衔！全明星校园行即将登陆浙大！", "visibleInPlugin": true, "deliveryLatencyMeasured": false},
+  "notYetVerified": ["Offline catch-up completeness", "WeChat restart and subsequent sync", "Other WeChat versions", "Multiple local WeChat profiles", "biz_message shards beyond 0"],
+  "versionPolicy": "Record detected version on every available attempt; never select or trust a key solely by version; stop on failed cryptographic or database validation."
+}

@@ -1,0 +1,519 @@
+{
+  "bastion": [],
+  "data": [
+    {
+      "id": 0,
+      "group": {
+        "id": 5,
+        "group_name": "校内资源导航",
+        "type": "common"
+      },
+      "resource": [
+        {
+          "resource_type": "vpn",
+          "name": "浙江大学主页",
+          "detail": "www.zju.edu.cn",
+          "url": "http://www.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421e7e056d23d3a7d1e7b0c9ce29b5b/",
+          "id": 34,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "综合服务网",
+          "detail": "zhfw.zju.edu.cn",
+          "url": "http://zhfw.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421eaff478b692a6245300d8db9d6562d/",
+          "id": 35,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "党委办公室 校长办公室",
+          "detail": "office.zju.edu.cn",
+          "url": "http://office.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421fff147952435264a741dc7a99c406d36d2/",
+          "id": 41,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "组织部",
+          "detail": "dwzzb.zju.edu.cn",
+          "url": "http://dwzzb.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421f4e05b86257e725a6b468ca88d1b203b/",
+          "id": 42,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "学工部",
+          "detail": "www.xgb.zju.edu.cn",
+          "url": "http://www.xgb.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421e7e056d23f376a1e64029ce29d51367b0efc/",
+          "id": 39,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "本科生院",
+          "detail": "bksy.zju.edu.cn",
+          "url": "http://bksy.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421f2fc5285692a6245300d8db9d6562d/",
+          "id": 37,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "研工部",
+          "detail": "ygb.zju.edu.cn",
+          "url": "http://ygb.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421e9f043d23d3a7d1e7b0c9ce29b5b/",
+          "id": 40,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "研究生院",
+          "detail": "www.grs.zju.edu.cn",
+          "url": "http://www.grs.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421e7e056d220227b1e64029ce29d51367b3952/",
+          "id": 38,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "OA系统",
+          "detail": "oa.zju.edu.cn",
+          "url": "http://oa.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421fff60f862d2526557a1dc7af96/",
+          "id": 47,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "机关党委",
+          "detail": "jgdw.zju.edu.cn",
+          "url": "http://jgdw.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421faf0458b692a6245300d8db9d6562d/",
+          "id": 44,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "人力资源处",
+          "detail": "hr.zju.edu.cn",
+          "url": "https://hr.zju.edu.cn",
+          "redirect": "/https/77726476706e69737468656265737421f8e50f862d2526557a1dc7af96/",
+          "id": 48,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "人事系统",
+          "detail": "hrm.zju.edu.cn",
+          "url": "http://hrm.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421f8e54cd23d3a7d1e7b0c9ce29b5b/",
+          "id": 49,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "科研服务网",
+          "detail": "kyfw.zju.edu.cn",
+          "url": "http://kyfw.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421fbee478b692a6245300d8db9d6562d/",
+          "id": 46,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "计财处",
+          "detail": "cw.zju.edu.cn",
+          "url": "http://cw.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421f3e00f862d2526557a1dc7af96/",
+          "id": 43,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "信息技术中心",
+          "detail": "itc.zju.edu.cn",
+          "url": "http://itc.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421f9e342d23d3a7d1e7b0c9ce29b5b/",
+          "id": 45,
+          "group_id": 5,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "图书馆",
+          "detail": "libweb.zju.edu.cn",
+          "url": "http://libweb.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421fcfe438b2232264a741dc7a99c406d3628/",
+          "id": 36,
+          "group_id": 5,
+          "logo": ""
+        }
+      ],
+      "type": "common"
+    },
+    {
+      "id": 0,
+      "group": {
+        "id": 3,
+        "group_name": "电子资源导航",
+        "type": "common"
+      },
+      "resource": [
+        {
+          "resource_type": "vpn",
+          "name": "图书馆数据库导航",
+          "detail": "libdb.zju.edu.cn",
+          "url": "https://libdb.zju.edu.cn/",
+          "redirect": "/https/77726476706e69737468656265737421fcfe4398257e725a6b468ca88d1b203b/",
+          "id": 2,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "图书馆期刊导航",
+          "detail": "gk4pb6yy8y.search.serialssolutions.com",
+          "url": "https://gk4pb6yy8y.search.serialssolutions.com/",
+          "redirect": "/https/77726476706e69737468656265737421f7fc158c256671492611c7bf9d543136f5d975b22a07a8ebbd4c579ba2edffe1a425495767f7/",
+          "id": 3,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "图书馆馆藏查询",
+          "detail": "opac.zju.edu.cn",
+          "url": "https://opac.zju.edu.cn/",
+          "redirect": "/https/77726476706e69737468656265737421ffe7409f692a6245300d8db9d6562d/",
+          "id": 4,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "法学专业数据库",
+          "detail": "www.lawlib.zju.edu.cn",
+          "url": "http://www.lawlib.zju.edu.cn/redir.php?catalog_id=20938",
+          "redirect": "/http/77726476706e69737468656265737421e7e056d22b317f5c770ac7b692406d30c174d451b2/redir.php?catalog_id=20938",
+          "id": 5,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "CNKI检索平台",
+          "detail": "www.cnki.net",
+          "url": "https://www.cnki.net/",
+          "redirect": "/https/77726476706e69737468656265737421e7e056d2243e635930068cb8/",
+          "id": 6,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "万方检索平台",
+          "detail": "g.wanfangdata.com.cn",
+          "url": "http://g.wanfangdata.com.cn",
+          "redirect": "/http/77726476706e69737468656265737421f7b9569d2936695e790c88b8991b203a18454272/",
+          "id": 7,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "维普期刊",
+          "detail": "qikan.cqvip.com",
+          "url": "http://qikan.cqvip.com/",
+          "redirect": "/http/77726476706e69737468656265737421e1fe4a9d297e6b41680199e29b5a2e/",
+          "id": 8,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "书同文古籍数据库",
+          "detail": "guji.unihan.com.cn",
+          "url": "http://guji.unihan.com.cn/web#/list",
+          "redirect": "/http/77726476706e69737468656265737421f7e24b9569256659760987e29b5a2e7b774d/web#/list",
+          "id": 9,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "Web of Science 检索平台",
+          "detail": "apps.webofknowledge.com",
+          "url": "https://apps.webofknowledge.com",
+          "redirect": "/https/77726476706e69737468656265737421f1e7518f69276d52710e82a297422f30a0c6fa320a29ae/",
+          "id": 10,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "Journal Citation Reports期刊引用报告",
+          "detail": "jcr.clarivate.com",
+          "url": "https://jcr.clarivate.com/",
+          "redirect": "/https/77726476706e69737468656265737421faf453d2243c6942771e88b89d1b203ae6/",
+          "id": 11,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "JSTOR 西文过刊全文库",
+          "detail": "www.jstor.org",
+          "url": "https://www.jstor.org/",
+          "redirect": "/https/77726476706e69737468656265737421e7e056d22d237c5f6c4686be9f/",
+          "id": 12,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "InCites科研评估工具",
+          "detail": "incites.clarivate.com",
+          "url": "https://incites.clarivate.com/",
+          "redirect": "/https/77726476706e69737468656265737421f9f9429533357b1e7d0488be91432221874b690ba4/",
+          "id": 13,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "Reaxys数据库",
+          "detail": "www.reaxys.com",
+          "url": "https://www.reaxys.com/#/search/quick",
+          "redirect": "/https/77726476706e69737468656265737421e7e056d235356948671bc7af9758/#/search/quick",
+          "id": 14,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "读秀学术搜索",
+          "detail": "www.duxiu.com",
+          "url": "https://www.duxiu.com/",
+          "redirect": "/https/77726476706e69737468656265737421e7e056d2232570596b468aa395/",
+          "id": 15,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "超星电子书",
+          "detail": "www.sslibrary.com",
+          "url": "http://www.sslibrary.com/",
+          "redirect": "/http/77726476706e69737468656265737421e7e056d2342364597c1a88be811b203aa9/",
+          "id": 16,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "国泰安CSMAR数据库",
+          "detail": "www.gtarsc.com",
+          "url": "http://www.gtarsc.com/",
+          "redirect": "/http/77726476706e69737468656265737421e7e056d2202469426d0bc7af9758/",
+          "id": 17,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "SciFinder CA 化学文摘",
+          "detail": "scifinder.cas.org",
+          "url": "https://scifinder.cas.org/",
+          "redirect": "/https/77726476706e69737468656265737421e3f4489a2e3e6c556c468aad8b1b2c2753/",
+          "id": 18,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "IEEE Xplore 检索平台",
+          "detail": "ieeexplore.ieee.org",
+          "url": "https://ieeexplore.ieee.org",
+          "redirect": "/https/77726476706e69737468656265737421f9f244993f20645f6c0dc7a59d50267b1ab4a9/",
+          "id": 19,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "Springer Link 检索平台",
+          "detail": "link.springer.com",
+          "url": "https://link.springer.com/",
+          "redirect": "/https/77726476706e69737468656265737421fcfe4f976923784277068ea98a1b203a54/",
+          "id": 20,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "Proquest检索平台",
+          "detail": "search.proquest.com",
+          "url": "https://search.proquest.com",
+          "redirect": "/https/77726476706e69737468656265737421e3f2408e243826406c0798b99d46377b8a4084/",
+          "id": 21,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "北大法宝",
+          "detail": "www.pkulaw.cn",
+          "url": "https://www.pkulaw.cn",
+          "redirect": "/https/77726476706e69737468656265737421e7e056d2373b7d5c7f1fc7af96/",
+          "id": 22,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "Beck-Online数据库",
+          "detail": "beck-online.beck.de",
+          "url": "https://beck-online.beck.de",
+          "redirect": "/https/77726476706e69737468656265737421f2f242976a3f665c77068ce29a50203e8e8233/",
+          "id": 23,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "ASTM电子书",
+          "detail": "portal.igpublish.com",
+          "url": "https://portal.igpublish.com",
+          "redirect": "/https/77726476706e69737468656265737421e0f85388263c265979189cae945c303d3159d0da/",
+          "id": 25,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "ProQuest学位论文全文检索平台",
+          "detail": "www.pqdtcn.com",
+          "url": "http://www.pqdtcn.com/",
+          "redirect": "/http/77726476706e69737468656265737421e7e056d237216c447d06c7af9758/",
+          "id": 26,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "CUP期刊",
+          "detail": "www.cambridge.org",
+          "url": "https://www.cambridge.org/core/",
+          "redirect": "/https/77726476706e69737468656265737421e7e056d2243165526c018dab9d1b2c2702/core/",
+          "id": 27,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "CSMAR数据库",
+          "detail": "cn.gtadata.com",
+          "url": "http://cn.gtadata.com",
+          "redirect": "/http/77726476706e69737468656265737421f3f90f9b33316c516a09c7af9758/",
+          "id": 28,
+          "group_id": 3,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "OSA 美国光学学会数据库",
+          "detail": "www.osapublishing.org",
+          "url": "http://www.osapublishing.org/",
+          "redirect": "/http/77726476706e69737468656265737421e7e056d2282369406b0a85a58b5d2a3b15fcdeeba8/",
+          "id": 29,
+          "group_id": 3,
+          "logo": ""
+        }
+      ],
+      "type": "common"
+    },
+    {
+      "id": 0,
+      "group": {
+        "id": 4,
+        "group_name": "网络工具导航",
+        "type": "common"
+      },
+      "resource": [
+        {
+          "resource_type": "vpn",
+          "name": "校内测速Speedtest",
+          "detail": "speedtest.zju.edu.cn",
+          "url": "http://speedtest.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421e3e7449923246d436a4693a68d1b2631aa21a8e3/",
+          "id": 30,
+          "group_id": 4,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "校外IP侦测",
+          "detail": "www.ipip.net",
+          "url": "http://www.ipip.net",
+          "redirect": "/http/77726476706e69737468656265737421e7e056d22e20614030068cb8/",
+          "id": 31,
+          "group_id": 4,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "校外测速Speedtest",
+          "detail": "www.speedtest.cn",
+          "url": "http://www.speedtest.cn",
+          "redirect": "/http/77726476706e69737468656265737421e7e056d234206d557a1c8cbf8c1b203b/",
+          "id": 32,
+          "group_id": 4,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "正版化软件",
+          "detail": "ms.zju.edu.cn",
+          "url": "http://ms.zju.edu.cn",
+          "redirect": "/http/77726476706e69737468656265737421fde40f862d2526557a1dc7af96/",
+          "id": 33,
+          "group_id": 4,
+          "logo": ""
+        },
+        {
+          "resource_type": "vpn",
+          "name": "WebVPN使用说明",
+          "detail": "itc.zju.edu.cn",
+          "url": "https://itc.zju.edu.cn/_upload/article/files/4c/f2/dce9497346f385227e317912d3e0/2cbdcc37-f932-474b-b969-97e1af726fd5.pdf",
+          "redirect": "/https/77726476706e69737468656265737421f9e342d23d3a7d1e7b0c9ce29b5b/_upload/article/files/4c/f2/dce9497346f385227e317912d3e0/2cbdcc37-f932-474b-b969-97e1af726fd5.pdf",
+          "id": 52,
+          "group_id": 4,
+          "logo": ""
+        }
+      ],
+      "type": "common"
+    }
+  ],
+  "noAllAccess": false
+}

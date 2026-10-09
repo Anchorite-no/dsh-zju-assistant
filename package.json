@@ -1,0 +1,65 @@
+{
+  "name": "campus-agent",
+  "productName": "CampusAgent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "校园智能体桌面端：自写 Electron 壳 + 自己的界面包 + 自带的 ZJU / Learning core，引擎用 DeepSeek Harness",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "node ui/build.mjs --app",
+    "ui": "node ui/build.mjs",
+    "typecheck": "tsc --noEmit -p ui",
+    "typecheck:core": "node core/zju/node_modules/typescript/bin/tsc --noEmit -p core/zju",
+    "test:profile": "node --test ui/profile/*.test.mjs",
+    "test:trace": "node --test ui/client/trace/*.test.mjs",
+    "test:credentials": "node --test desktop/config.test.mjs",
+    "test:plugins": "node --test desktop/profile.test.mjs desktop/ffmpeg.test.mjs desktop/film.test.mjs desktop/reader.test.mjs ui/profile/account.test.mjs ui/profile/plugins.test.mjs ui/profile/wechat.test.mjs",
+    "package": "node ui/build.mjs && electron-builder --dir"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh": "0.2.0-rc.2",
+    "ffmpeg-static": "5.3.0",
+    "js-yaml": "^4.3.2"
+  },
+  "devDependencies": {
+    "@types/react": "18.3",
+    "electron": "44.0.0",
+    "electron-builder": "26.15.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  },
+  "build": {
+    "appId": "cn.campusagent.desktop",
+    "productName": "CampusAgent",
+    "asar": false,
+    "npmRebuild": false,
+    "files": [
+      "desktop/**/*",
+      "!desktop/**/*.test.mjs",
+      "ui/package.json",
+      "ui/host.js",
+      "ui/profile/*.mjs",
+      "!ui/profile/*.test.mjs",
+      "ui/lib/**/*",
+      "core/**/*",
+      "!core/wechat/**/__pycache__/**",
+      "!core/wechat/test_*.py",
+      "!core/weread/*.test.mjs",
+      "core/learn/engine/vendor/node_modules/**/*",
+      "core/zju/node_modules/**/*",
+      "!core/zju/node_modules/{typescript,@types,.bin}/**",
+      "!core/zju/dev/**",
+      "app.patch.yml",
+      "api-keys.example.yaml",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "dir"
+      ]
+    }
+  }
+}

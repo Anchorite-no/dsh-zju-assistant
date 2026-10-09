@@ -13,7 +13,7 @@
     "test:profile": "node --test ui/profile/*.test.mjs",
     "test:trace": "node --test ui/client/trace/*.test.mjs",
     "test:credentials": "node --test desktop/config.test.mjs",
-    "test:plugins": "node --test desktop/profile.test.mjs desktop/ffmpeg.test.mjs desktop/film.test.mjs desktop/reader.test.mjs ui/profile/account.test.mjs ui/profile/plugins.test.mjs ui/profile/wechat.test.mjs",
+    "test:plugins": "node --test desktop/profile.test.mjs desktop/ffmpeg.test.mjs desktop/film.test.mjs desktop/reader.test.mjs desktop/tray.test.mjs ui/profile/account.test.mjs ui/profile/plugins.test.mjs ui/profile/wechat.test.mjs",
     "package": "node ui/build.mjs && electron-builder --dir"
   },
   "dependencies": {

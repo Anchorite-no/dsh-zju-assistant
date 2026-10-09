@@ -15,6 +15,7 @@ import { Learning } from './learning.mjs'
 import { engineStamp } from './stamp.mjs'
 import { WechatFeeds } from './wechat.mjs'
 import { WereadFeeds } from './weread.mjs'
+import { ChatGpt } from './chatgpt.mjs'
 
 export function installProfile(ctx, { wechatRun } = {}) {
   // 这个进程启动时引擎侧代码的指纹；页面拿它和自己构建时记的那份比，对不上就提示重新打开应用。
@@ -41,6 +42,8 @@ export function installProfile(ctx, { wechatRun } = {}) {
   // learn 技能的讲解固定放在一个文件夹里（SKILL.md 里写的 <讲解目录>），位置在对话开头告诉助手。
   let filmRoot = ''
   learning.roots().then((roots) => { filmRoot = roots.films }, () => {})
+  // 设置 → 模型里的 ChatGPT 登录。引擎的这三个服务不在本包的依赖里声明，用的时候再取，没挂载就当没有这项功能。
+  const chatgpt = new ChatGpt({ authorization: () => ctx.get?.('authorization'), credentials: () => ctx.get?.('credentials'), settings: () => ctx.get?.('settings') })
   const saveAccount = (input) => {
     const saved = account.save(input)
     // 学号或密码变了就顺手把基础信息里空着的几项补上；补不上不影响保存账号，设置的个人档案里可以手动再读。
@@ -99,6 +102,11 @@ export function installProfile(ctx, { wechatRun } = {}) {
           : action === 'weread-read' ? await weread.read(input)
           : action === 'weread-verification' ? await weread.verification(input?.action, input)
           : action === 'weread-recognizer' ? await weread.recognizer(input?.action, input)
+          : action === 'chatgpt-read' ? await chatgpt.snapshot()
+          : action === 'chatgpt-login' ? await chatgpt.login(input)
+          : action === 'chatgpt-answer' ? await chatgpt.answer(input)
+          : action === 'chatgpt-cancel' ? await chatgpt.cancel()
+          : action === 'chatgpt-logout' ? await chatgpt.logout()
           : store.dispatch(action, input)
         return Response.json({ value }, { headers: { 'cache-control': 'no-store' } })
       } catch (error) { return Response.json({ error: error.message }, { status: 400, headers: { 'cache-control': 'no-store' } }) }

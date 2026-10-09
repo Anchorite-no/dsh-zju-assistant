@@ -23,7 +23,7 @@
 npm start
 ```
 
-一条命令打开应用，也可以直接双击 `start.cmd`。它会构建界面包、启动窗口，并在窗口开着时监听 `ui/client/`：改完代码约一秒生效，不用重启。改 `desktop/`、`app.patch.yml` 或引擎侧的 `ui/profile/*.mjs` 需要关掉重开；没重开时界面是新的、后台是旧的，这时页面上的请求一出错就会改成提示「请完全退出应用再打开」。做法是界面包每次构建时记下引擎侧代码的指纹，引擎启动时也算一份，页面拿两份比（`ui/profile/stamp.mjs`、`ui/client/api.ts`）。不要同时开两个，它们共用一份数据目录。
+一条命令打开应用，也可以直接双击 `start.cmd`。它会构建界面包、启动窗口，并在窗口开着时监听 `ui/client/`：改完代码约一秒生效，不用重启。改 `desktop/`、`app.patch.yml` 或引擎侧的 `ui/profile/*.mjs` 需要关掉重开；没重开时界面是新的、后台是旧的，这时页面上的请求一出错就会改成提示「请完全退出应用再打开」。做法是界面包每次构建时记下引擎侧代码的指纹，引擎启动时也算一份，页面拿两份比（`ui/profile/stamp.mjs`、`ui/client/api.ts`）。同一份数据目录只会开一个：已经开着时再开一次，是把原来的窗口叫到前面，新开的那个自己退出。
 
 ```bash
 npm run typecheck
@@ -53,6 +53,25 @@ API Key 统一放在应用根目录的 **`api-keys.local.yaml`**。开发时就�
 
 引擎默认把完整会话日志随请求额外上传给 DeepSeek，`app.patch.yml` 里关掉了。
 
+## 用 ChatGPT 账号登录
+
+设置 → 模型页最下面有一块「ChatGPT」。登录后模型选择器里多出 GPT，和 DeepSeek 并列，随时切换；新对话默认用 GPT-6.1 Sol、推理强度 Xhigh（已经开着的对话各用各的，不变）。退出登录后 GPT 从选择器里消失，默认模型改回引擎原来的 DeepSeek；登录期间自己把默认模型换成了别的，退出时不动它。两种登录方式：
+
+- 「登录」：在系统浏览器里打开 OpenAI 的登录页，登完浏览器跳回本机（`localhost:1455`），应用自己变成已登录。浏览器没能跳回来时，把它地址栏里的地址贴进卡片里的输入框。
+- 「用代码登录」：卡片上显示一段代码，在 OpenAI 的验证页里输入。浏览器和应用不在同一台机器、或者 1455 端口被占时用这个。
+
+登录、令牌的保存和刷新、发请求都是引擎自带的（`@deepseek-ai/dsh-llm-pi-ai` 的 `openai-codex` 线路，底下是 pi-ai）：用的是 OpenAI 的 OAuth，和 Codex 客户端同一套；请求走 Responses 协议，发到 `chatgpt.com/backend-api`，算在 ChatGPT 订阅里（pi-ai 标的是 Plus / Pro），不需要 API Key。引擎的模型页只给这条线路留了填 API Key 的输入框，没有登录入口，我们补的是：
+
+- `ui/profile/chatgpt.mjs`：替页面发起、取消登录，把要人去的页面、要输入的代码、要贴回来的地址转给页面；登录成功后把线路写进模型设置（引擎的 `llm-pi-ai` 配置里的 `providers.openai-codex`），再把新对话的默认模型写进 `agent-default-model`；退出时把默认模型改回去、撤掉线路、删掉令牌。
+- `ui/client/ChatGptCard.tsx`：那一块卡片，登记在引擎留的 `settings.models.footer` 上。
+- `desktop/main.cjs`：`auth.openai.com` 的页面交给系统浏览器开，不进应用自己的阅读窗口。
+
+令牌和 DeepSeek 的 Key 存在同一个文件里（`api-keys.local.yaml` 的 `records` 下面的 `llm-pi-ai/openai-codex`），同样不要把用过的应用文件夹整个发给别人。退出登录只在本机删掉令牌，不通知 OpenAI。
+
+有哪些模型、各有哪几档推理强度，取自 pi-ai 自带的模型表（现在是 0.87.1 的八个：GPT-5.3 Codex Spark、GPT-5.5、GPT-5.6 Luna / Sol / Terra、GPT-6 Astra / Luna / Sol），不是向账号查的：表里有而账号用不了的模型，要到发消息时才报错。GPT-6.1 Sol 比这张表新，是照 pi-ai 1.1.0 的模型表抄进 `chatgpt.mjs` 的 `NEWER_MODELS` 补上的（名字、上下文长度、输出上限、能看图、推理档位）；引擎自带的 pi-ai 不认识它，所以它没有自带模型那几项按模型开的协议开关，只走这条线路通用的发法。默认模型选的就是它，改默认模型改 `chatgpt.mjs` 的 `DEFAULT`。表里有的档位只是别的档位的别名（`minimal` 发出去就是 `low`），写线路时去掉了，所以选择器里每一档发出去的值都不一样：GPT-5.5 是 Off、Low、Medium、High、Xhigh，GPT-6.1 Sol 是 Low、Medium、High、Xhigh、Max。引擎升级带来新的模型表后，重新登录一次线路才会按新表重写。
+
+验证过的：在真实引擎上发起浏览器登录（拿到 OpenAI 的授权地址，带 PKCE）和代码登录（OpenAI 发回了代码）、取消、登录成功后那一步对模型设置和默认模型的写入、退出时的撤销和默认模型改回、选择器里 GPT-5.5 和 GPT-6.1 Sol 的档位、新对话默认显示 GPT-6.1 Sol / Xhigh、登录页由系统浏览器打开。**没有验证的：真的登完一个账号，以及登录后发一条消息**（GPT-6.1 Sol 是补进去的，尤其要试），这两步要有 ChatGPT 账号的人在应用里做一遍。引擎进程自己访问 `auth.openai.com` 和 `chatgpt.com`，本机要连得上。
+
 ## 对话和它的文件夹
 
 新会话默认不用选工作区，做法照 Codex：聊天记录在应用数据目录（`%APPDATA%\CampusAgent\home`），每个对话另有一个自己的文件夹 `文档\CampusAgent\<日期>\<时分>`，对话里产生的文件落在里面。文件夹由 `ui/profile/chats.mjs` 建；环境变量 `CAMPUS_CHATS_DIR` 可以把整个位置换掉，界面测试时一定要设，免得往真实的「文档」里写。删除对话只删聊天记录，不动文件夹。对话页右上角的文件夹按钮（引擎自带）能打开它。
@@ -68,7 +87,7 @@ API Key 统一放在应用根目录的 **`api-keys.local.yaml`**。开发时就�
 - `sidebar.brand.mark`、`sidebar.brand.name`、`conversation.hero.brand.mark`：品牌
 - `sidebar.panellist` 加 `main`：左侧一个入口对应主区域一页（同一个 id）
 - `ctx.sidebarRightTabs.register` 加 `sidebar.right.pane.tab`：右边栏页签（「执行过程」，在 `ui/client/trace/install.ts` 里登记，见下一节）
-- `settings.general.item`：设置 → 通用设置里的一行（现在有「对话宽度」）
+- `settings.general.item`：设置 → 通用设置里的一行（现在有「对话宽度」和「关闭窗口时隐藏到系统托盘」）
 - `settings.section`：设置面板里的一整页（现在有「个人档案」，排在通用设置后面）
 
 对话宽度的三档数值在 `ui/client/style.css` 的 `--campus-content-width`。
@@ -87,6 +106,14 @@ API Key 统一放在应用根目录的 **`api-keys.local.yaml`**。开发时就�
 引擎不用浏览器的历史记录，壳原来也不处理后退，所以是直接认这几种输入，没有往历史记录里写东西。几个返回同时在场时认最后出现的那个（设置面板盖在页面上时是面板里的）；上面盖着确认框（删除、放弃修改）时不动；编辑到一半按后退，和点返回一样先问要不要放弃修改。新做的页面只要顶上用 `Crumb`，不用再写别的。
 
 验证过的是模拟出来的这几种输入（隔离实例里派发鼠标事件、`campus:back` 和键盘事件）；真实鼠标的侧键没法在离屏窗口里按，要在应用里实际按一下确认。
+
+## 关闭窗口和托盘
+
+设置 → 通用设置里有一个开关「关闭窗口时隐藏到系统托盘」，默认关：点关闭按钮就是退出应用。打开后点关闭按钮只把主窗口藏起来，引擎照常运行，托盘上多一个图标：点它把窗口叫回来，右键菜单里有「打开主窗口」和「退出」。窗口藏着时再打开一次应用，也是把它叫回来。Windows 11 默认把新图标收在任务栏的「显示隐藏的图标」里。
+
+开关的值由壳自己存在 `%APPDATA%\CampusAgent\shell.json`（`desktop/tray.cjs`），页面经 `preload.cjs` 给的 `window.campusShell` 读和改（`ui/client/TrayRow.tsx`）；不在壳里打开时没有 `campusShell`，这一行不出现。托盘图标用的是程序自己的图标，只在开关打开时才有。阅读窗口和讲解窗口不跟着藏，关机、注销时也不拦。
+
+验证过的：在隔离实例里给主窗口发关闭消息（和点关闭按钮是同一条路）、点真实的托盘图标、再启动一次、关掉开关后再关窗口。页面里的 `window.close()` 不走这条路，会直接关掉窗口。托盘右键菜单里的两项只在 `desktop/tray.test.mjs` 里用假的托盘测过，没有真的点。
 
 ## 看网页的窗口
 

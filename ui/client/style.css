@@ -1255,6 +1255,69 @@ html[data-campus-width] [data-width-handle] {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+/* 设置 → 模型页最下面的 ChatGPT 登录。卡片照引擎模型页里提供商那一行（它的 rowCard、rowHead、rowName）。 */
+.campus-chatgpt {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 0.5px solid var(--dsw-alias-settings-card-stroke);
+  border-radius: var(--dsw-radius-xl);
+  background: var(--dsw-alias-settings-card-fill);
+}
+
+.campus-chatgpt-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+}
+
+.campus-chatgpt-name {
+  flex: none;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.campus-chatgpt-state {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.campus-chatgpt-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.campus-chatgpt-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.campus-chatgpt-step .campus-input {
+  flex: 1;
+}
+
+/* 设备码：要照着输进网页的，放大、等宽，点一下整段选中。 */
+.campus-chatgpt-code {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 26px;
+  letter-spacing: 1px;
+  color: var(--dsw-alias-label-primary);
+  user-select: all;
+}
+
 /* ── 执行过程 ─────────────────────────────────────────────
    右边栏里的一张线路图：一根细线是助手自己，每去一个网站从它弯出一条支线；线的左边是网站名，右边是在那里做了什么，行尾是拿到几条。
    只用黑白灰，失败的才是红的；都直接落在底色上，没有表头、标签和色块。

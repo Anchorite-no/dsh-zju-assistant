@@ -6,10 +6,13 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { BrandMark, BrandName } from './Brand.tsx'
 import { PANELS } from './panels.tsx'
 import { installTrace } from './trace/install.ts'
 import { WidthRow } from './WidthRow.tsx'
+import { TrayRow } from './TrayRow.tsx'
+import { ChatGptCard } from './ChatGptCard.tsx'
 import { installContentWidth } from './width.ts'
 import { installPluginsPage } from './PluginsPage.tsx'
 import { installFolderlessChats } from './chats.ts'
@@ -57,6 +60,16 @@ export function apply(ctx: Context): void {
   ctx.effect(() => installContentWidth(), 'campus-ui: content width')
   ctx.slots.inject('settings.general.item', () =>
     ctx.slots.register({ name: 'settings.general.item', id: 'campus-content-width', order: 11.5 }, WidthRow))
+
+  // 关闭窗口时隐藏到系统托盘：开关存在壳那边，排在性能与用量后面；不在壳里打开（比如浏览器）时没有这一行。
+  if (window.campusShell) {
+    ctx.slots.inject('settings.general.item', () =>
+      ctx.slots.register({ name: 'settings.general.item', id: 'campus-close-to-tray', order: 35 }, TrayRow))
+  }
+
+  // 设置 → 模型页最下面的 ChatGPT 登录：登录后模型选择器里多出 GPT。
+  ctx.slots.inject('settings.models.footer', () =>
+    ctx.slots.register({ name: 'settings.models.footer', id: 'campus-chatgpt', order: 0 }, ChatGptCard))
 
   // 设置里的「个人档案」一页：基础信息和记忆，排在通用设置后面。
   ctx.slots.inject('settings.section', () =>

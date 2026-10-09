@@ -3,8 +3,9 @@
  * 界面自带的布局（html[data-windows-titlebar]）会据此让出位置并提供拖动区。
  * 同时把界面的侧栏底色和文字色报给壳，让右上角三个按钮跟着主题变色。
  * 做法照上游 apps/desktop/src/preload-windows.ts，去掉了它的原生菜单。
+ * 另外给页面一个 campusShell，用来读、改存在壳这边的设置。
  */
-const { ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer } = require('electron')
 
 const TITLEBAR_HEIGHT = 40
 
@@ -49,6 +50,12 @@ function syncCaptionColors() {
 
 // 壳转来的「后退」（鼠标侧键）：变成窗口上的一个事件，页面上的返回听它（ui/client/back.ts）。
 ipcRenderer.on('campus:back', () => { window.dispatchEvent(new Event('campus:back')) })
+
+// 设置里「关闭窗口时隐藏到系统托盘」的开关：值存在壳这边（tray.cjs），页面经这两个函数读和改（ui/client/TrayRow.tsx）。
+contextBridge.exposeInMainWorld('campusShell', {
+  closeToTray: () => ipcRenderer.invoke('campus:close-to-tray:get'),
+  setCloseToTray: on => ipcRenderer.invoke('campus:close-to-tray:set', on === true),
+})
 
 if (process.platform === 'win32') {
   // 根元素可能还没被解析器创建，等它出现再标记，保证早于界面第一次渲染。

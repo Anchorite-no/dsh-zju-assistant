@@ -2,7 +2,8 @@
  * 最小的自写壳：一个窗口 + 一个引擎子进程。
  * 壳只负责窗口、名字和进程生命周期；界面由引擎的 Web 应用提供，壳直接加载它的地址。
  */
-const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, session } = require('electron')
+const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeTheme, session, shell } = require('electron')
+const { createTray } = require('./tray.cjs')
 const { createWereadBridge } = require('./weread.cjs')
 const { createReader } = require('./reader.cjs')
 const { ffmpegEnv } = require('./ffmpeg.cjs')
@@ -21,6 +22,9 @@ if (customData) {
   if (!path.isAbsolute(customData)) throw new Error('CAMPUS_AGENT_DATA_DIR must be an absolute path')
   app.setPath('userData', customData)
 }
+
+// 同一份数据目录只开一个。窗口隐藏在托盘里时再打开一次应用，是把原来的窗口叫回来（见 main 里的 second-instance），不是再起一个引擎。
+const first = app.requestSingleInstanceLock()
 
 // 数据放在我们自己的目录，不碰用户的 ~/.dsh。
 const home = path.join(app.getPath('userData'), 'home')
@@ -99,8 +103,40 @@ async function main() {
   // 学习页上点播放的讲解另开一个窗口放（film.cjs），别的链接照旧进阅读窗口。appOrigin 是引擎起来以后应用自己的地址。
   let appOrigin = ''
   const films = createFilms({ BrowserWindow, session, directory: () => filmDirectory(app.getPath('documents')) })
-  window.webContents.setWindowOpenHandler(({ url }) => { if (!films.open(url, appOrigin)) reader.open(url); return { action: 'deny' } })
+  // ChatGPT 的登录页（设置 → 模型）交给系统浏览器：那里多半已经登着，密码管理器和第三方账号登录也只有它能用；登完它跳回本机，引擎自己接。
+  const openAiLogin = (url) => { try { return new URL(url).origin === 'https://auth.openai.com' } catch { return false } }
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (openAiLogin(url)) void shell.openExternal(url)
+    else if (!films.open(url, appOrigin)) reader.open(url)
+    return { action: 'deny' }
+  })
   window.on('closed', () => { reader.close(); films.close() })
+  // 关闭按钮的去向（tray.cjs）：设置里的开关打开时只是把窗口藏起来，应用留在托盘里；默认关，照旧退出。
+  const show = () => {
+    if (window.isDestroyed()) return
+    if (window.isMinimized()) window.restore()
+    window.show()
+    window.focus()
+  }
+  const tray = createTray({
+    Tray, Menu, file: path.join(app.getPath('userData'), 'shell.json'), title: TITLE,
+    // 用程序自己的图标，和任务栏上的是同一个。
+    icon: await app.getFileIcon(process.execPath, { size: 'normal' }),
+    show, quit: () => { app.quit() },
+  })
+  window.on('close', (event) => {
+    if (quitting || !tray.enabled()) return
+    event.preventDefault()
+    window.hide()
+  })
+  // 关机、注销时系统要窗口真的关掉，不能再藏。
+  window.on('session-end', () => { quitting = true })
+  app.on('second-instance', show)
+  app.on('will-quit', () => { tray.dispose() })
+  // 设置页读、改这个开关（preload.cjs 的 campusShell）；只认本窗口主页面发来的。
+  const fromPage = event => !window.isDestroyed() && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame
+  ipcMain.handle('campus:close-to-tray:get', event => fromPage(event) && tray.enabled())
+  ipcMain.handle('campus:close-to-tray:set', (event, on) => fromPage(event) ? tray.set(on === true) : false)
   // 页面自己会改标题，壳的名字以我们为准。
   window.on('page-title-updated', (event) => { event.preventDefault() })
   window.once('ready-to-show', () => { window.show() })
@@ -124,4 +160,5 @@ app.on('before-quit', () => {
 })
 app.on('window-all-closed', () => { app.quit() })
 
-void main()
+if (first) void main()
+else app.quit()

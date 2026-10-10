@@ -5,11 +5,11 @@ const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
 
-async function createWereadBridge({ app, BrowserWindow, session, ipcMain, parent, root }) {
+async function createWereadBridge({ app, BrowserWindow, session, ipcMain, parent, root, keysFile = path.join(root, 'api-keys.local.yaml') }) {
   const { WereadClient, WereadError, ORIGIN, CAPTCHA_APP_ID } = await import(pathToFileURL(path.join(root, 'core/weread/client.mjs')))
   const { CaptchaWorkflow, VisionRecognizer } = await import(pathToFileURL(path.join(root, 'core/weread/captcha.mjs')))
   const { OfficialWereadClient, OfficialWereadError, OFFICIAL_VERSION } = await import(pathToFileURL(path.join(root, 'core/weread/official.mjs')))
-  const apiKey = () => { try { return require('js-yaml').load(fs.readFileSync(path.join(root, 'api-keys.local.yaml'), 'utf8'))?.refs?.WEREAD_API_KEY } catch { return undefined } }
+  const apiKey = () => { try { return require('js-yaml').load(fs.readFileSync(keysFile, 'utf8'))?.refs?.WEREAD_API_KEY } catch { return undefined } }
   const official = new OfficialWereadClient({ getApiKey: apiKey })
   const browserSession = session.fromPartition('persist:campus-weread')
   const token = crypto.randomBytes(32).toString('hex'), tasks = new Map(), inflight = new Map()
@@ -80,7 +80,7 @@ async function createWereadBridge({ app, BrowserWindow, session, ipcMain, parent
     // Reuse the app's credential file; API secrets never enter tool outputs.
     const { load } = require('js-yaml')
     let refs
-    try { refs = load(fs.readFileSync(path.join(root, 'api-keys.local.yaml'), 'utf8'))?.refs ?? {} } catch { refs = {} }
+    try { refs = load(fs.readFileSync(keysFile, 'utf8'))?.refs ?? {} } catch { refs = {} }
     if (typeof refs[config.keyRef] !== 'string' || !refs[config.keyRef]) throw new WereadError('recognizer_not_configured', '识别模型的 API Key 尚未在应用凭据中配置。')
     return new VisionRecognizer({ endpoint: config.endpoint, model: config.model, apiKey: refs[config.keyRef] })
   }

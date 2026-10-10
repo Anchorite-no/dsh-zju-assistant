@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { readFileSync } from 'node:fs'
 import { mkdtemp, mkdir, readFile, rm, copyFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -74,6 +75,20 @@ test('本地 Key 优先且可更换；直接编辑文件会更新后续请求读
   const edited = keyBecomes(f.ctx, 'edited-in-file')
   await writeFile(f.path, 'version: 1\nrefs:\n  DEEPSEEK_API_KEY: edited-in-file\n', { mode: 0o600 })
   assert.deepEqual(await edited, { value: 'edited-in-file', source: 'file' })
+})
+
+test('装好的应用把密钥文件放在数据目录：给了文件夹就用它，不再落在应用自己的目录里', async (t) => {
+  const root = await mkdtemp(join(resolve(tmpdir()), 'campus-keys-dir-'))
+  t.after(async () => {
+    assert.ok(resolve(root).startsWith(resolve(tmpdir()) + sep))
+    await rm(root, { recursive: true, force: true })
+  })
+  const app = join(root, 'app'), home = join(root, 'home'), data = join(root, "User's data")
+  for (const dir of [app, home, data]) await mkdir(dir)
+  await copyFile(new URL('../app.patch.yml', import.meta.url), join(app, 'app.patch.yml'))
+  const path = file => resolve(load(readFileSync(file, 'utf8')).find(row => row.id === 'credentials').config.path)
+  assert.equal(path(writeCampusPatch(app, home, data)), join(data, API_KEYS_FILE))
+  assert.equal(path(writeCampusPatch(app, home)), join(app, API_KEYS_FILE))
 })
 
 test('引擎的「预览版说明」弹窗按当前引擎里的版本号记为已读', async () => {

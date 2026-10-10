@@ -25,7 +25,10 @@ function distinct(files: CourseFile[]): CourseFile[] {
   return files.filter((f) => !f.objectId || (!seen.has(f.objectId) && !!seen.add(f.objectId)));
 }
 /** 清单的一行；location 是从大章到小节（或「资料」到文件夹）的整条位置，可以原样写回 --chapter。 */
-const fileRow = (f: CourseFile) => ({ name: f.name, size: fileSize(f.size), location: f.location.join(" / "), ...(f.downloadable ? {} : { downloadable: false }) });
+const place = (f: CourseFile) => f.location.join(" / ");
+const fileRow = (f: CourseFile) => ({ name: f.name, size: fileSize(f.size), location: place(f), ...(f.downloadable ? {} : { downloadable: false }) });
+/** 按章节列的时候位置写在那一节上，文件这一行不再重复。 */
+const sectionRow = ({ location: _location, ...row }: ReturnType<typeof fileRow>) => row;
 
 /** 最长公共子序列的长度。 */
 function common(a: string[], b: string[]): number {
@@ -119,8 +122,16 @@ async function nearby(c: Chaoxing, course: Course, chapters: Chapter[], kind: Gr
   } catch (error) { if (error instanceof NeedsUser) return undefined; throw error; }
 }
 
+/** 写的是不是清单里资料栏的位置（「资料」「资料 / 文件夹」）；课程自己有一章就叫「资料」时不算。 */
+export const inData = (chapters: Chapter[], query: string) => norm(query).split("/")[0] === "资料" && !chapters.some((ch) => norm(ch.path[0]!) === "资料");
+
 /** 一门课里属于这一组（课件或视频）的文件，可限定章节。 */
 async function scoped(c: Chaoxing, course: Course, chapters: Chapter[], kind: Group, chapter: string | undefined, fresh = false): Promise<Found> {
+  if (chapter && inData(chapters, chapter)) {
+    // 只读资料栏，不必读各个章节；标题里带「资料」两个字的章节（参考资料、拓展资料）也不会被当成它。
+    const inv = await inventory(c, course, [], { data: true, fresh }), keep = folderScope(inv.files, chapter);
+    if (keep) return { files: distinct(inv.files.filter(inGroup(kind)).filter(keep)), inv };
+  }
   const scope = chapter ? chapterScope(chapters, chapter) : undefined;
   const inv = await inventory(c, course, scope ? scope.chapters : chapters, { data: !scope, fresh });
   let keep = scope?.keep;
@@ -172,7 +183,13 @@ export function createChaoxingCommands(open: typeof openChaoxing = openChaoxing)
         if (bool(f, "all") ? names.length > 0 || chapter !== undefined : !names.length && chapter === undefined) throw new ConfigError(`需要 --name 文件名、--chapter 章节，或 --all 下载这门课的全部${what}`);
         return withClient(async (c) => {
           const course = await findCourse(c, f.course as string), chapters = await listChapters(c, course);
-          const choose = (files: CourseFile[]) => names.length ? pick(files, names) : files.filter((r) => r.downloadable);
+          const choose = (files: CourseFile[]) => {
+            if (!names.length) return files.filter((r) => r.downloadable);
+            // --chapter 写的正好是某一节（或某个文件夹）自己的位置时先在它自己的文件里找，下一层里同名的不算进来。
+            const own = chapter === undefined ? [] : files.filter((r) => norm(r.location.join("/")) === norm(chapter));
+            if (own.length) try { return pick(own, names); } catch (error) { if (!(error instanceof NeedsUser)) throw error; }
+            return pick(files, names);
+          };
           let found = names.length && chapter === undefined ? await nearby(c, course, chapters, kind, names) : undefined;
           if (!found) {
             let { files, inv } = await scoped(c, course, chapters, kind, chapter);
@@ -195,9 +212,24 @@ export function createChaoxingCommands(open: typeof openChaoxing = openChaoxing)
 
   return sessionCommands({
     course: group("我的课程", {
-      list: read("本人在学习通上的课程：名称、教师、班级", {}, async (c) => {
+      list: read("本人在学习通上的课程：名称、教师、班级和课程页面的链接", {}, async (c) => {
         const courses = await listCourses(c);
         return { count: courses.length, courses: courses.map(courseRow) };
+      }),
+    }),
+    chapter: group("章节目录", {
+      list: read("一门课各章节的课件和视频：每一节、「资料」栏的每个文件夹各有哪些文件，按课程里的顺序", {
+        course: COURSE, fresh: { description: "不用半小时内读过的清单，整门课重新读一遍；用户说老师刚传了新文件、要刷新时用", type: "boolean" },
+      }, async (c, f) => {
+        const course = await findCourse(c, f.course as string);
+        const inv = await inventory(c, course, await listChapters(c, course), { data: true, fresh: bool(f, "fresh") });
+        const sections = new Map<string, { location: string; materials?: ReturnType<typeof sectionRow>[]; videos?: ReturnType<typeof sectionRow>[] }>();
+        for (const file of distinct(inv.files)) {
+          const location = place(file), section = sections.get(location) ?? { location };
+          sections.set(location, section);
+          (section[file.kind === "video" ? "videos" : "materials"] ??= []).push(sectionRow(fileRow(file)));
+        }
+        return { course: course.name, count: sections.size, chapters: [...sections.values()], ...notes(inv) };
       }),
     }),
     material: group("课件等文件（章节里的文档和「资料」栏）：清单与下载", fileCommands("material")),

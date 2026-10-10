@@ -2164,6 +2164,21 @@ button[aria-label='工作区“对话”的操作'] {
    一行用通知那一行的样子（.campus-notice）：标题点开，下面一行小字，右边是这一行自己的东西。 */
 .campus-learn {
   overflow-x: hidden;
+  /* 整页滚动条的位置一直留着：内容长短一变（换一节、展开目录）滚动条时有时无，不留的话整页的东西会跟着左右挪几个像素。 */
+  scrollbar-gutter: stable;
+}
+
+/* 标题和紧跟着它的「智云 / 超星」排成一行；位置只由标题定，右边的字怎么变它都不动。 */
+.campus-learn-title {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 切换比标题那一行高 8px：上下各收 4px，页头不被撑高，下面两栏的位置和校园事务页对得上。 */
+.campus-learn-title > .campus-choice {
+  margin-block: -4px;
 }
 
 /* 通知的标题是链接，这里是按钮：去掉按钮自己的样子，其余照旧。 */
@@ -2249,4 +2264,150 @@ button[aria-label='工作区“对话”的操作'] {
   .campus-learn-side {
     display: none;
   }
+}
+
+/* 下载进度：一根 2px 的线压在这一行底边那根细线的位置，从左往右长。不占高度，出现和消失时别的行不会跳。 */
+.campus-learn .campus-row {
+  position: relative;
+}
+
+.campus-learn-progress {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: var(--campus-progress);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--dsw-alias-label-primary);
+  transition: width 300ms linear;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .campus-learn-progress {
+    transition: none;
+  }
+}
+
+/* ── 学习：超星那一边 ─────────────────────────────────────
+   左栏是章节目录，像文件目录一样：一个大章一行，点开是下面的各节；右栏是点中那一节的课件和视频。
+   目录放在和别的列表一样的定高框里滚动（.campus-notice-scroll）。行的样子照引擎侧栏里的一行：32px 高，圆角，悬停和选中是同一种浅底色。 */
+.campus-tree,
+.campus-tree-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.campus-tree-items {
+  margin-top: 2px;
+}
+
+.campus-tree-folder,
+.campus-tree-leaf {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--dsw-radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.campus-tree-folder {
+  font-weight: 500;
+}
+
+.campus-tree-folder > svg {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* 一节比它的大章缩进一级：对齐大章名字的左边（箭头 14px 加间距 8px）。 */
+.campus-tree-leaf {
+  padding-left: 30px;
+}
+
+.campus-tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.campus-tree-folder > .campus-tree-name {
+  flex: 0 1 auto;
+}
+
+.campus-tree-folder > .campus-count {
+  font-size: 12.5px;
+}
+
+.campus-tree-folder:hover,
+.campus-tree-leaf:hover,
+.campus-tree-leaf[aria-current] {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.campus-tree-leaf[aria-current] {
+  font-weight: 500;
+}
+
+.campus-tree-folder:focus-visible,
+.campus-tree-leaf:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+/* 目录的框比别的列表矮一点，给下面那行小字（还没开放的有几节）留出位置，整页不会因为它多出一截而出现滚动条；
+   滚动条的位置一直留着，展开几组以后目录长出框外时，行右边的小字不会被挤着往左挪。 */
+.campus-tree-scroll {
+  max-height: max(320px, calc(100vh - 240px));
+  scrollbar-gutter: stable;
+}
+
+/* 右栏：最上面是点中的那一节，下面是课件、视频两块。 */
+.campus-learn-files {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+/* 点中的是哪一节，下面一行小字是它在哪个大章里。上面让出 4px，名字和左栏的标题在同一条线上。 */
+.campus-learn-picked {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.campus-learn-picked-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* 「视频」标题右边的清晰度：和页头里的切换一样上下各收 4px，这一行不被它撑高，换一节（有视频、没视频）时下面不跳。 */
+.campus-learn .campus-section-head > .campus-choice {
+  margin-block: -4px;
+}
+
+/* 课程不止一门时目录上面的下拉：不占满一整行。 */
+.campus-learn-course {
+  width: min(100%, 320px);
 }

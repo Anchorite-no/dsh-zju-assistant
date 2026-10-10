@@ -1,21 +1,24 @@
 /**
- * 学习：左栏是智云里本人本学期的课程，按最近一次上课的时间排；右栏是做好的总结和讲解。两栏的列表各放在定高的框里自己滚动。
- * 点一门课看它上过的课次，再点一次课是这次课的资料、总结和讲解：资料可以下到本机，总结和讲解交给助手去做（handoff.tsx）。
+ * 学习：标题后面的「智云 / 超星」选看哪个平台，两边各是两栏。
+ * 智云：左栏是本人本学期的课程，按最近一次上课的时间排；右栏是做好的总结和讲解；两栏的列表各放在定高的框里自己滚动。
+ * 点一门课看它上过的课次，再点一次课是这次课的资料、总结和讲解，资料可以下到本机，总结和讲解交给助手去做（handoff.tsx）。
+ * 超星：左栏是大物实验这门课的章节目录，右栏是点中那一节的课件和视频下载，没有总结和讲解（LearningChaoxing.tsx）。
  * 做出来的东西落在「文档」里固定的文件夹，页面只是把那里有的画出来，所以助手做完以后回到窗口就能看到。
  * 和校园事务页一样，先照上一次读到的画，后台再去读新的。数据和缓存在引擎侧的 ui/profile/learning.mjs。
  */
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import {
-  Button, IconChevronRightOutlineRegular, IconDownloadOutlineRegular, IconFolderOpenOutlineRegular, IconNewChatOutlineRegular,
+  Button, IconDownloadOutlineRegular, IconFolderOpenOutlineRegular, IconNewChatOutlineRegular,
   IconPlayOutlineRegular, IconRefreshOutlineRegular, MarkdownText, Tag,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import { CAMPUS_PLUGINS } from '../profile/catalog.mjs'
 import { errorText, profileApi } from './api.ts'
-import { Alert, Crumb } from './controls.tsx'
+import { Alert, Choice, Crumb } from './controls.tsx'
 import { Flow } from './Flow.tsx'
 import { handToAssistant } from './handoff.tsx'
+import { ChaoxingColumns, useChaoxing, visitChaoxing } from './LearningChaoxing.tsx'
+import { Arrow, Note, ProgressLine, dayText, failure, pluginTitle, useDownloading } from './learnParts.tsx'
 import { openPlugin } from './PluginsPage.tsx'
-import { agoText, dateText, mixed, useNow } from './when.ts'
+import { agoText, dateText, useNow } from './when.ts'
 
 interface Course { id: string, title: string, teacher: string, term: string }
 /** count 是已经上过几次，last 是最近上过的那一次。 */
@@ -56,16 +59,15 @@ async function visit(force = false): Promise<void> {
   finally { update({ busy: false }) }
 }
 
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-const MARKDOWN_LABELS = { code: { copyLabel: '复制', copiedLabel: '已复制' }, footnotes: '注释' }
-const pluginTitle = (id: string) => CAMPUS_PLUGINS.find(plugin => plugin.id === id)?.title ?? '插件'
-
-/** 课次的日期是「2026-10-08」这样的北京时间：写成几月几日加星期。 */
-function dayText(date: string | null, now: number): string {
-  if (!date) return '时间待定'
-  const at = new Date(`${date}T00:00:00`).getTime()
-  return `${dateText(at, now)} ${WEEKDAYS[new Date(at).getDay()]}`
+/** 看哪个平台。选了哪个记在浏览器里，下次打开还是它。 */
+type Source = 'zhiyun' | 'chaoxing'
+const SOURCES: readonly { value: Source, label: string }[] = [{ value: 'zhiyun', label: '智云' }, { value: 'chaoxing', label: '超星' }]
+const SOURCE_KEY = 'campus.learnSource'
+function useSource(): [Source, (next: Source) => void] {
+  const [source, setSource] = useState<Source>(() => localStorage.getItem(SOURCE_KEY) === 'chaoxing' ? 'chaoxing' : 'zhiyun')
+  return [source, (next) => { setSource(next); localStorage.setItem(SOURCE_KEY, next) }]
 }
+const MARKDOWN_LABELS = { code: { copyLabel: '复制', copiedLabel: '已复制' }, footnotes: '注释' }
 
 /** 讲解在应用自己的窗口里放：壳认这个地址，按文件名到讲解目录里找成品（desktop/film.cjs）。 */
 const play = (id: string) => { window.open(`/campus-film/${encodeURIComponent(id)}`, '_blank') }
@@ -73,24 +75,6 @@ const play = (id: string) => { window.open(`/campus-film/${encodeURIComponent(id
 /** 总结是按 Markdown 阅读器写的；页面里显示不了的（注释、本机图片、提示块的标记、开头和页面重复的大标题）去掉，文字都留着。 */
 const readable = (text: string) => text.replace(/<!--[\s\S]*?-->/g, '').replace(/<table>[\s\S]*?<\/table>/g, '').replace(/!\[[^\]]*\]\([^)]*\)/g, '')
   .replace(/^> \[![A-Za-z]+\][^\n]*\n/gm, '').replace(/^\s*# [^\n]*\n/, '').trim()
-
-function Arrow() {
-  return <span className="campus-learn-arrow" aria-hidden="true"><IconChevronRightOutlineRegular size={14} /></span>
-}
-
-/** 列表下面的小字说明，可以带一个去处理的入口。 */
-function Note({ text, action, onAction }: { text: string, action?: string, onAction?: () => void }) {
-  return (
-    <p className="campus-note campus-task-note">
-      <span>{text}</span>
-      {action && <button type="button" className="campus-textlink" onClick={onAction}>{action}</button>}
-    </p>
-  )
-}
-
-/** 没读到时的那句话。冒号后面的原因是系统给的原话，不动它。 */
-const failure = (what: string, fetchedAt: string | null, error: string, now: number) =>
-  `${mixed(fetchedAt ? `${what}这次没读到，上面的还是${agoText(Date.parse(fetchedAt), now)}读到的：` : `${what}没读到：`)}${error.replace(/[。.]$/, '')}。`
 
 /** 课程列表里的一行：课程名，下面是老师；右边是最近上过的那一次。 */
 function CourseRow({ course, now, onOpen }: { course: CourseItem, now: number, onOpen: () => void }) {
@@ -250,6 +234,8 @@ function LessonView({ id, number, title, now, onBack }: { id: string, number: nu
   const askFilm = () => { hand(`用 learn 技能把${which}讲给我听。先把这次课的课件、课堂截图和字幕下载到本机当资料；讲解的主题目录叫 ${data?.topic ?? ''}，建在讲解目录的 lessons 里。`) }
 
   const down = (item: Resource) => item.busy || fetching.includes(item.kind)
+  // 有一种在下的时候隔一会儿问后台下到哪了；后台说它下完了（离开这一页再回来时是这样知道的）就重读这次课。
+  const percents = useDownloading('learning-downloading', input, (data?.resources ?? []).some(down), () => { profileApi<LessonPage>('learning-lesson', input).then(apply, () => {}) })
   const film = data?.film ?? null
   return (
     <div className="campus-detail">
@@ -273,22 +259,27 @@ function LessonView({ id, number, title, now, onBack }: { id: string, number: nu
             </div>
             {data.resources.length > 0 ? (
               <ul className="campus-rows">
-                {data.resources.map(item => (
-                  <li className="campus-row" key={item.kind}>
-                    <span className="campus-learn-kind">{item.label}</span>
-                    <span className="campus-task-file">
-                      {item.text}
-                      {failed[item.kind] && <span className="campus-form-error">{failed[item.kind]}</span>}
-                    </span>
-                    {item.saved
-                      ? <Button size="sm" variant="outline" icon={<IconFolderOpenOutlineRegular size={14} />} onClick={() => { void reveal(item.kind) }}>打开文件夹</Button>
-                      : (
-                        <Button size="sm" variant="outline" icon={<IconDownloadOutlineRegular size={14} />} disabled={down(item)} onClick={() => { void download(item.kind) }}>
-                          {down(item) ? '下载中' : '下载'}
-                        </Button>
-                      )}
-                  </li>
-                ))}
+                {data.resources.map((item) => {
+                  const percent = down(item) ? percents[item.kind] : null
+                  return (
+                    <li className="campus-row" key={item.kind}>
+                      <span className="campus-learn-kind">{item.label}</span>
+                      <span className="campus-task-file">
+                        {item.text}
+                        {failed[item.kind] && <span className="campus-form-error">{failed[item.kind]}</span>}
+                      </span>
+                      {percent != null && <span className="campus-learn-side">{percent}%</span>}
+                      {item.saved
+                        ? <Button size="sm" variant="outline" icon={<IconFolderOpenOutlineRegular size={14} />} onClick={() => { void reveal(item.kind) }}>打开文件夹</Button>
+                        : (
+                          <Button size="sm" variant="outline" icon={<IconDownloadOutlineRegular size={14} />} disabled={down(item)} onClick={() => { void download(item.kind) }}>
+                            {down(item) ? '下载中' : '下载'}
+                          </Button>
+                        )}
+                      <ProgressLine percent={percent} />
+                    </li>
+                  )
+                })}
               </ul>
             ) : <p className="campus-unset">{busy ? '第一次读这次课，要等一会儿。' : '这次课在智云上没有能下载的资料。'}</p>}
             {data.error && !busy && <Note text={failure('这次课的资料', data.fetchedAt, data.error, now)} />}
@@ -321,16 +312,19 @@ function LessonView({ id, number, title, now, onBack }: { id: string, number: nu
 
 export function LearningPage() {
   const { snapshot, busy, error } = useSyncExternalStore(subscribe, () => state)
+  const chaoxing = useChaoxing()
   const now = useNow()
-  /** 点开的课程和课次；空着是列表。 */
+  const [source, setSource] = useSource()
+  /** 智云那一边点开的课程和课次；空着是列表。超星那一边没有点进去的层。 */
   const [view, setView] = useState<{ course: string, lesson: number | null } | null>(null)
   const page = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    const refresh = () => { void visit() }
+    // 只去读选中的那个平台。
+    const refresh = () => { void (source === 'zhiyun' ? visit() : visitChaoxing()) }
     refresh()
     window.addEventListener('focus', refresh)
     return () => { window.removeEventListener('focus', refresh) }
-  }, [])
+  }, [source])
   useEffect(() => { page.current?.scrollTo({ top: 0 }) }, [view?.course, view?.lesson])
 
   const titleOf = (id: string) => snapshot?.courses.find(course => course.id === id)?.title ?? courses.get(id)?.course.title ?? ''
@@ -338,7 +332,7 @@ export function LearningPage() {
     return (
       <div className="campus-page campus-learn" ref={page}>
         <LessonView key={`${view.course}:${view.lesson}`} id={view.course} number={view.lesson} title={titleOf(view.course)} now={now}
-          onBack={() => { setView({ course: view.course, lesson: null }) }} />
+          onBack={() => { setView({ ...view, lesson: null }) }} />
       </div>
     )
   }
@@ -346,7 +340,7 @@ export function LearningPage() {
     return (
       <div className="campus-page campus-learn" ref={page}>
         <CourseView key={view.course} id={view.course} title={titleOf(view.course)} now={now}
-          onBack={() => { setView(null); void visit() }} onOpen={(lesson) => { setView({ course: view.course, lesson }) }} />
+          onBack={() => { setView(null); void visit() }} onOpen={(lesson) => { setView({ ...view, lesson }) }} />
       </div>
     )
   }
@@ -359,18 +353,26 @@ export function LearningPage() {
     if (item.kind === 'film') play(item.id)
     else if (item.courseId && item.lesson) setView({ course: item.courseId, lesson: item.lesson })
   }
+  // 标题右边的「几分钟前更新」和刷新，说的是选中的那个平台；超星那一边是正在看的那门课的文件什么时候读的。
+  const shown = source === 'zhiyun' ? { fetchedAt: snapshot?.fetchedAt, busy, error } : { fetchedAt: chaoxing.page?.fetchedAt ?? chaoxing.snapshot?.fetchedAt, busy: chaoxing.busy, error: chaoxing.error }
+  const reload = () => { void (source === 'zhiyun' ? visit(true) : visitChaoxing(true)) }
   return (
     <div className="campus-page campus-learn" ref={page}>
       <header className="campus-page-head">
-        <h1 className="campus-page-title">学习</h1>
+        {/* 切换跟着标题放在左边：右边「几分钟前更新」那几个字时有时无、长短会变，和它排在一头会被挤着左右挪。 */}
+        <div className="campus-learn-title">
+          <h1 className="campus-page-title">学习</h1>
+          <Choice label="看哪个平台" value={source} options={SOURCES} onChange={(next) => { if (next) setSource(next) }} />
+        </div>
         <div className="campus-actions">
-          {snapshot?.fetchedAt && <span className="campus-note">{agoText(Date.parse(snapshot.fetchedAt), now)}更新</span>}
-          <button type="button" className="campus-refresh" aria-label="刷新" title="刷新" aria-busy={busy} onClick={() => { void visit(true) }}>
+          {shown.fetchedAt && <span className="campus-note">{agoText(Date.parse(shown.fetchedAt), now)}更新</span>}
+          <button type="button" className="campus-refresh" aria-label="刷新" title="刷新" aria-busy={shown.busy} onClick={reload}>
             <IconRefreshOutlineRegular size={16} />
           </button>
         </div>
       </header>
-      {error && <Alert>{error}</Alert>}
+      {shown.error && <Alert>{shown.error}</Alert>}
+      {source === 'chaoxing' ? <ChaoxingColumns now={now} /> : (
       <div className="campus-affairs-columns">
         <section className="campus-section" aria-label="课程">
           <div className="campus-section-head">
@@ -408,6 +410,7 @@ export function LearningPage() {
           {snapshot && products.length === 0 && <p className="campus-task-empty">还没有总结和讲解。</p>}
         </section>
       </div>
+      )}
     </div>
   )
 }

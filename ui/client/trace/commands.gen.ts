@@ -93,6 +93,7 @@ export const COMMANDS: Readonly<Record<string, { readonly label: string, readonl
   "pta session logout": { label: "清除当前 PTA 账号的本地会话" },
   "pta session import-cookie": { label: "验证并导入正常浏览器登录后的 Cookie" },
   "chaoxing course list": { label: "本人在学习通上的课程" },
+  "chaoxing chapter list": { label: "一门课各章节的课件和视频" },
   "chaoxing material list": { label: "一门课的课件等文件" },
   "chaoxing material download": { label: "下载课件" },
   "chaoxing video list": { label: "一门课的全部视频" },

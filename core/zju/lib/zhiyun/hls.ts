@@ -93,10 +93,13 @@ export function localPlaylist(text: string, base: string): { text: string; resou
 export async function downloadHls(transfer: Transfer, url: string, dir: string): Promise<string> {
   const response = await transfer.text(url), parsed = localPlaylist(response.text, response.url);
   await fs.mkdir(dir, { recursive: true });
+  // 进度：一共这么多个分片，没开始的按已知的平均大小估。
+  transfer.plan(parsed.resources.length);
   await pool(parsed.resources, transfer.threads, async resource => {
     const out = path.join(dir, resource.file);
     if (!resource.range) { await downloadFile(transfer, resource.url, { out }); return; }
     const { start, end } = resource.range;
+    transfer.begin(end - start + 1);
     await transfer.request(resource.url, { headers: { Range: `bytes=${start}-${end}` } }, async res => {
       const match = res.headers.get("content-range")?.match(/^bytes (\d+)-(\d+)\/(\d+)$/);
       if (res.status !== 206 || !match || Number(match[1]) !== start || Number(match[2]) !== end) throw new BadResponse("HLS 字节范围响应不匹配");
@@ -104,9 +107,9 @@ export async function downloadHls(transfer: Transfer, url: string, dir: string):
       if (!res.body) throw new BadResponse("HLS 分片为空");
       const file = await fs.open(out, "w", 0o600), reader = res.body.getReader(); let bytes = 0;
       try {
-        while (true) { const r = await reader.read(); if (r.done) break; bytes += r.value.length; if (bytes > end - start + 1) throw new BadResponse("HLS 分片过长"); let offset = 0; while (offset < r.value.length) offset += (await file.write(r.value, offset)).bytesWritten; }
+        while (true) { const r = await reader.read(); if (r.done) break; bytes += r.value.length; transfer.received(r.value.length); if (bytes > end - start + 1) throw new BadResponse("HLS 分片过长"); let offset = 0; while (offset < r.value.length) offset += (await file.write(r.value, offset)).bytesWritten; }
         if (bytes !== end - start + 1) throw new TransportError("HLS 分片长度不完整");
-      } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); await file.close(); }
+      } catch (error) { transfer.received(-bytes); throw error; } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); await file.close(); }
     });
   });
   const playlist = path.join(dir, "local.m3u8"); await fs.writeFile(playlist, parsed.text); return playlist;

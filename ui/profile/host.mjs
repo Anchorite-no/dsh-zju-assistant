@@ -12,6 +12,7 @@ import { ChatFolders } from './chats.mjs'
 import { Affairs } from './affairs.mjs'
 import { Downloads } from './downloads.mjs'
 import { Learning } from './learning.mjs'
+import { Chaoxing } from './chaoxing.mjs'
 import { engineStamp } from './stamp.mjs'
 import { WechatFeeds } from './wechat.mjs'
 import { WereadFeeds } from './weread.mjs'
@@ -39,6 +40,8 @@ export function installProfile(ctx, { wechatRun } = {}) {
   const feed = new Feed({ file: path.join(path.dirname(store.root), 'cache', 'feed.json'), account, plugins, articles: input => (weread.provider() === 'weread' ? weread : wechat).articles(input) })
   // 学习页：智云的课程和课次（缓存），加上「文档」里课程文件夹和讲解目录现有的东西。
   const learning = new Learning({ file: path.join(path.dirname(store.root), 'cache', 'learning.json'), account, plugins, chats, downloads: new Downloads() })
+  // 学习页切到「超星」时的内容：学习通里一门课各节的课件、视频（缓存）和本人的实验课表，下载的文件也放进「文档」的课程文件夹。
+  const chaoxing = new Chaoxing({ file: path.join(path.dirname(store.root), 'cache', 'chaoxing.json'), account, plugins, chats, downloads: new Downloads() })
   // learn 技能的讲解固定放在一个文件夹里（SKILL.md 里写的 <讲解目录>），位置在对话开头告诉助手。
   let filmRoot = ''
   learning.roots().then((roots) => { filmRoot = roots.films }, () => {})
@@ -78,6 +81,14 @@ export function installProfile(ctx, { wechatRun } = {}) {
           : action === 'learning-lesson-refresh' ? await learning.refreshLesson(input)
           : action === 'learning-download' ? await learning.download(input)
           : action === 'learning-reveal' ? await learning.reveal(input)
+          : action === 'learning-downloading' ? learning.downloading(input)
+          : action === 'chaoxing-read' ? await chaoxing.snapshot()
+          : action === 'chaoxing-refresh' ? await chaoxing.refresh(input)
+          : action === 'chaoxing-files' ? await chaoxing.files(input)
+          : action === 'chaoxing-files-refresh' ? await chaoxing.refreshFiles(input)
+          : action === 'chaoxing-download' ? await chaoxing.download(input)
+          : action === 'chaoxing-downloading' ? chaoxing.downloading(input)
+          : action === 'chaoxing-reveal' ? await chaoxing.reveal(input)
           : action === 'skills-list' ? learned.list().map(({ body: _body, path: _path, ...skill }) => skill)
           : action === 'skill-read' ? learned.read(input)
           : action === 'skill-delete' ? learned.remove(input)

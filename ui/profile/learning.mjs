@@ -75,6 +75,8 @@ export class Learning {
     this.run = run
     this.now = now
     this.running = new Map()
+    /** 正在下的资料各下到哪了：键和 running 里下载的那个键一样，值是 { bytes, total }。 */
+    this.progress = new Map()
     this.cache = undefined
   }
 
@@ -330,12 +332,25 @@ export class Learning {
   async download({ course: id, lesson: number, kind } = {}) {
     const status = this.status(), spec = KINDS.find(item => item.kind === kind)
     if (status.state !== 'ready' || !spec) throw new Error('现在下载不了这一项。')
-    const course = this.find(status, id), key = `${course.id}:${Number(number)}`
-    await this.once(`file:${key}:${kind}`, async () => {
-      const result = await this.run(['zhiyun', 'download', '--course', course.id, '--lesson', String(Number(number)), '--kind', kind], { system: SYSTEM, timeoutMs: spec.timeoutMs })
-      if (!result?.files?.some(file => file.kind === kind)) throw new Error(result?.skipped?.find(item => item.kind === kind)?.reason || '文件没有下载下来，稍后再试。')
+    const course = this.find(status, id), running = `file:${course.id}:${Number(number)}:${kind}`
+    await this.once(running, async () => {
+      this.progress.set(running, { bytes: 0, total: 0 })
+      try {
+        const result = await this.run(['zhiyun', 'download', '--course', course.id, '--lesson', String(Number(number)), '--kind', kind],
+          { system: SYSTEM, timeoutMs: spec.timeoutMs, onProgress: (state) => { this.progress.set(running, state) } })
+        if (!result?.files?.some(file => file.kind === kind)) throw new Error(result?.skipped?.find(item => item.kind === kind)?.reason || '文件没有下载下来，稍后再试。')
+      } finally { this.progress.delete(running) }
     })
     return this.lesson({ course: id, lesson: number })
+  }
+
+  /**
+   * 这次课正在下的资料各下到哪了，按种类给：{ video: { bytes, total } }。页面下载时隔一会儿问一次，只看内存，不碰文件和网络。
+   * 刚开始、还没报过进度的也在里面（都是 0）；下完或没下成的不在，页面看到它不在了就重读这次课。
+   */
+  downloading({ course: id, lesson: number } = {}) {
+    const prefix = `file:${String(id)}:${Number(number)}:`
+    return Object.fromEntries([...this.progress].filter(([key]) => key.startsWith(prefix)).map(([key, state]) => [key.slice(prefix.length), state]))
   }
 
   /** 在文件管理器里打开这次课的文件夹，选中这一种资料的第一个文件（kind 是 summary 时选中总结）。只认扫到的路径。 */

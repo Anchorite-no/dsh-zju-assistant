@@ -82,6 +82,11 @@ export function log(msg: string): void {
   process.stderr.write(`[zju] ${msg}\n`);
 }
 
+/** 下载进度的一行：已经收到的字节数和总字节数（总量还估不出来时是 0）。前缀固定，启动这条命令的程序按它认。 */
+export function progress(state: { bytes: number; total: number }): void {
+  process.stderr.write(`[zju:progress] ${JSON.stringify(state)}\n`);
+}
+
 export function debug(msg: string): void {
   if (debugEnabled()) process.stderr.write(`[zju:debug] ${msg}\n`);
 }

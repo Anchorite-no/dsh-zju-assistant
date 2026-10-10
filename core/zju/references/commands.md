@@ -1,6 +1,6 @@
 # 当前命令总表
 
-生成日期：2026-10-09。共 164 条公开命令路径、17 个模块。
+生成日期：2026-10-10。共 165 条公开命令路径、17 个模块。
 
 入口为 `node scripts/zju.ts <module> <command> [参数]`。默认帮助逐级展示；`--help --all` 展开当前范围全部公开命令。参数类型与帮助来自实际注册定义，本生成器不执行登录或业务。
 
@@ -19,7 +19,7 @@
 | [xuezai](#xuezai) | 16 | 课程资料、作业、待办与点名 |
 | [tyys](#tyys) | 11 | 体育课考勤记录与体育场馆预约 |
 | [pta](#pta) | 14 | PTA 独立登录、作业进度、小题保存与提交 |
-| [chaoxing](#chaoxing) | 8 | 超星学习通的课程、课件与视频下载 |
+| [chaoxing](#chaoxing) | 9 | 超星学习通的课程、课件与视频下载 |
 | [zhiyun](#zhiyun) | 16 | 课堂资源查询、下载、实时字幕与本地转写 |
 | [cc98](#cc98) | 32 | 论坛查询、个人中心与互动发布 |
 | [chalaoshi](#chalaoshi) | 3 | 教师评价与课程绩点 |
@@ -813,10 +813,18 @@ zju pta session import-cookie --file VALUE 验证并导入正常浏览器登录�
 ### chaoxing course list
 
 ```text
-zju chaoxing course list  本人在学习通上的课程：名称、教师、班级
+zju chaoxing course list  本人在学习通上的课程：名称、教师、班级和课程页面的链接
 ```
 
 无参数。
+
+### chaoxing chapter list
+
+```text
+zju chaoxing chapter list --course VALUE [--fresh] 一门课各章节的课件和视频：每一节、「资料」栏的每个文件夹各有哪些文件，按课程里的顺序
+```
+
+`--course`：文本/路径，必填；`--fresh`：开关。
 
 ### chaoxing material list
 

@@ -12,6 +12,7 @@
   "sessionProbe": "https://mooc1-api.chaoxing.com/mycourse/backclazzdata?view=json&rss=1",
   "provides": [
     "chaoxing course list",
+    "chaoxing chapter list",
     "chaoxing material list",
     "chaoxing material download",
     "chaoxing video list",

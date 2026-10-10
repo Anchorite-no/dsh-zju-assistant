@@ -6,6 +6,8 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { BadResponse, ConfigError, RemoteRejected, TransportError } from "../core/errors.ts";
 import { DEFAULT_UA } from "../core/http.ts";
+import { progressEnabled } from "../core/env.ts";
+import { progress } from "../core/output.ts";
 import { positive } from "./courses.ts";
 
 export async function pool<T, R>(items: readonly T[], concurrency: number, work: (item: T, index: number) => Promise<R>): Promise<R[]> {
@@ -48,6 +50,24 @@ export class Transfer {
   readonly options: TransferOptions;
   private active = 0;
   private queue: (() => void)[] = [];
+  /**
+   * 下载进度（progressEnabled 时才往外报）：bytes 是已经收到的，known 是已经开始的那些文件加起来多大，
+   * started 是开始了几个，planned 是事先说过一共要下几个。总量 = 已知的平均大小 × 文件个数：
+   * 单个文件时就是它自己的大小；一批差不多大的文件（HLS 的分片、一张张课堂截图）没开始的按平均大小估。
+   */
+  private readonly meter = { bytes: 0, known: 0, started: 0, planned: 0, reportedAt: 0, on: progressEnabled() };
+  /** 事先说一声后面还要下几个文件；已经在本机、不用下了的传 -1 减掉。不说的文件各自在开始时算一个。 */
+  plan(files: number): void { this.meter.planned += files; }
+  /** 一个文件开始下了，size 是它的字节数（不知道传 0）。 */
+  begin(size: number): void { this.meter.started++; this.meter.known += size; this.report(); }
+  /** 又收到这么多字节；这一段作废要重下时传负数退回去。 */
+  received(bytes: number): void { this.meter.bytes += bytes; this.report(); }
+  private report(): void {
+    const m = this.meter, now = Date.now();
+    if (!m.on || now - m.reportedAt < 200) return;
+    m.reportedAt = now;
+    progress({ bytes: m.bytes, total: m.started ? Math.round(m.known * Math.max(m.planned, m.started) / m.started) : 0 });
+  }
   constructor(opts: TransferOptions = {}) {
     this.options = opts; this.threads = positive(opts.threads ?? 4, "threads", 32);
     this.retries = opts.retries ?? 2;
@@ -104,15 +124,18 @@ export class Transfer {
     });
   }
 }
-async function streamFile(res: Response, file: string, expected?: number): Promise<number> {
+/** count 每收到一段就被叫一次（进度用）；这一次没下成时把已经算进去的退回去，重试时不会算两遍。 */
+async function streamFile(res: Response, file: string, expected?: number, count?: (bytes: number) => void): Promise<number> {
   if (!res.body || /text\/html|application\/json/i.test(res.headers.get("content-type") ?? "")) throw new BadResponse("下载返回了网页/JSON 或空响应");
   let bytes = 0;
   const counter = new Transform({ transform(chunk: Buffer, _encoding, cb) {
-    bytes += chunk.length;
+    bytes += chunk.length; count?.(chunk.length);
     if (expected !== undefined && bytes > expected) cb(new BadResponse("下载超过预期长度")); else cb(null, chunk);
   } });
-  await pipeline(Readable.fromWeb(res.body as never), counter, createWriteStream(file, { flags: "w", mode: 0o600 }));
-  if (bytes === 0 || (expected !== undefined && bytes !== expected)) throw new TransportError("下载长度不完整", { expected, bytes });
+  try {
+    await pipeline(Readable.fromWeb(res.body as never), counter, createWriteStream(file, { flags: "w", mode: 0o600 }));
+    if (bytes === 0 || (expected !== undefined && bytes !== expected)) throw new TransportError("下载长度不完整", { expected, bytes });
+  } catch (error) { count?.(-bytes); throw error; }
   return bytes;
 }
 function alive(pid: number): boolean {
@@ -153,11 +176,14 @@ export async function downloadFile(transfer: Transfer, url: string, opts: Downlo
   const lock = out + ".lock";
   const lockFile = await acquireLock(lock, out);
   try {
+    const count = (bytes: number) => { transfer.received(bytes); };
     if (!probe.range) {
+      let begun = false;
       const bytes = await transfer.request(url, {}, async res => {
         if (res.status !== 200) throw new BadResponse("整文件下载预期 HTTP 200");
         const length = res.headers.get("content-length");
-        return streamFile(res, temp, length !== null ? Number(length) : undefined);
+        if (!begun) { begun = true; transfer.begin(length !== null ? Number(length) || 0 : 0); }
+        return streamFile(res, temp, length !== null ? Number(length) : undefined, count);
       });
       await publish(temp, out); return { path: out, bytes, chunks: 1, resumedChunks: 0 };
     }
@@ -170,27 +196,29 @@ export async function downloadFile(transfer: Transfer, url: string, opts: Downlo
       if (/^\d+\.bin(?:\.tmp)?$/.test(name)) await fs.unlink(path.join(parts, name));
     }
     await fs.writeFile(path.join(parts, "state.json"), JSON.stringify(state), { mode: 0o600 });
-    const count = Math.ceil(probe.size / chunkBytes); let resumedChunks = 0;
-    await pool(Array.from({ length: count }, (_, i) => i), transfer.threads, async i => {
+    transfer.begin(probe.size);
+    const chunks = Math.ceil(probe.size / chunkBytes); let resumedChunks = 0;
+    await pool(Array.from({ length: chunks }, (_, i) => i), transfer.threads, async i => {
       const start = i * chunkBytes, end = Math.min(start + chunkBytes, probe.size) - 1, size = end - start + 1;
       const part = path.join(parts, `${i}.bin`), partial = part + ".tmp";
-      if (reuse && await exists(part) && (await fs.stat(part)).size === size) { resumedChunks++; return; }
+      // 上次下好的块接着用，进度里算作已经收到。
+      if (reuse && await exists(part) && (await fs.stat(part)).size === size) { resumedChunks++; count(size); return; }
       await transfer.request(url, { headers: { Range: `bytes=${start}-${end}`, ...(probe.validator ? { "If-Range": probe.validator } : {}) } }, async res => {
         if (res.status !== 206 || res.headers.get("content-range") !== `bytes ${start}-${end}/${probe.size}`) throw new BadResponse("服务器未正确返回字节范围，源文件可能已改变");
         const returned = probe.validator.startsWith('"') ? res.headers.get("etag") : res.headers.get("last-modified");
         if (probe.validator && returned && returned !== probe.validator) throw new BadResponse("分块下载期间源文件已改变");
-        await streamFile(res, partial, size);
+        await streamFile(res, partial, size, count);
       });
       await fs.rename(partial, part);
     });
     const dest = await fs.open(temp, "w", 0o600);
-    try { for (let i = 0; i < count; i++) { const buffer = await fs.readFile(path.join(parts, `${i}.bin`)); let offset = 0; while (offset < buffer.length) offset += (await dest.write(buffer, offset)).bytesWritten; } await dest.sync(); }
+    try { for (let i = 0; i < chunks; i++) { const buffer = await fs.readFile(path.join(parts, `${i}.bin`)); let offset = 0; while (offset < buffer.length) offset += (await dest.write(buffer, offset)).bytesWritten; } await dest.sync(); }
     finally { await dest.close(); }
     if ((await fs.stat(temp)).size !== probe.size) throw new BadResponse("分块合并长度不匹配");
     await publish(temp, out);
     // Only remove files this invocation owns; never recursively delete a computed directory.
-    for (let i = 0; i < count; i++) await fs.unlink(path.join(parts, `${i}.bin`));
+    for (let i = 0; i < chunks; i++) await fs.unlink(path.join(parts, `${i}.bin`));
     await fs.unlink(path.join(parts, "state.json")); await fs.rmdir(parts).catch(() => {});
-    return { path: out, bytes: probe.size, chunks: count, resumedChunks };
+    return { path: out, bytes: probe.size, chunks, resumedChunks };
   } finally { await lockFile.close(); await fs.unlink(lock).catch(() => {}); await fs.unlink(temp).catch(() => {}); }
 }

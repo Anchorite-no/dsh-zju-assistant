@@ -72,3 +72,8 @@ export function writeAllowed(): boolean {
 export function debugEnabled(): boolean {
   return envBool("ZJU_DEBUG", false);
 }
+
+/** 下载时要不要往 stderr 报进度。只有应用的页面要（它启动命令时设 ZJU_PROGRESS=1）；助手直接跑命令时不报，免得一行行进度塞满它读到的输出。 */
+export function progressEnabled(): boolean {
+  return envBool("ZJU_PROGRESS", false);
+}

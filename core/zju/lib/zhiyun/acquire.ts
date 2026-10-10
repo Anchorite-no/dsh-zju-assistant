@@ -90,11 +90,15 @@ export async function acquire(client: Zhiyun, lessons: Lesson[], opts: AcquireOp
       return { Referer: BASE + "/", ...(cookie ? { Cookie: cookie } : {}) };
     } });
     const failures: { lessonId: string; kind: ResourceKind; path: string; error: string }[] = [], completed = new Set<string>();
+    // 进度：一个一个直接下的文件（课件、一张张课堂截图）先说一共几个，没开始的按平均大小估；回放自己会报（整个文件，或 HLS 的分片）。
+    const single = (task: Task) => !!task.asset && !task.fromVideo && task.kind !== "video" && task.kind !== "audio";
+    transfer.plan(tasks.filter(single).length);
     const perform = async (task: Task) => {
       try {
         const row = state.lessons.find(l => l.lessonId === task.lesson.subId)!;
         const old = row.files.find(f => f.path === task.out);
         if (await exists(task.out)) {
+          if (single(task)) transfer.plan(-1);
           if (old?.sourceKey !== task.sourceKey || old.bytes !== (await fs.stat(task.out)).size || old.sha256 !== await sha256(task.out)) throw new ConfigError(`已有文件与来源/哈希不符，保留原文件：${task.out}`);
           completed.add(task.out); return;
         }

@@ -171,6 +171,26 @@ test('下载交给 core，下完那一行算已下载，能在文件夹里找到
   await assert.rejects(learning.reveal({ course: '101', lesson: 2, kind: 'video' }), /不在原来的位置/)
 })
 
+test('下载的时候问得到下到哪了，按种类给；下完、没下成以后就不在了', async (t) => {
+  const world = setup(t), learning = world.create(), seen = []
+  await learning.refresh()
+  const run = learning.run
+  learning.run = async (args, options) => {
+    if (args[1] !== 'download') return run(args, options)
+    seen.push(learning.downloading({ course: '101', lesson: 2 }))
+    options.onProgress({ bytes: 300, total: 1200 })
+    seen.push(learning.downloading({ course: '101', lesson: 2 }), learning.downloading({ course: '101', lesson: 1 }))
+    const dir = world.put('101', '数据结构', 2, [['video', 'video.mp4']])
+    return { files: [{ kind: 'video', path: path.join(dir, 'video.mp4') }], skipped: [] }
+  }
+  await learning.download({ course: '101', lesson: 2, kind: 'video' })
+  assert.deepEqual(seen, [{ video: { bytes: 0, total: 0 } }, { video: { bytes: 300, total: 1200 } }, {}])
+  assert.deepEqual(learning.downloading({ course: '101', lesson: 2 }), {})
+  learning.run = async (_args, options) => { options.onProgress({ bytes: 1, total: 2 }); throw new Error('下载 HTTP 500') }
+  await assert.rejects(learning.download({ course: '101', lesson: 2, kind: 'ppt' }), /500/)
+  assert.deepEqual(learning.downloading({ course: '101', lesson: 2 }), {})
+})
+
 test('右栏：总结和讲解混在一起，新的在上；课次来的讲解对得回那次课，别的是自己的资料', async (t) => {
   const world = setup(t), learning = world.create()
   await learning.refresh()

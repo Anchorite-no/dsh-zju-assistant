@@ -58,7 +58,9 @@ export async function listCourses(c: Chaoxing): Promise<Course[]> {
   return rows;
 }
 
-export const courseRow = (r: Course) => ({ name: r.name, teacher: r.teacher, class: r.className });
+/** 课程页面的地址。原样写进 --course 就是这门课，重名的、名字互相包含的课也分得开。 */
+const courseLink = (r: Course) => `${MOOC1}/visit/stucoursemiddle?courseid=${r.courseId}&clazzid=${r.clazzId}&cpi=${r.cpi}&ismooc2=1&v=2`;
+export const courseRow = (r: Course) => ({ name: r.name, teacher: r.teacher, class: r.className, link: courseLink(r) });
 
 /** 资料栏页面上的大小约数（310KB、2.08 MB）→ 字节。 */
 function roughBytes(text: string): number | null {

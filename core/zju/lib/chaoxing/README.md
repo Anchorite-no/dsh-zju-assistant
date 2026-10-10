@@ -14,6 +14,12 @@ CLI 用法见 [超星参考](../../references/chaoxing.md)。本文件记录实�
 | `download.ts` | 取下载地址并落盘；分块与续传复用 `zhiyun/download.ts` 的 `Transfer` / `downloadFile` |
 | `cli.ts` | 参数、按名称选范围、结果视图 |
 
+2026-10-10 为应用的学习页（`ui/profile/chaoxing.mjs`）加的三处，都在 `cli.ts` 和 `courses.ts`。`course list` 的链接和 `chapter list` 当天在应用里用真实账号读过（1 门课、34 节、51 个课件、24 个视频）；`--chapter` 的两处收紧和 `--fresh` 只在本机用假数据核对过，没有用真实账号下过文件：
+
+- `course list` 的每一行多了 `link`（`visit/stucoursemiddle?courseid&clazzid&cpi`，就是下表「进课程」的地址）。页面把它原样交回 `--course` 指这门课：按名称找时，名字是另一门课的简称（「大学物理实验」对「大学物理实验2026」，`abbreviates` 判为真）会被判成不唯一，链接不会。`uniqueMatch` 给的候选也用同一个 `courseRow`，所以候选里也有。
+- `chapter list`：整门课的清单（`inventory`，章节加资料栏，按 `objectid` 去重）按 `location` 分组，每组里分 `materials` 和 `videos`，顺序就是课程里的顺序。单独调 `material list` 和 `video list` 拿不到两类文件之间的章节先后，所以另给这一条。没有文件的节不列，没开放的仍在 `notOpen`。`--fresh` 不用半小时内的缓存、整门课重读（页面上点刷新时用）。
+- `--chapter` 的两处收紧（`scoped` 和下载命令里的 `choose`）。位置的第一段正好是「资料」时先当资料栏（`inData`），只读资料栏、不读各节；原来是章节优先，标题里带「资料」的章节会把它截走，有两个这样的章节时还会报不唯一。课程自己有一章就叫「资料」时仍按章节走。给了 `--name` 又给了 `--chapter` 时，先在位置和 `--chapter` 完全相同的文件里找，找不到再放宽到这个范围里的全部：大章自己挂着文件、下面小节里又有同名文件时不会报不唯一。
+
 ## 站点与会话
 
 - 公网直连（`network=public`），独立账号（`auth=own`）：`chaoxing_username`（手机号）/ `chaoxing_password`，不回退到统一认证。

@@ -31,6 +31,9 @@ const home = path.join(app.getPath('userData'), 'home')
 const workspace = path.join(app.getPath('userData'), 'workspace')
 mkdirSync(home, { recursive: true })
 mkdirSync(workspace, { recursive: true })
+// 密钥文件（DeepSeek Key、ChatGPT 登录的令牌）放哪：开发时在项目根目录，方便直接改；装好的应用放数据目录，
+// 安装目录在升级时会被整个换掉，放在里面每次升级都要重新填。
+const keysDir = app.isPackaged ? app.getPath('userData') : path.join(__dirname, '..')
 
 let host
 let wereadBridge
@@ -40,7 +43,7 @@ function startHost() {
   return new Promise((resolve, reject) => {
     host = fork(path.join(__dirname, 'host.mjs'), [], {
       cwd: workspace,
-      env: { ...process.env, ...wereadBridge?.env, ...ffmpegEnv(), CAMPUS_PROFILE_DIR: path.join(app.getPath('userData'), 'profile'), DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', ELECTRON_RUN_AS_NODE: '1' },
+      env: { ...process.env, ...wereadBridge?.env, ...ffmpegEnv(), CAMPUS_PROFILE_DIR: path.join(app.getPath('userData'), 'profile'), CAMPUS_KEYS_DIR: keysDir, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', ELECTRON_RUN_AS_NODE: '1' },
       stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
     })
     host.on('message', (message) => {
@@ -141,7 +144,7 @@ async function main() {
   window.on('page-title-updated', (event) => { event.preventDefault() })
   window.once('ready-to-show', () => { window.show() })
   try {
-    wereadBridge = await createWereadBridge({ app, BrowserWindow, session, ipcMain, parent: window, root: path.join(__dirname, '..') })
+    wereadBridge = await createWereadBridge({ app, BrowserWindow, session, ipcMain, parent: window, root: path.join(__dirname, '..'), keysFile: path.join(keysDir, 'api-keys.local.yaml') })
     const url = await startHost()
     appOrigin = new URL(url).origin
     console.log(`desktop: host ready at ${appOrigin}`)

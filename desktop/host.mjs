@@ -17,7 +17,7 @@ try {
   const { ctx, shutdown } = await runProfile({
     environment: campusEnvironment(),
     profile: PROFILE,
-    patchFiles: [writeCampusPatch(root, resolveDshHome())],
+    patchFiles: [writeCampusPatch(root, resolveDshHome(), process.env.CAMPUS_KEYS_DIR || root)],
     args: ['--no-open', '--port', '0'],
   })
   const url = ctx.connection.authenticatedUrl(`http://127.0.0.1:${String(ctx.webServer.port)}`)

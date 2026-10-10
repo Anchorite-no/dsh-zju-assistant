@@ -1,4 +1,8 @@
-/** 校园应用的本地配置：密钥文件固定在应用根目录，DeepSeek Key 不从环境取值。 */
+/**
+ * 校园应用的本地配置：DeepSeek Key 不从环境取值，只认一个密钥文件。
+ * 文件开发时在项目根目录，方便直接改；装好的应用放在数据目录（main.cjs 经 CAMPUS_KEYS_DIR 告诉引擎），
+ * 因为安装目录在升级时会被整个换掉。
+ */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createLaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
@@ -12,12 +16,12 @@ export function campusEnvironment(env = process.env) {
   return createLaunchEnvironmentSnapshot([{ source: 'process', values }])
 }
 
-/** 将组合层里的应用路径展开；模板中的路径使用 YAML 单引号。 */
-export function writeCampusPatch(root, home) {
+/** 将组合层里的应用路径展开；模板中的路径使用 YAML 单引号。keysDir 是密钥文件所在的文件夹，不给就是应用根目录。 */
+export function writeCampusPatch(root, home, keysDir = root) {
   const yamlPath = path => path.replaceAll('\\', '/').replaceAll("'", "''")
   const patch = readFileSync(join(root, 'app.patch.yml'), 'utf8')
     .replaceAll('{{ui}}', yamlPath(join(root, 'ui')))
-    .replaceAll('{{apiKeys}}', yamlPath(join(root, API_KEYS_FILE)))
+    .replaceAll('{{apiKeys}}', yamlPath(join(keysDir, API_KEYS_FILE)))
   const target = join(home, 'campus.patch.yml')
   writeFileSync(target, patch)
   return target

@@ -39,17 +39,25 @@ npm run typecheck:core
 npm run package
 ```
 
-打出 `dist/win-unpacked/CampusAgent.exe`（未签名，约 750 MB）。
+打出 `dist/win-unpacked/CampusAgent.exe`（未签名，约 870 MB），只是一个文件夹。
+
+```bash
+npm run installer
+```
+
+打出发布用的安装程序 `dist/CampusAgent-Setup-<版本>.exe`（未签名，约 230 MB）。双击就装，不问路径，装在 `%LOCALAPPDATA%\Programs\campus-agent`，解开 870 MB 要一两分钟；卸载不删 `%APPDATA%\CampusAgent` 里的数据。装新版本会先把旧版本的安装目录整个换掉，所以应用自己不往安装目录里写东西。
+
+两条命令打完都会多走一步 `scripts/after-pack.cjs`：electron-builder 只沿着 `dependencies` 收集要带的包，引擎的包之间却大量用 `peerDependencies` 互相引用，不补的话成品里会缺二十多个引擎的包。**试打包成品要在项目目录以外试**（装上，或者把 `win-unpacked` 拷到别处）：在 `dist` 里直接运行时，Node 会一层层往上找到项目自己的 `node_modules`，缺了包也照样能启动，看不出问题。0.1.0 的便携包就是这样带着缺口发出去的，在别的位置起不来。
 
 ## 数据放在哪
 
 应用自己的会话和设置在 `%APPDATA%\CampusAgent\`，和本机装的 DeepSeek Harness 的 `~\.dsh` 分开。
 
-API Key 统一放在应用根目录的 **`api-keys.local.yaml`**。开发时就是 `D:\Innovation\api-keys.local.yaml`，直接修改 `refs` 下的 `DEEPSEEK_API_KEY` 即可；对话和网页搜索共用它。应用设置里的 Key 输入框也写回这一份文件，保存后对后续请求生效，直接编辑文件同样会自动加载。
+API Key 统一放在一个文件 **`api-keys.local.yaml`** 里。开发时它在项目根目录（`D:\Innovation\api-keys.local.yaml`），直接修改 `refs` 下的 `DEEPSEEK_API_KEY` 即可；装好的应用里它在数据目录（`%APPDATA%\CampusAgent\api-keys.local.yaml`），升级不会丢。对话和网页搜索共用它。应用设置里的 Key 输入框也写回这一份文件，保存后对后续请求生效，直接编辑文件同样会自动加载。放哪由壳决定（`desktop/main.cjs` 的 `keysDir`），经 `CAMPUS_KEYS_DIR` 告诉引擎，微信读书那边读的也是同一份。
 
 `DEEPSEEK_API_KEY` 在这里仅是文件字段名。启动不再读取同名环境变量、不加载 `.env`，也不从 `~\.dsh` 或旧的应用凭据文件自动复制密钥。首次配置可以照 `api-keys.example.yaml` 填写，或直接在界面输入保存；文件不存在时不会沿用旧 Key。
 
-本地密钥文件已加入 `.gitignore`，打包默认只包含示例。打包后的文件位置为 `resources/app/api-keys.local.yaml`，首次在界面保存时创建。
+本地密钥文件已加入 `.gitignore`，打包只包含示例。0.1.0 的便携包把它写在解压目录的 `resources/app/` 里，从那一版换过来要重新填一次 Key。
 
 引擎默认把完整会话日志随请求额外上传给 DeepSeek，`app.patch.yml` 里关掉了。
 
@@ -66,7 +74,7 @@ API Key 统一放在应用根目录的 **`api-keys.local.yaml`**。开发时就�
 - `ui/client/ChatGptCard.tsx`：那一块卡片，登记在引擎留的 `settings.models.footer` 上。
 - `desktop/main.cjs`：`auth.openai.com` 的页面交给系统浏览器开，不进应用自己的阅读窗口。
 
-令牌和 DeepSeek 的 Key 存在同一个文件里（`api-keys.local.yaml` 的 `records` 下面的 `llm-pi-ai/openai-codex`），同样不要把用过的应用文件夹整个发给别人。退出登录只在本机删掉令牌，不通知 OpenAI。
+令牌和 DeepSeek 的 Key 存在同一个文件里（`api-keys.local.yaml` 的 `records` 下面的 `llm-pi-ai/openai-codex`），这个文件不要发给别人。退出登录只在本机删掉令牌，不通知 OpenAI。
 
 有哪些模型、各有哪几档推理强度，取自 pi-ai 自带的模型表（现在是 0.87.1 的八个：GPT-5.3 Codex Spark、GPT-5.5、GPT-5.6 Luna / Sol / Terra、GPT-6 Astra / Luna / Sol），不是向账号查的：表里有而账号用不了的模型，要到发消息时才报错。GPT-6.1 Sol 比这张表新，是照 pi-ai 1.1.0 的模型表抄进 `chatgpt.mjs` 的 `NEWER_MODELS` 补上的（名字、上下文长度、输出上限、能看图、推理档位）；引擎自带的 pi-ai 不认识它，所以它没有自带模型那几项按模型开的协议开关，只走这条线路通用的发法。默认模型选的就是它，改默认模型改 `chatgpt.mjs` 的 `DEFAULT`。表里有的档位只是别的档位的别名（`minimal` 发出去就是 `low`），写线路时去掉了，所以选择器里每一档发出去的值都不一样：GPT-5.5 是 Off、Low、Medium、High、Xhigh，GPT-6.1 Sol 是 Low、Medium、High、Xhigh、Max。引擎升级带来新的模型表后，重新登录一次线路才会按新表重写。
 

@@ -51,7 +51,7 @@ export class Xuezai {
   readonly ctx: Context;
   readonly username: string;
   readonly store: SessionStore;
-  /** 原生 fetch 用于流式下载与签名上传；可以注入离线测试实现。 */
+  /** 原生 fetch 用于文件下载与签名上传；可以注入离线测试实现。 */
   readonly transfer: typeof fetch;
   private loggedIn = false;
   private loginPromise: Promise<void> | undefined;
@@ -185,29 +185,14 @@ export class Xuezai {
     return items;
   }
 
-  /** 文件采用流式 fetch；跨站签名链接不携带校园 Cookie。只读鉴权失效可重登一次。 */
-  async blob(uploadId: number | string, signal: AbortSignal = AbortSignal.timeout(120_000)): Promise<Response> {
-    const route = `/api/uploads/${id(uploadId)}/blob`;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      await this.ensureSession(attempt > 0);
-      let url = BASE + route;
-      for (let hop = 0; hop < 10; hop++) {
-        const u = new URL(url);
-        if (u.protocol !== "https:") throw new BadResponse("下载链接必须是 HTTPS");
-        const response = await this.transfer(url, { redirect: "manual", signal, headers: u.origin === BASE ? { Cookie: this.ctx.http.jar.getCookieHeader(url) } : {} });
-        const location = response.headers.get("location");
-        if ([301, 302, 303, 307, 308].includes(response.status) && location) {
-          await response.body?.cancel();
-          const next = new URL(location, url);
-          if (AUTH_HOSTS.has(next.hostname) && /\/user\/index|\/auth\/realms\/|\/cas\/login/.test(next.pathname)) break;
-          url = next.href; continue;
-        }
-        if (response.status === 401 && u.origin === BASE) { await response.body?.cancel(); break; }
-        if (!response.ok) { await response.body?.cancel(); throw new RemoteRejected(`下载 HTTP ${response.status}`, { host: u.hostname, path: u.pathname }); }
-        return response;
-      }
-    }
-    throw new AuthExpired("xuezai", "下载登录态失效或重定向过多");
+  /**
+   * 文件在 tcmedia 上的签名下载地址：不带 Cookie，可以重复请求，支持 Range。
+   * `/blob` 跳转给的地址带 nonce，只能请求一次，分不了块，所以不用。
+   */
+  async fileUrl(uploadId: number | string): Promise<string> {
+    const { url } = await this.json<{ url?: unknown }>(`/api/uploads/${id(uploadId)}/url`);
+    if (typeof url !== "string" || !url.startsWith("https://")) throw new BadResponse("学在浙大没有给出文件的下载地址");
+    return url;
   }
 
   logout(): boolean { this.loggedIn = false; this.userId = undefined; this.ctx.http.jar.removeDomain(HOST); return this.store.clear(); }

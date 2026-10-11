@@ -415,6 +415,24 @@ button[role='switch'][class*='switch' i][aria-checked='true'] > span {
   overflow-wrap: anywhere;
 }
 
+/* 「课程讲解」的可选依赖：和上面是同一种行，右边多一格放装没装和安装的按钮；按钮的高度不把行撑开。 */
+.campus-parts > div {
+  grid-template-columns: 128px minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.campus-parts dd > .campus-form-error {
+  display: block;
+  margin-top: 2px;
+}
+
+.campus-parts-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
 /* 详情页里通到别处的一行：左边名字，右边按钮，和引擎设置里带开关的行一个排法。 */
 .campus-linkrow {
   display: flex;
@@ -1253,6 +1271,18 @@ html[data-campus-width] [data-width-handle] {
 
 .campus-setting-selector:hover {
   background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* 「检查更新」一行里填 GitHub 令牌的那一格：输入框占满，保存按钮跟在后面。 */
+.campus-update-token {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.campus-update-token .campus-input {
+  flex: 1;
 }
 
 /* 设置 → 模型页最下面的 ChatGPT 登录。卡片照引擎模型页里提供商那一行（它的 rowCard、rowHead、rowName）。 */
@@ -2266,6 +2296,191 @@ button[aria-label='工作区“对话”的操作'] {
   }
 }
 
+/* 左栏是目录，点中的那一行和悬停是同一种浅底色（引擎侧栏里点中的一项也是这样），上下的细线让开。
+   试过改成描一圈线，用户说不直观，改回来了。 */
+.campus-learn .campus-notice[aria-current] {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.campus-learn .campus-notice[aria-current]::before,
+.campus-learn .campus-flow-item:has(.campus-notice[aria-current]) + .campus-flow-item .campus-notice::before {
+  display: none;
+}
+
+/* 课程列表下面的「总结与讲解」：不在列表里，自己带上面那根细线。 */
+.campus-learn-made:not(:hover, [aria-current])::before {
+  content: '';
+  position: absolute;
+  inset: 0 8px auto;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+/* 点进一次课以后左栏顶上那一行：返回和这门课的名字排在一起，占的还是原来「课程」那一行。 */
+.campus-learn-menu .campus-crumb {
+  align-self: center;
+  margin-top: 0;
+}
+
+/* 右栏最上面：左边是点中的那一项（名字，下面一行小字），右边是切换；下面一根细线隔开内容。 */
+.campus-learn-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.campus-learn-head > .campus-learn-picked {
+  flex: 1;
+}
+
+.campus-learn-head > .campus-choice {
+  flex: none;
+}
+
+/* 右栏的内容放在定高的框里自己滚动，左栏的目录一直看得见。上面多了名字那两行，所以比左栏的框矮一截，两边的底大致对齐。 */
+.campus-learn-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: max(320px, calc(100vh - 244px));
+  margin: 0 -8px;
+  padding: 0 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* 左栏当目录的课次列表上面没有那两行，和课程列表一样高。 */
+.campus-learn-menu > .campus-learn-pane {
+  max-height: max(320px, calc(100vh - 190px));
+}
+
+/* 一次课的资料、总结、讲解三块之间隔得开一些。 */
+.campus-learn-lesson {
+  gap: 28px;
+}
+
+/* 学在浙大的课件（超星那一边的章节目录和右栏的两组文件也用这一套）：一章一块，照学在浙大网页上章节的样子。
+   一块是一个带细边的圆角框，最上面一条很淡的灰色标题条（章名加粗，点一下展开或收起），
+   下面是这一章的东西，一个一行、行间一根细线：文件类型的图标、名字（常规粗细，写全）、右边一个带框的小图标。
+   块的排法是用户 2026-10-11 从四个示意里选的（文件夹式、标题在框外、粗线分章、带底色的标题条）。标题条的底色定在很淡的灰：
+   比引擎放标签的那种灰（--dsw-alias-bg-module-platform）还淡，只取它的四分之三。第一次用的就是那种灰的原样，用户嫌灰灰的色块难看；
+   换成很浅的蓝以后又说蓝的丑，要回灰色、淡一点。所以这里不要加深，也不要换成别的颜色。整页是平的，没有阴影。
+   否掉的做法不要再用：章和文件同一种字同一种行（混在一起）；标题和文件同在一个白框里只隔一根线（分不出来）；
+   用阴影把块浮起来（平面的软件变得不伦不类）；章是描边的横条、文件顺着竖线挂在下面（不直观）；浅蓝的标题条（丑）。 */
+.campus-learn-chapters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.campus-learn-chapter {
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-md);
+  overflow: hidden;
+}
+
+.campus-learn-chapter-head {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 0;
+  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 75%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 展开着的时候，标题条和下面的东西之间一根细线：底色很淡，没有这根线边界看不清。收起时框自己的边就是它的下边。 */
+.campus-learn-chapter-head:not(:last-child) {
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+/* 悬停时是引擎那种浅底，比平时深一点点。 */
+.campus-learn-chapter-head:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.campus-learn-chapter-head:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+.campus-learn-chapter-head > svg {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.campus-learn-chapter-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.campus-learn-chapter-head > .campus-count {
+  font-size: 12.5px;
+}
+
+.campus-learn-chapter-files {
+  margin: 0;
+  padding: 0 12px;
+  list-style: none;
+}
+
+.campus-learn-chapter-files > li + li {
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+/* 一个文件。 */
+.campus-learn-file {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 0;
+  font-size: 13.5px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+.campus-learn-file > svg {
+  flex: none;
+}
+
+.campus-learn-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.campus-learn-file-name > .campus-form-error,
+.campus-learn-file-name > .campus-note {
+  display: block;
+}
+
+.campus-learn-file[data-empty] {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.campus-learn-file > .campus-learn-progress {
+  bottom: -0.5px;
+}
+
+
 /* 下载进度：一根 2px 的线压在这一行底边那根细线的位置，从左往右长。不占高度，出现和消失时别的行不会跳。 */
 .campus-learn .campus-row {
   position: relative;
@@ -2290,84 +2505,55 @@ button[aria-label='工作区“对话”的操作'] {
 }
 
 /* ── 学习：超星那一边 ─────────────────────────────────────
-   左栏是章节目录，像文件目录一样：一个大章一行，点开是下面的各节；右栏是点中那一节的课件和视频。
-   目录放在和别的列表一样的定高框里滚动（.campus-notice-scroll）。行的样子照引擎侧栏里的一行：32px 高，圆角，悬停和选中是同一种浅底色。 */
-.campus-tree,
-.campus-tree-items {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
+   左栏是章节目录，右栏是点中那一节的课件和视频。两边都是和学在浙大那一边一样的块（上面的 .campus-learn-chapter）：
+   左栏一个大章一块，标题条点一下展开或收起，下面是它的各节，点一节右栏就是它；右栏课件一块、视频一块，标题条不能点。
+   2026-10-10 第一版是照引擎侧栏的样子排的目录（一行 32px，大章和各节同一种字），学在浙大那一边改成块以后跟着改的。 */
+
+/* 块里的一节：整行可以点（所以这一种的块里面左右不留边，边留在行自己身上），悬停和点中都是引擎那种浅底，点中的字加粗。 */
+.campus-learn-chapter-files:has(> li > .campus-learn-leaf) {
   padding: 0;
-  list-style: none;
 }
 
-.campus-tree-items {
-  margin-top: 2px;
-}
-
-.campus-tree-folder,
-.campus-tree-leaf {
+.campus-learn-leaf {
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  min-height: 32px;
-  padding: 6px 8px;
+  min-height: 40px;
+  padding: 8px 12px;
   border: 0;
-  border-radius: var(--dsw-radius-md);
   background: none;
   color: inherit;
   font: inherit;
   font-size: 13.5px;
   line-height: 20px;
+  font-weight: 400;
   text-align: left;
   cursor: pointer;
 }
 
-.campus-tree-folder {
-  font-weight: 500;
-}
-
-.campus-tree-folder > svg {
-  flex: none;
-  color: var(--dsw-alias-label-tertiary);
-}
-
-/* 一节比它的大章缩进一级：对齐大章名字的左边（箭头 14px 加间距 8px）。 */
-.campus-tree-leaf {
-  padding-left: 30px;
-}
-
-.campus-tree-name {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.campus-tree-folder > .campus-tree-name {
-  flex: 0 1 auto;
-}
-
-.campus-tree-folder > .campus-count {
-  font-size: 12.5px;
-}
-
-.campus-tree-folder:hover,
-.campus-tree-leaf:hover,
-.campus-tree-leaf[aria-current] {
+.campus-learn-leaf:hover,
+.campus-learn-leaf[aria-current] {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
-.campus-tree-leaf[aria-current] {
+.campus-learn-leaf[aria-current] {
   font-weight: 500;
 }
 
-.campus-tree-folder:focus-visible,
-.campus-tree-leaf:focus-visible {
+.campus-learn-leaf:focus-visible {
   outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: -2px;
+}
+
+/* 右栏的课件、视频两块：标题条只是标题，不能点。 */
+.campus-learn-chapter-head[data-static] {
+  cursor: default;
+}
+
+.campus-learn-chapter-head[data-static]:hover {
+  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 75%, transparent);
 }
 
 /* 目录的框比别的列表矮一点，给下面那行小字（还没开放的有几节）留出位置，整页不会因为它多出一截而出现滚动条；
@@ -2377,15 +2563,7 @@ button[aria-label='工作区“对话”的操作'] {
   scrollbar-gutter: stable;
 }
 
-/* 右栏：最上面是点中的那一节，下面是课件、视频两块。 */
-.campus-learn-files {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  min-width: 0;
-}
-
-/* 点中的是哪一节，下面一行小字是它在哪个大章里。上面让出 4px，名字和左栏的标题在同一条线上。 */
+/* 右栏最上面点中的是什么（一门课、一次课、一节），下面一行小字。上面让出 4px，名字和左栏的标题在同一条线上。 */
 .campus-learn-picked {
   display: flex;
   flex-direction: column;
@@ -2402,12 +2580,69 @@ button[aria-label='工作区“对话”的操作'] {
   overflow-wrap: anywhere;
 }
 
-/* 「视频」标题右边的清晰度：和页头里的切换一样上下各收 4px，这一行不被它撑高，换一节（有视频、没视频）时下面不跳。 */
-.campus-learn .campus-section-head > .campus-choice {
-  margin-block: -4px;
-}
-
 /* 课程不止一门时目录上面的下拉：不占满一整行。 */
 .campus-learn-course {
   width: min(100%, 320px);
 }
+
+/* ── 学习：换内容时的动效 ─────────────────────────────────
+   用浏览器的视图过渡（learnParts.tsx 的 move）。两栏里的几样东西各有名字。智云那一边：a 是左栏的课程，b 是列表
+   （右栏点中的那门课；点进一次课以后是左栏的课次），c 是右栏的那一次课。超星那一边：x 是左栏的章节目录，c 是右栏点中的那一节。
+   同名的换之前和之后位置不一样，浏览器自己把它滑过去；下面只定只有一边有的怎么进、怎么出，和同一栏里换内容时怎么换。
+   「减少动态效果」时 move 不发起过渡，这些规则用不上。 */
+.campus-learn-a { view-transition-name: campus-learn-a; }
+.campus-learn-b { view-transition-name: campus-learn-b; }
+.campus-learn-c { view-transition-name: campus-learn-c; }
+.campus-learn-x { view-transition-name: campus-learn-x; }
+
+/* 页面上别的东西不参与，原样不动。 */
+:root[data-campus-move]::view-transition-old(root),
+:root[data-campus-move]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* 往下点一级：右栏的列表滑到左边。 */
+::view-transition-group(campus-learn-b) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* 往下点一级：左栏的课程向左淡出，新的那一次课从右边进来；退回来时反着走。 */
+:root[data-campus-move='in']::view-transition-old(campus-learn-a):only-child {
+  animation: campus-move-out-left 200ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+:root[data-campus-move='out']::view-transition-new(campus-learn-a):only-child {
+  animation: campus-move-in-left 320ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+:root[data-campus-move='out']::view-transition-old(campus-learn-c):only-child {
+  animation: campus-move-out-right 200ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+:root[data-campus-move='in']::view-transition-new(campus-learn-c):only-child {
+  animation: campus-move-in-right 320ms cubic-bezier(0.2, 0, 0, 1) 60ms both;
+}
+
+/* 换内容（换一门课、换一边、换一次课、换一节、换平台）：旧的淡出，新的从下面升上来一点。只有一边有的（换平台时整栏换掉）也一样。 */
+:root[data-campus-move='swap']::view-transition-old(campus-learn-a):only-child,
+:root[data-campus-move='swap']::view-transition-old(campus-learn-b),
+:root[data-campus-move='swap']::view-transition-old(campus-learn-c),
+:root[data-campus-move='swap']::view-transition-old(campus-learn-x):only-child {
+  animation: campus-move-fade 120ms ease both;
+}
+
+:root[data-campus-move='swap']::view-transition-new(campus-learn-a):only-child,
+:root[data-campus-move='swap']::view-transition-new(campus-learn-b),
+:root[data-campus-move='swap']::view-transition-new(campus-learn-c),
+:root[data-campus-move='swap']::view-transition-new(campus-learn-x):only-child {
+  animation: campus-move-rise 280ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes campus-move-out-left { to { opacity: 0; transform: translateX(-28px); } }
+@keyframes campus-move-in-left { from { opacity: 0; transform: translateX(-28px); } }
+@keyframes campus-move-out-right { to { opacity: 0; transform: translateX(28px); } }
+@keyframes campus-move-in-right { from { opacity: 0; transform: translateX(28px); } }
+@keyframes campus-move-fade { to { opacity: 0; } }
+@keyframes campus-move-rise { from { opacity: 0; transform: translateY(12px); } }

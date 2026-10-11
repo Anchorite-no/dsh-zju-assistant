@@ -4,7 +4,7 @@ export interface Course { id: number; name: string; course_code?: string; semest
 export interface Syllabus { id: number; name: string; sort?: number; [key: string]: unknown }
 export interface CourseModule { id: number; name: string; sort?: number; syllabuses: Syllabus[]; [key: string]: unknown }
 export interface Upload {
-  id: number; name: string; size: number; type?: string; allow_download?: boolean; link?: string | null;
+  id: number; name: string; size: number; type?: string; link?: string | null;
   [key: string]: unknown;
 }
 export interface Activity {

@@ -1,6 +1,6 @@
 /**
  * 插件图标。通用工具直接用 DeepSeek 自己的：网页搜索是引擎的图形，其余三个是各插件包自带的 icon.svg。
- * 校园功能没有现成的，照同一种画法画：36×36 画布，图形占中间 20 来个单位，
+ * 校园功能和「课程讲解」没有现成的，照同一种画法画：36×36 画布，图形占中间 20 来个单位，
  * 天蓝到宝蓝的渐变为主，配青、绿、紫，叠在上面的细节用白线。
  */
 import { useId, useState, type ReactNode } from 'react'
@@ -13,6 +13,13 @@ export type CampusArt = AppPlugin['art']
 interface Paints { blue: string, teal: string, green: string }
 
 const SHAPES: Record<CampusArt, (paint: Paints) => ReactNode> = {
+  learn: paint => (
+    <>
+      <rect x="7" y="9" width="22" height="15.5" rx="3.6" fill={paint.blue} fillOpacity="0.8" />
+      <path d="M16 13.2v7.1l6.2-3.55L16 13.2Z" fill="#fff" />
+      <rect x="12.5" y="26.6" width="11" height="2.4" rx="1.2" fill={paint.teal} />
+    </>
+  ),
   wechat: paint => (
     <>
       <path d="M8 9h14a5 5 0 0 1 5 5v4a5 5 0 0 1-5 5H15l-5 4v-4H8a5 5 0 0 1-5-5v-4a5 5 0 0 1 5-5Z" transform="translate(3 0) scale(.9)" fill={paint.green} />

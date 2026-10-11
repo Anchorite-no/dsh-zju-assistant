@@ -157,7 +157,11 @@ async function acquireLock(lock: string, out: string) {
     }
   }
 }
-export interface DownloadOptions { out: string; chunkBytes?: number; resume?: boolean }
+export interface DownloadOptions {
+  out: string; chunkBytes?: number; resume?: boolean;
+  /** Identity of the file for resuming. Defaults to the URL; pass a stable one when the URL carries a signature that differs on every request. */
+  source?: string;
+}
 export interface DownloadResult { path: string; bytes: number; chunks: number; resumedChunks: number }
 interface ResumeState { version: 1; sourceHash: string; size: number; validator: string; chunkBytes: number }
 export async function downloadFile(transfer: Transfer, url: string, opts: DownloadOptions): Promise<DownloadResult> {
@@ -188,7 +192,7 @@ export async function downloadFile(transfer: Transfer, url: string, opts: Downlo
       await publish(temp, out); return { path: out, bytes, chunks: 1, resumedChunks: 0 };
     }
     await fs.mkdir(parts, { recursive: true });
-    const state: ResumeState = { version: 1, sourceHash: createHash("sha256").update(url).digest("hex"), size: probe.size, validator: probe.validator, chunkBytes };
+    const state: ResumeState = { version: 1, sourceHash: createHash("sha256").update(opts.source ?? url).digest("hex"), size: probe.size, validator: probe.validator, chunkBytes };
     let old: unknown;
     try { old = JSON.parse(await fs.readFile(path.join(parts, "state.json"), "utf8")); } catch { /* new download */ }
     const reuse = opts.resume !== false && !!state.validator && JSON.stringify(old) === JSON.stringify(state);

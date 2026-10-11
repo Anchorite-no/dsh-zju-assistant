@@ -1,11 +1,25 @@
-/** 学习页两边（智云的 LearningPage.tsx、超星的 LearningChaoxing.tsx）共用的几样小东西。 */
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { IconChevronRightOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import { CAMPUS_PLUGINS } from '../profile/catalog.mjs'
+/** 学习页两边（智云的 LearningPage.tsx 和 LearningXuezai.tsx、超星的 LearningChaoxing.tsx）共用的几样小东西。 */
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
+import { Button, IconChevronRightOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { APP_PLUGINS } from '../profile/catalog.mjs'
 import { profileApi } from './api.ts'
 import { agoText, dateText, mixed } from './when.ts'
 
-export const pluginTitle = (id: string) => CAMPUS_PLUGINS.find(plugin => plugin.id === id)?.title ?? '插件'
+export const pluginTitle = (id: string) => APP_PLUGINS.find(plugin => plugin.id === id)?.title ?? '插件'
+
+/** 插件页上的某一项现在开着没有；还没读到时是 null，用的地方这时两样都先不画，免得先画成一种、读完又跳成另一种。回到窗口时重读。 */
+export function usePluginOn(id: string): boolean | null {
+  const [on, setOn] = useState<boolean | null>(null)
+  useEffect(() => {
+    let live = true
+    const read = () => { profileApi<{ disabled: string[] }>('plugins-read').then((value) => { if (live) setOn(!value.disabled.includes(id)) }, () => {}) }
+    read()
+    window.addEventListener('focus', read)
+    return () => { live = false; window.removeEventListener('focus', read) }
+  }, [id])
+  return on
+}
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 /** 「2026-10-08」这样的北京时间日期：写成几月几日加星期。 */
@@ -15,8 +29,62 @@ export function dayText(date: string | null, now: number): string {
   return `${dateText(at, now)} ${WEEKDAYS[new Date(at).getDay()]}`
 }
 
+/**
+ * 换内容时带上动效，不硬切。用的是浏览器的视图过渡：先记下换之前的样子，change 换完以后，它自己把两边接起来。
+ * 两栏里的几样东西各有名字（style.css 最后一段的 .campus-learn-a/b/c/x），同名的在换之前和之后位置不一样就滑过去
+ * （智云那一边点进一次课时，右栏的课次列表滑到左边当目录），只有一边有的淡入或者淡出。
+ * kind：in 是往下点一级，out 是退回来，swap 是同一栏里换内容（换一门课、换一边、换一次课、换一节、换平台），新的从下面升上来一点。
+ * 系统设置了「减少动态效果」、或者浏览器不支持时直接换。
+ */
+export type Move = 'in' | 'out' | 'swap'
+/** 一次过渡最长也就四百毫秒；超过这么久还没走完的不再等。 */
+const MOVE_LIMIT_MS = 700
+let moves = 0
+export function move(kind: Move, change: () => void): void {
+  const start = (document as Document & { startViewTransition?: (update: () => void) => { finished: Promise<void>, ready: Promise<void>, skipTransition: () => void } }).startViewTransition
+  if (!start || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { change(); return }
+  const root = document.documentElement, mine = ++moves
+  root.dataset.campusMove = kind
+  let guard = 0
+  // 连着点时前一次过渡会被后一次打断：只有最后一次收尾时才把标记拿掉。
+  const done = () => { window.clearTimeout(guard); if (mine === moves) delete root.dataset.campusMove }
+  try {
+    const transition = start.call(document, () => { flushSync(change) })
+    // 过渡是跟着画面一帧一帧走的：窗口不出画面时（被挡住、藏着）它走不完，页面会一直停在换之前的样子。过了这么久还没完就直接跳到结果。
+    guard = window.setTimeout(() => { transition.skipTransition() }, MOVE_LIMIT_MS)
+    // 过渡被跳过或者被下一次打断时，浏览器会让 ready 这个承诺落空；内容照样换了，接住它，免得在控制台里报成没人管的错误。
+    transition.ready.catch(() => {})
+    transition.finished.then(done, done)
+  } catch { done(); change() }
+}
+
+/** 右栏最上面：点中的是什么，下面一行小字；aside 是这一行右边的切换。下面一根细线隔开内容。 */
+export function PaneHead({ title, note, aside }: { title: string, note: string, aside?: ReactNode }) {
+  return (
+    <div className="campus-learn-head">
+      <div className="campus-learn-picked">
+        <h2 className="campus-learn-picked-title">{title}</h2>
+        {note && <span className="campus-note">{note}</span>}
+      </div>
+      {aside}
+    </div>
+  )
+}
+
 export function Arrow() {
   return <span className="campus-learn-arrow" aria-hidden="true"><IconChevronRightOutlineRegular size={14} /></span>
+}
+
+/**
+ * 一行右边的小按钮：只画一个图标，鼠标放上去或键盘聚焦时显示它是做什么的（和「交给助手」的图标按钮一个样子）。
+ * 文件的那一行用它来下载、打开文件夹：带字的按钮占地方，文件名就放不全。
+ */
+export function IconAction({ label, icon, disabled = false, onClick }: { label: string, icon: ReactNode, disabled?: boolean, onClick: () => void }) {
+  return (
+    <Tooltip label={label} side="top" portal>
+      <Button className="campus-hand" size="sm" variant="outline" aria-label={label} icon={icon} disabled={disabled} onClick={onClick} />
+    </Tooltip>
+  )
 }
 
 /** 列表下面的小字说明，可以带一个去处理的入口。 */

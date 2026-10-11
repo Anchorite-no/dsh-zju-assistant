@@ -123,8 +123,18 @@ export const CAMPUS_PLUGINS = [
   },
 ]
 
-/** 独立采集模块与 ZJU Core 分开登记，共用应用的插件开关和详情页。 */
+/**
+ * 不是 ZJU Core 的功能，和它分开登记，共用应用的插件开关和详情页。backend 说它背后是哪一样：
+ * wechat 是公众号的本地采集；learn 是 Learning Core（core/learn，助手的 learn 技能），关掉以后助手的技能目录里没有它，
+ * 学习页上也不再给「让助手讲这次课」，做好的讲解照常能放。它的可选依赖在详情页里装（learn.mjs）。
+ * optIn 的一项默认关着，要用户自己打开（别的都默认开着）：做一份讲解很花时间和模型用量，用户 2026-10-11 定的不替人开。
+ */
 export const LOCAL_PLUGINS = [
+  { id: 'campus.learn', title: '课程讲解', description: '把一次课或一份资料讲成带画面的讲解', art: 'learn', backend: 'learn', optIn: true,
+    accounts: [], requires: [], systems: [
+      { name: '讲解', does: '先把资料学懂，再重新讲一遍，做成带画面和字幕的网页，在「学习」页里播放' },
+      { name: '资料', does: '智云一次课的课件、课堂截图和字幕，或者你自己的教材、论文' },
+    ] },
   { id: 'campus.wechat', title: '微信公众号', description: '同步公众号推文与原文链接', art: 'wechat', backend: 'wechat',
     accounts: [], requires: [], systems: [] },
 ]

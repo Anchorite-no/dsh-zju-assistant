@@ -16,14 +16,15 @@ test('model tools, UI route and context share one profile; skills come from the 
     else process.env.CAMPUS_PROFILE_DIR = previous
     fs.rmSync(root, { recursive: true, force: true })
   })
-  const tools = new Map(), contexts = [], policies = [], effects = []
-  let route, provider
+  const tools = new Map(), contexts = [], policies = [], effects = [], listeners = {}
+  let route, provider, reloads = 0
   const ctx = {
     effect: create => { effects.push(create) },
     logger: { warn: message => assert.fail(message) },
     connection: { fetch: { register: value => { route = value } } },
     tools: { register: tool => tools.set(tool.name, tool) },
-    skills: { registerProvider: create => { provider = create({ invalidate() {}, signal: new AbortController().signal }) } },
+    on: (name, listener) => { listeners[name] = listener },
+    skills: { registerProvider: create => { provider = create({ invalidate() { reloads++ }, signal: new AbortController().signal }) } },
     systemPrompt: { context: value => contexts.push(value), section: value => policies.push(value) },
   }
   installProfile(ctx, { wechatRun: async args => args[0] === 'list' ? { ok: true, accounts: [{ biz: 'MzA3MDk5NDA0NA==', name: '浙大体育与艺术', articleCount: 79 }], runtime: null }
@@ -80,11 +81,44 @@ test('model tools, UI route and context share one profile; skills come from the 
   assert.match(contexts[0].text(), /AVL 树的反馈/)
   assert.doesNotMatch(contexts[0].text(), /secret-fixture|还不熟/)
   assert.doesNotMatch(JSON.stringify(await readTool.execute({}, {})), /secret-fixture/)
-  assert.match(policies[0].text, /不授予操作权限/)
+  // 底层说明是 core/AGENT.md 整篇，记忆、备忘录、技能各在什么时候写也在里面；花括号不做替换。
+  const agent = policies.find(section => section.name === 'campus-agent')
+  assert.equal(agent.interpolate, false)
+  assert.match(agent.text(), /不授予操作权限/)
+  assert.match(agent.text(), /校园智能体/)
+  // 拼系统提示的最后一步：引擎写给编程助手的三段去掉，预设带的那条英文人设换成我们的，别的段不动。
+  const assembled = await listeners['system-prompt/assemble']({}, {}, async () => ({ tools: ['kept'], sections: [
+    { name: 'harness:identity', text: 'You are an AI agent powered by DeepSeek Harness.' },
+    { name: 'deployment:persona-prefix', text: 'You are a coding agent powered by the {{model}} model.' },
+    { name: 'campus-agent', text: 'x' }, { name: 'tool:bash', text: 'y' },
+    { name: 'harness:source', text: 'checkout' }, { name: 'app:web-surface', text: 'gui' },
+    { name: 'deployment:persona-suffix', text: 'Your working directory is {{cwd}}.' },
+  ] }))
+  assert.deepEqual(assembled.sections.map(section => section.name), ['deployment:persona-prefix', 'campus-agent', 'tool:bash', 'deployment:persona-suffix'])
+  assert.match(assembled.sections[0].text, /^你是「校园智能体」里的助手.*\{\{model\}\}/)
+  assert.deepEqual(assembled.tools, ['kept'])
 
+  // 「课程讲解」默认关着：learn 技能不交给引擎，上下文里不提讲解目录，但说明它关着，依赖也装不了。
+  const learning = contexts.find(context => context.name === 'campus-learning')
+  assert.deepEqual((await provider.list()).map(skill => skill.name).sort(), ['weread', 'weread-skills', 'zju'])
+  assert.equal(learning.text(), '')
+  assert.match(contexts[0].text(), /课程讲解（learn 技能，做讲解）/)
+  assert.equal((await call('learn-read')).value.enabled, false)
+  assert.equal((await call('learn-install', { id: 'tex' })).status, 400)
+  // 打开：引擎被叫去重读技能目录，learn 回来了。
+  const before = reloads
+  await call('plugins-set', { id: 'campus.learn', enabled: true })
+  assert.equal(reloads, before + 1)
+  assert.match(learning.text(), /讲解目录/)
+  assert.doesNotMatch(contexts[0].text(), /课程讲解/)
+  assert.deepEqual((await call('learn-read')).value.parts.map(part => part.id), ['tex', 'browser'])
   const skills = await provider.list()
   assert.deepEqual(skills.map(skill => skill.name).sort(), ['learn', 'weread', 'weread-skills', 'zju'])
   for (const skill of skills) assert.ok(path.resolve(skill.path).startsWith(path.resolve(CORE_ROOT)))
   assert.match((await provider.get(skills.find(skill => skill.name === 'learn'))).content, /campus_profile_read/)
   assert.match((await provider.get(skills.find(skill => skill.name === 'zju'))).content, /campus_profile_write/)
+
+  // 再关上：learn 又没有了。
+  await call('plugins-set', { id: 'campus.learn', enabled: false })
+  assert.deepEqual((await provider.list()).map(skill => skill.name).sort(), ['weread', 'weread-skills', 'zju'])
 })

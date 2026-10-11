@@ -2,14 +2,17 @@
  * 最小的自写壳：一个窗口 + 一个引擎子进程。
  * 壳只负责窗口、名字和进程生命周期；界面由引擎的 Web 应用提供，壳直接加载它的地址。
  */
-const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeTheme, session, shell } = require('electron')
+const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeTheme, safeStorage, session, shell } = require('electron')
+const { autoUpdater } = require('electron-updater')
 const { createTray } = require('./tray.cjs')
+const { createUpdater, githubToken } = require('./update.cjs')
 const { createWereadBridge } = require('./weread.cjs')
 const { createReader } = require('./reader.cjs')
 const { ffmpegEnv } = require('./ffmpeg.cjs')
+const { nodeEnv } = require('./node.cjs')
 const { createFilms, filmDirectory } = require('./film.cjs')
-const { fork } = require('node:child_process')
-const { mkdirSync } = require('node:fs')
+const { execFile, fork } = require('node:child_process')
+const { mkdirSync, readFileSync, rmSync, writeFileSync } = require('node:fs')
 const path = require('node:path')
 
 const TITLE = '校园智能体'
@@ -43,7 +46,8 @@ function startHost() {
   return new Promise((resolve, reject) => {
     host = fork(path.join(__dirname, 'host.mjs'), [], {
       cwd: workspace,
-      env: { ...process.env, ...wereadBridge?.env, ...ffmpegEnv(), CAMPUS_PROFILE_DIR: path.join(app.getPath('userData'), 'profile'), CAMPUS_KEYS_DIR: keysDir, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', ELECTRON_RUN_AS_NODE: '1' },
+      // nodeEnv：把应用自己带的 Node 以「node」这个名字交给引擎启动的命令（node.cjs）。
+      env: { ...process.env, ...wereadBridge?.env, ...ffmpegEnv(), ...nodeEnv({ dir: path.join(app.getPath('userData'), 'bin') }), CAMPUS_PROFILE_DIR: path.join(app.getPath('userData'), 'profile'), CAMPUS_KEYS_DIR: keysDir, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', ELECTRON_RUN_AS_NODE: '1' },
       stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
     })
     host.on('message', (message) => {
@@ -140,6 +144,38 @@ async function main() {
   const fromPage = event => !window.isDestroyed() && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame
   ipcMain.handle('campus:close-to-tray:get', event => fromPage(event) && tray.enabled())
   ipcMain.handle('campus:close-to-tray:set', (event, on) => fromPage(event) ? tray.set(on === true) : false)
+  // 检查更新（update.cjs）。读私有仓库要 GitHub 令牌：设置里填的那个用系统的加密存在数据目录里，没填就问本机的 GitHub CLI。
+  const tokenFile = path.join(app.getPath('userData'), 'update-token')
+  const savedToken = () => { try { return safeStorage.decryptString(readFileSync(tokenFile)) } catch { return undefined } }
+  const run = (command, args) => new Promise((resolve, reject) => {
+    execFile(command, args, { timeout: 5000, windowsHide: true }, (error, stdout) => { if (error) reject(error); else resolve(stdout) })
+  })
+  const updater = createUpdater({
+    autoUpdater, packaged: app.isPackaged, version: app.getVersion(),
+    // 更新源是打包时按 package.json 的 build.publish 写好的。
+    feed: () => require('js-yaml').load(readFileSync(path.join(process.resourcesPath, 'app-update.yml'), 'utf8')),
+    token: () => githubToken({ env: process.env, saved: savedToken, run }),
+    ask: async (version) => {
+      const options = {
+        type: 'info', title: TITLE, message: `新版本 ${version} 已下载`, detail: '现在安装的话，应用会关闭，装好后自己重新打开。选稍后，会在下次退出应用时装上。',
+        buttons: ['立即安装并重启', '稍后'], defaultId: 0, cancelId: 1, noLink: true,
+      }
+      // 窗口藏在托盘里时不把它叫出来，单独弹这一问。
+      const { response } = window.isDestroyed() || !window.isVisible() ? await dialog.showMessageBox(options) : await dialog.showMessageBox(window, options)
+      return response === 0
+    },
+    onChange: () => { if (!window.isDestroyed()) window.webContents.send('campus:update') },
+  })
+  app.on('will-quit', updater.start())
+  ipcMain.handle('campus:update:get', event => fromPage(event) ? updater.state() : undefined)
+  ipcMain.handle('campus:update:check', event => fromPage(event) ? updater.check() : undefined)
+  ipcMain.handle('campus:update:install', (event) => { if (fromPage(event)) updater.install() })
+  ipcMain.handle('campus:update:token', (event, text) => {
+    if (!fromPage(event) || typeof text !== 'string') return undefined
+    if (text.trim()) writeFileSync(tokenFile, safeStorage.encryptString(text.trim()))
+    else rmSync(tokenFile, { force: true })
+    return updater.check()
+  })
   // 页面自己会改标题，壳的名字以我们为准。
   window.on('page-title-updated', (event) => { event.preventDefault() })
   window.once('ready-to-show', () => { window.show() })

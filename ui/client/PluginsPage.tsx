@@ -13,6 +13,7 @@ import { Button, IconChevronRightOutlineRegular, IconPluginPinwheelOutlineRegula
 import { accountReady } from '../profile/catalog.mjs'
 import { AccountForm } from './AccountSettings.tsx'
 import { WechatSettings } from './WechatSettings.tsx'
+import { LearnSettings } from './LearnSettings.tsx'
 import { errorText, profileApi, type AccountSnapshot } from './api.ts'
 import { BundleArtwork, CampusArtwork, SearchArtwork } from './artwork.tsx'
 import { Alert, Crumb } from './controls.tsx'
@@ -127,7 +128,8 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
   const open = (id: string) => { props.select(id); setNotice(''); setError('') }
   const bundleOf = (plugin: GeneralPlugin) => plugin.bundle ? data?.bundles.find(entry => entry.name === plugin.bundle) : undefined
   const generalOn = (plugin: GeneralPlugin) => !plugin.bundle || (pending[plugin.id] ?? !!bundleOf(plugin)?.enabled)
-  const campusOn = (plugin: AppPlugin) => plugin.base === true || (pending[plugin.id] ?? !data?.disabled.includes(plugin.id))
+  // 还没读到状态时，默认关着的那一项先按关着画，别的按开着画。
+  const campusOn = (plugin: AppPlugin) => plugin.base === true || (pending[plugin.id] ?? (data ? !data.disabled.includes(plugin.id) : plugin.optIn !== true))
   const missing = (plugin: AppPlugin) => !!data && campusOn(plugin) && plugin.requires.some(id => !accountReady(data.account.values, id))
 
   async function toggle(id: string, enabled: boolean, save: () => Promise<void>) {
@@ -221,6 +223,7 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
             )}
             {campus?.id === 'campus.notices' && <LinkRow title="定时检查新通知" action="自动化任务" onClick={() => { open('automation') }} />}
             {campus?.backend === 'wechat' && <WechatSettings enabled={on} />}
+            {campus?.backend === 'learn' && on && <LearnSettings />}
             {general?.id === 'web-search' && (
               <section className="campus-section" data-plugin-config>
                 {props.renderSlot('plugins.item', { view: 'page' }, { only: 'web-search' })}

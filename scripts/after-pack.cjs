@@ -5,6 +5,8 @@
  * 换个位置、换台机器就起不来。0.1.0 的便携包就是这样发出去的。
  * 这里对成品里的每个包，看它的 dependencies 和必需的 peerDependencies 在成品里找不找得到；找不到的从项目里照同样的找法拷过来，
  * 拷来的包再照样看，直到没有缺的。标了可选的 peer 和 devDependencies 不补。
+ *
+ * 补完以后再删一遍运行时用不到的文件（dropDeadWeight）：安装程序是一个文件一个文件装的，文件越多装得越慢。
  */
 const fs = require('node:fs')
 const path = require('node:path')
@@ -67,13 +69,63 @@ function shipMissingDependencies(appDir, projectDir) {
   return { added: added.sort(), unresolved: unresolved.sort() }
 }
 
+/** 各个 node_modules 里运行时用不到的文件：源码映射（调试时把报错对回源码用的）和 TypeScript 的类型声明。 */
+const DEAD_WEIGHT = /\.map$|\.d\.[cm]?ts$/i
+
+/**
+ * 把成品里各个 node_modules 下面运行时用不到的文件删掉，返回删了多少个、多少字节。
+ * 只动 node_modules 里面的：我们自己的代码和 core 里的东西（那里的 .ts 是直接拿来跑的）一个不删。
+ * 0.1.2 的成品有 19,494 个文件，这两种占 5,680 个。说明文档（README 等）不删：引擎有的页面会读包里的说明。
+ */
+function dropDeadWeight(appDir) {
+  let files = 0, bytes = 0
+  const walk = (dir, inModules) => {
+    let entries
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+    for (const entry of entries) {
+      const file = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(file, inModules || entry.name === 'node_modules')
+      else if (inModules && entry.isFile() && DEAD_WEIGHT.test(entry.name)) {
+        bytes += fs.statSync(file).size
+        fs.rmSync(file)
+        files++
+      }
+    }
+  }
+  walk(appDir, false)
+  return { files, bytes }
+}
+
+/**
+ * 成品里名字带中文（或别的非 ASCII 字符）的文件。安装程序解压用的那个组件（nsisunz）写不了这样的文件：
+ * 装到那一个就弹「Failed to decompress files」停住，后面的都没装上。有的话打包直接失败，比发出去才发现好。
+ */
+function oddNames(dir, base = dir) {
+  const found = []
+  let entries
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return found }
+  for (const entry of entries) {
+    const file = path.join(dir, entry.name)
+    if (/[^ -~]/.test(entry.name)) found.push(path.relative(base, file))
+    else if (entry.isDirectory()) found.push(...oddNames(file, base))
+  }
+  return found
+}
+
 /** electron-builder 的 afterPack 钩子。 */
 async function afterPack(context) {
-  const { added, unresolved } = shipMissingDependencies(path.join(context.appOutDir, 'resources', 'app'), context.packager.projectDir)
+  const appDir = path.join(context.appOutDir, 'resources', 'app')
+  const { added, unresolved } = shipMissingDependencies(appDir, context.packager.projectDir)
   console.log(`  • shipped ${added.length} installed packages the dependency walk left out${added.length ? `: ${added.join(', ')}` : ''}`)
   if (unresolved.length > 0) console.log(`  • not installed in the project either (left as they are): ${unresolved.join('; ')}`)
+  const dropped = dropDeadWeight(appDir)
+  console.log(`  • dropped ${dropped.files} source maps and type declarations (${Math.round(dropped.bytes / 1048576)} MB) nothing reads at run time`)
+  const odd = oddNames(context.appOutDir)
+  if (odd.length > 0) throw new Error(`安装程序装不了名字带中文的文件，改名或者在 package.json 的 build.files 里排除：${odd.slice(0, 10).join('、')}`)
 }
 
 module.exports = afterPack
 module.exports.default = afterPack
 module.exports.shipMissingDependencies = shipMissingDependencies
+module.exports.dropDeadWeight = dropDeadWeight
+module.exports.oddNames = oddNames

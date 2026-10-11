@@ -12,6 +12,7 @@ import { PANELS } from './panels.tsx'
 import { installTrace } from './trace/install.ts'
 import { WidthRow } from './WidthRow.tsx'
 import { TrayRow } from './TrayRow.tsx'
+import { UpdateRow } from './UpdateRow.tsx'
 import { ChatGptCard } from './ChatGptCard.tsx'
 import { installContentWidth } from './width.ts'
 import { installPluginsPage } from './PluginsPage.tsx'
@@ -65,6 +66,9 @@ export function apply(ctx: Context): void {
   if (window.campusShell) {
     ctx.slots.inject('settings.general.item', () =>
       ctx.slots.register({ name: 'settings.general.item', id: 'campus-close-to-tray', order: 35 }, TrayRow))
+    // 检查更新：排在最下面引擎的「当前版本」那一行前面。
+    ctx.slots.inject('settings.general.item', () =>
+      ctx.slots.register({ name: 'settings.general.item', id: 'campus-update', order: 99 }, UpdateRow))
   }
 
   // 设置 → 模型页最下面的 ChatGPT 登录：登录后模型选择器里多出 GPT。

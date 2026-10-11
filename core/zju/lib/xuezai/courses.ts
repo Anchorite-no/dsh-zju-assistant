@@ -1,12 +1,17 @@
 import { BadResponse, NeedsUser } from "../core/errors.ts";
 import { htmlToText } from "../core/html.ts";
 import { beijingMinute } from "../core/output.ts";
-import { id, type Xuezai } from "./client.ts";
+import { BASE, id, type Xuezai } from "./client.ts";
 import type { Activity, Course, CourseModule, Semester } from "./types.ts";
 import { abbreviates, uniqueMatch } from "../core/match.ts";
 
-/** 课程名称、简称或平台课程 ID → 本人课程；同名时优先当前学期，仍不唯一则给候选。 */
+/** 课程页面的地址。course list 把它给出来，原样写回 --course 就是这门课：名字会重、会互相包含，链接不会。 */
+export const courseLink = (courseId: number | string) => `${BASE}/course/${id(courseId)}/content`;
+
+/** 课程名称、简称、课程页面的链接或平台课程 ID → 本人课程；同名时优先当前学期，仍不唯一则给候选。 */
 export async function findCourse(client: Xuezai, query: string): Promise<Course> {
+  const linked = query.trim().match(/^https?:\/\/courses\.zju\.edu\.cn\/course\/(\d+)(?:[/?#]|$)/);
+  if (linked) return getCourse(client, linked[1]!);
   if (/^\d+$/.test(query)) return getCourse(client, query);
   let rows = await listCourses(client, { keyword: query });
   // 平台关键词只匹配子串；搜不到时按简称匹配本人课程，仍没有就把课程列作候选。
@@ -106,7 +111,7 @@ export const activityType = (type: unknown) => ACTIVITY_TYPES[String(type ?? "")
 const names = (rows: { name: string }[] | undefined) => (rows ?? []).map((r) => r.name);
 
 export function courseRow(c: Course) {
-  return { name: c.name, semester: c.semester?.name ?? null, teachers: names(c.instructors) };
+  return { name: c.name, semester: c.semester?.name ?? null, teachers: names(c.instructors), link: courseLink(c.id) };
 }
 
 /** 活动的一行：说明（作业要求、页面正文）给全文，链接类给地址，附件给文件名。 */

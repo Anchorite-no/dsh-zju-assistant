@@ -14,18 +14,28 @@ export function coreSkillNames() {
   })
 }
 
-/** 注册校园、学习和微信读书技能，以及助手学到的技能（learned，见 learned.mjs）。 */
-export function installCoreSkills(ctx, learned) {
+/** 每份 core 归哪个可以关掉的插件；不在这里的始终交给引擎（zju 的各个模块由它自己按开关拒绝）。 */
+const CORE_PLUGIN = { learn: 'campus.learn' }
+
+/**
+ * 注册校园、学习和微信读书技能，以及助手学到的技能（learned，见 learned.mjs）。
+ * plugins 是插件开关：关掉的插件对应的那份 core 不交给引擎，助手的技能目录和输入框的 / 菜单里就没有它。
+ * 返回一个函数，开关变了以后叫它，引擎会重新读目录。
+ */
+export function installCoreSkills(ctx, learned, plugins) {
+  let reload = () => {}
   const provider = 'campus-core-skills'
   ctx.skills.registerProvider((control) => {
     // 学到的技能有增减时让引擎重新读目录，新存的技能在同一个对话里就能用。
-    if (learned) learned.onChange = () => { control.invalidate() }
+    reload = () => { control.invalidate() }
+    if (learned) learned.onChange = reload
     const learnedEntries = () => (learned?.list() ?? []).map(skill => ({
       name: skill.name, description: `${skill.title}：${skill.description}`, path: skill.path, source: 'custom', provider,
       resourceBase: { kind: 'directory', path: learned.dir }, rank: 140, locator: skill.path,
       invocation: { modelInvocable: true, userInvocable: true }, content: skill.body,
     }))
-    const coreEntries = () => CORES.flatMap((name) => {
+    const off = () => plugins?.disabled() ?? []
+    const coreEntries = () => CORES.filter(name => !off().includes(CORE_PLUGIN[name])).flatMap((name) => {
       const directory = path.join(CORE_ROOT, name), file = path.join(directory, 'SKILL.md')
       if (!fs.existsSync(file)) return []
       const raw = fs.readFileSync(file, 'utf8'), match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/)
@@ -43,4 +53,5 @@ export function installCoreSkills(ctx, learned) {
       get: async candidate => entries().find(entry => entry.locator === candidate.locator),
     }
   })
+  return () => { reload() }
 }

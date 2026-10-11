@@ -10,7 +10,7 @@ CLI 用法见 [学在参考](../../references/xuezai.md)。本文件说明源码
 | `core/http` | HTTP、Cookie 和连接池 |
 | `webvpn/transport.openContext` | 根据声明组装传输和现有认证组件 |
 | `zjuam` | CAS 密码认证、TGT 复用和 service 票据交换 |
-| `xuezai/client.ts` | 学在专属 identity 回跳、站点 Cookie、XSRF、用户 ID、分页和文件传输 |
+| `xuezai/client.ts` | 学在专属 identity 回跳、站点 Cookie、XSRF、用户 ID、分页、取文件下载地址和签名上传 |
 | `xuezai/rollcall.ts` | 点名的只读查询：当前点名、本人是否已签、历史点名记录 |
 | `xuezai/cli.ts` / `rollcall-cli.ts` | 参数适配，创建和关闭一次任务所用的客户端 |
 
@@ -25,11 +25,17 @@ CLI 用法见 [学在参考](../../references/xuezai.md)。本文件说明源码
 | 文件 | 职责 |
 |---|---|
 | `courses.ts` | 学期、课程、章节、活动及内容树 |
-| `materials.ts` | 附件查询和下载 |
+| `materials.ts` | 附件查询和下载；分块、重试与续传复用 `zhiyun/download.ts` 的 `Transfer` / `downloadFile` |
 | `homework.ts` | 作业、提交记录、下载本人交过的文件、个人提交及撤回 |
 | `todos.ts` | 原生待办和作业补查 |
 | `types.ts` | 数据和日志类型 |
 | `cli-common.ts` | 命令共用的客户端生命周期、写闸与日志适配 |
+
+2026-10-11 为应用的学习页（`ui/profile/xuezai.mjs`）加的三处，都在 `courses.ts`、`materials.ts` 和 `cli.ts`，当天用真实账号读过、下过一个文件（《计算机组成》9 个课件分在 6 章，按链接读清单、`--chapter 第四章` 筛出 3 个、按章下了一个 1.6 MB 的 PDF，进度正常上报）：
+
+- `course list` 的每一行多了 `link`（`/course/<课程号>/content`，课程页面的地址），`--course` 认它（`findCourse` 开头）。页面把它原样交回来指这门课：名字会重、会互相包含，链接不会。做法和超星模块一样。
+- `material list` 的文件改成照课程里的先后排（`courseMaterials`：章、节、活动各按平台的顺序走一遍，没有归到章里的排在最后），每个文件带上在哪一章、哪一节（`placeOf`，取的是名称；挂在几个活动上的按第一个算），视频带 `video`。原来是平台返回活动的顺序，和章节无关。
+- `material list`、`material download` 多了 `--chapter`（`cli.ts` 的 `inChapter`）：只留那一章或那一节里的文件，先找名字完全相同的，没有再找包含它的，对到几个不同名字的章节时给候选；几章同名时一起算。下载时只给 `--chapter`、不给 `--name` 就是这一章的全部（不含视频，加 `--video` 才带）。各章都有「课件.pdf」时，`--chapter` 加 `--name` 才指得准；同一章里两个同名文件仍然分不开。
 
 `courses.ts`、`materials.ts`、`homework.ts` 中的 `*Row` / `*View` 只做 CLI 输出投影（北京时间、名称、状态、正文转纯文本）；库函数、名称匹配和提交回查仍使用平台原字段。
 
@@ -61,7 +67,7 @@ JSON 读取遇 401 或登录跳转时合并重登一次；写请求不自动重�
 | 章节 | GET `/api/courses/{course}/modules` | `modules[].syllabuses[]` |
 | 活动 | GET `/api/courses/{course}/activities` | `activities[]`，含 `module_id/syllabus_id/type/uploads/data` |
 | 活动详情 | GET `/api/activities/{activity}` | 正文在 `data.description`，附件在 `uploads[]`；作业详情用 |
-| 文件下载 | GET `/api/uploads/{upload}/blob` | 302 到 `tcmedia.zju.edu.cn` 等签名下载地址，流式读取 |
+| 文件下载地址 | GET `/api/uploads/{upload}/url` | `{url}`：`tcmedia.zju.edu.cn/download/file/<key>?timestamp&token&name`，不带 Cookie 直接取 |
 | 课程作业 | GET `/api/courses/{course}/homework-activities` | 分页 `homework_activities[]`，包含已提交/未提交/已结束 |
 | 本人提交记录 | GET `/api/activities/{activity}/students/{user}/submission_list` | `list[]`，包含草稿状态、附件、正文、提交时间和批改字段 |
 | 小组提交记录 | GET `/api/activities/{activity}/groups/{group}/submission_list` | 当前前端可确认的接口；本次无小组样本实测 |
@@ -78,9 +84,12 @@ JSON 读取遇 401 或登录跳转时合并重登一次；写请求不自动重�
 - **当前学期不能只看 `is_active`。** 平台只把长学期标成当前（2026-10 实测只有 `2026-2027秋冬`），同学年的 `2026-2027秋` 不带标记，但秋学期的课正在上。`currentSemesters()` 取带标记的学期，加上同一学年里名称互相包含的学期（秋、冬 ⊂ 秋冬）；待办补查、课程列表默认范围和同名课程的优先级都用它。只按 `is_active` 会漏掉短学期课程的作业。
 - **课程 `status` 不能用来判断在不在上。** 2026-10 实测 36 门课里 34 门是 `ongoing`（含去年的课），`end_date` 大多为空。
 - 活动列表已带 `data.description`（作业要求、页面正文）和 `data.link`（链接类活动的地址），课程详情不必逐个请求活动详情。
+- **`uploads[].allow_download` 不限制下载接口。** 老师关掉下载后它为 `false`，网页只是不显示下载按钮；下载地址照常给出原文件，长度与清单 `size` 一致（2026-10-10 实测 pdf、pptx、docx、mp4、wmv、m4v、wav、mp3）。所以下载不看这个字段，清单也不输出它。
+- **取地址用 `/url`，不用 `/blob`。** 两者指向同一个 tcmedia 文件，但 `/blob` 302 给的地址多一个 `nonce`，只能请求一次，第二次起 403，分不了块；`/url`（网页预览用的 `/preview` 同）给的地址可以重复、并发请求。tcmedia（Tengine）支持 Range，带强 ETag，没有 Last-Modified。签名里的 `timestamp` 取整到小时，同一个文件在同一个小时里每次取到的地址都相同；过了整点旧地址仍可用：23:00 签的地址到 00:05 还能取，一次跨 00:00 的下载全程用旧地址、没有请求被拒（2026-10-11）；多久失效没有测到。
+- 下载按 4 MB 分块，一次 3 个文件、共 6 个连接；没下完的留下 `<文件名>.parts`，下次接着下。签名每小时换一次，续传按地址去掉查询串后的部分（含文件 key）认同一个文件；下载中途被存储拒绝（403）时重新取地址接着下，最多两次（真实的过期没有遇到，只用注入的 403 验证过）。tcmedia 的新连接不时在建立时被断开（约 5 秒后 `ECONNRESET`），同一块连着断两次也遇到过，所以每个请求最多重试 4 次。
 - 文件清单里的 `size` 与下载到的字节数一致（2026-10 实测），用来判断本地文件能否复用。默认保存到 `data/output/xuezai/<课程名>/<文件名>`；同一门课里重名的文件在名字后带平台编号。
 - 撤回只针对最近一次提交（网页上的「撤回」按钮同此），所以命令不接收提交记录编号。
-- 本人交过的文件与课件走同一个下载接口（`/api/uploads/{id}/blob`），`homework download` 取最近一次提交（与撤回同一条记录），存到 `data/output/xuezai/<课程名>/我的提交/<作业名>/`，老师传回的文件在其下的 `老师批改/`。重交时同名文件内容会变，所以每次重新下载，不按大小复用。
+- 本人交过的文件与课件走同一个下载接口，`homework download` 取最近一次提交（与撤回同一条记录），存到 `data/output/xuezai/<课程名>/我的提交/<作业名>/`，老师传回的文件在其下的 `老师批改/`。重交时同名文件内容会变，所以每次重新下载，不按大小复用。
 - `submission_correct.uploads` 里名为 `markattatchment.txt` 的不是老师传回的文件，而是平台保存网页批注笔迹的数据（URL 编码的 JSON，内容是各页的 SVG 路径；2026-10 实测，老师在网页上批注一次产生一到两个）。它只用来说明「老师在网页上批注过」（`annotation`），不列入文件、不下载；把笔迹画回 PDF 未做。
 - 没有文件的提交记录有两种：老师代为登记的（`submit_by_instructor: true`，如线下交的作业、考试成绩）和纯文字提交，`homework download` 在 `note` 里分别说明。
 

@@ -1,9 +1,16 @@
-# 定时与常驻任务
+# 定时任务
 
-本技能运行在服务器上，由 Hermes 调用。提醒、每天执行这类需要按时间自动运行的任务，用 Hermes 自带的定时任务创建，和现有的「ZJU CC98 每日签到」是同一套机制；不自建 systemd timer 或 crontab。即时查询直接执行命令。
+提醒、每天查一次这类要到点自动做的事，用应用的「自动化任务」：调用 `schedule_create`，到点后应用把 `prompt` 作为一条消息发回这个对话，助手在这个对话里照着做，结果也写在这里。不用系统的任务计划、后台脚本或 sleep 循环自己做定时。即时查询直接执行命令，不建任务。
 
-- 任务加载 zju 技能，工作目录 `/home/ubuntu/zju-skill`；提示词写清要执行的命令和怎样汇报结果。写操作写明 `ZJU_ALLOW_WRITE=1` 与 `--confirm`，只在用户已授权的范围内。
-- 提醒用一次性任务。
-- 已有的自动任务，不要重复创建：
-  - Hermes 定时任务「ZJU CC98 每日签到」：每天 09:30 运行 `cc98 account signin --confirm --all`，结果发到 QQ。
-- 同机还运行 zju-run-web（Docker，nginx 反代 zjurun.xyz 等站点，每天 03:20 备份）、Tailscale、privoxy。不要占用 80、443、8080、8118 端口，也不要改动这些服务。
+- 没有 `schedule_create` 这个工具，就是「自动化任务」关着：请用户在「插件」页的通用工具里打开，不改用别的办法。
+- `title` 写任务名。`prompt` 写到点要做的事，到时候只看这一段也要能做：开头写「用 zju 技能」，再写执行哪条命令、怎样汇报结果。
+- 时间只给一种：提醒这类只做一次的用 `at` 或 `after_seconds`，每天用 `daily`，每周几用 `weekly`，其余用 `cron`。时区写 `Asia/Shanghai`。
+- 写操作在 `prompt` 里写明 `ZJU_ALLOW_WRITE=1` 与 `--confirm`，只在用户已授权的范围内。
+- 建之前用 `schedule_list` 看这个对话里已有的任务，不重复建；改用 `schedule_update`，取消用 `schedule_delete`。别的对话里建的任务这里看不到，用户在侧栏的「自动化任务」页里看、改、删。
+- 建好后告诉用户：应用开着才会到点执行；关着时错过的，下次打开时补做，周期任务只补最近一次。
+
+例：用户说「每天早上 8 点看看有没有新通知」，`schedule_create` 的参数：
+
+```json
+{"title":"每天看新通知","prompt":"用 zju 技能执行 notice new，按标题挑出和我有关的再取全文；没有新通知就只说一句没有。","daily":{"time":"08:00:00","time_zone":"Asia/Shanghai"}}
+```

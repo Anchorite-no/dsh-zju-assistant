@@ -242,6 +242,7 @@ ZJU Core 和原技能其余不一样的地方：
 - 没有 `profile.env`，`profile init` 也去掉了；账号和密码只从 `accounts.json` 读，不认同名的环境变量。
 - 运行数据（会话、缓存、下载）默认放在档案目录旁边的 `zju/`，也就是 `%APPDATA%\CampusAgent\zju`，不落在代码目录里（`core/zju/lib/core/paths.ts`）。
 - 档案目录由桌面端经 `CAMPUS_PROFILE_DIR` 给出，引擎启动的命令会继承它。
+- 定时和文件交付的说明按应用改了（2026-10-11）；原技能在服务器上由 Hermes 调用、结果发到 QQ。`references/schedule.md` 原来写 Hermes 的定时任务、服务器的工作目录、已有的签到任务和同机的服务，现在写引擎的自动化任务：助手用 `schedule_create`、`schedule_list`、`schedule_update`、`schedule_delete` 建和管，任务绑在建它的那个对话上，到点把提示词作为一条消息发回那个对话，应用开着才会发；「自动化任务」关着时没有这四个工具，说明里让助手请用户去插件页打开。`references/tyys.md` 指向它的那一句跟着改了。`SKILL.md`「文件交付」去掉了给 QQ 发附件的 `MEDIA:` 写法：文件就在本机，用下载结果里的原路径，回答里怎么给照 `core/AGENT.md`（给链接）。工具名和到点的行为是对着 `@deepseek-ai/dsh-schedule` 0.2.0-rc.2 的工具定义和说明核的，没有在应用里让助手实际建过一次任务；引擎升级后对着这个包重新核一遍。
 
 ## 智云的转写和文件落点
 

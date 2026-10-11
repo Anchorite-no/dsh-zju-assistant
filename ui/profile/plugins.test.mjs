@@ -14,11 +14,12 @@ test('campus plugin switches persist, reach the ZJU kill switch and the model co
   const store = new ProfileStore(root)
   const env = { ZJU_DISABLED_MODULES: 'Zhiyun' }
   const switches = new PluginSwitches(store, env)
-  assert.deepEqual(switches.snapshot(), { disabled: [] })
+  // 什么都没动过时，只有默认关着的「课程讲解」不在开着的里面；它不是 ZJU Core 的功能，不占模块。
+  assert.deepEqual(switches.snapshot(), { disabled: ['campus.learn'] })
   assert.equal(env.ZJU_DISABLED_MODULES, 'zhiyun')
-  assert.equal(switches.promptText(), '')
+  assert.match(switches.promptText(), /^这些功能在「插件」页关着：课程讲解（learn 技能，做讲解）。/)
 
-  assert.deepEqual(switches.set({ id: 'campus.community', enabled: false }), { disabled: ['campus.community'] })
+  assert.deepEqual(switches.set({ id: 'campus.community', enabled: false }), { disabled: ['campus.community', 'campus.learn'] })
   assert.equal(modules(env), 'cc98,chalaoshi,zhiyun')
   assert.match(switches.promptText(), /校园社区.*cc98/)
   switches.set({ id: 'campus.materials', enabled: false })
@@ -26,7 +27,7 @@ test('campus plugin switches persist, reach the ZJU kill switch and the model co
 
   // A restart reads the same file.
   const restarted = {}
-  assert.deepEqual(new PluginSwitches(store, restarted).snapshot().disabled.sort(), ['campus.community', 'campus.materials'])
+  assert.deepEqual(new PluginSwitches(store, restarted).snapshot().disabled.sort(), ['campus.community', 'campus.learn', 'campus.materials'])
   assert.equal(modules(restarted), 'cc98,chalaoshi,chaoxing,cnki,ebook,zhiyun')
 
   // Switching everything back on keeps the entry the launch environment came with.
@@ -67,7 +68,31 @@ test('independent WeChat switch persists without claiming a ZJU module', t => {
   assert.equal(env.CAMPUS_WECHAT_DISABLED, '1')
   assert.equal(env.ZJU_DISABLED_MODULES, undefined)
   assert.match(switches.promptText(), /微信公众号.*独立采集模块/)
-  assert.deepEqual(new PluginSwitches(store, {}).disabled(), ['campus.wechat'])
+  assert.deepEqual(new PluginSwitches(store, {}).disabled(), ['campus.wechat', 'campus.learn'])
   switches.set({ id: 'campus.wechat', enabled: true })
   assert.equal(env.CAMPUS_WECHAT_DISABLED, undefined)
+})
+
+test('a plugin that starts closed stays closed until the user opens it, and that choice survives a restart', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'campus-optin-switch-'))
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const store = new ProfileStore(root), switches = new PluginSwitches(store, {})
+  assert.deepEqual(switches.disabled(), ['campus.learn'])
+
+  // 打开：记在 enabled 那张单子里；别的都开着时就没有要对模型说的了。
+  assert.deepEqual(switches.set({ id: 'campus.learn', enabled: true }), { disabled: [] })
+  assert.equal(switches.promptText(), '')
+  assert.deepEqual(JSON.parse(fs.readFileSync(store.file('plugins.json'), 'utf8')), { disabled: [], enabled: ['campus.learn'] })
+  assert.deepEqual(new PluginSwitches(store, {}).disabled(), [])
+
+  // 再关上；和默认开着的那些互不相干。
+  switches.set({ id: 'campus.notices', enabled: false })
+  assert.deepEqual(switches.set({ id: 'campus.learn', enabled: false }), { disabled: ['campus.notices', 'campus.learn'] })
+  assert.deepEqual(JSON.parse(fs.readFileSync(store.file('plugins.json'), 'utf8')), { disabled: ['campus.notices'], enabled: [] })
+
+  // 加这一项以前存下的文件只有 disabled：照旧能读，「课程讲解」是关着的。放错单子的不认。
+  fs.writeFileSync(store.file('plugins.json'), JSON.stringify({ disabled: ['campus.community', 'campus.learn'], enabled: ['campus.community'] }))
+  assert.deepEqual(new PluginSwitches(store, {}).disabled(), ['campus.community', 'campus.learn'])
+  fs.writeFileSync(store.file('plugins.json'), JSON.stringify({ disabled: ['campus.community'] }))
+  assert.deepEqual(new PluginSwitches(store, {}).disabled(), ['campus.community', 'campus.learn'])
 })

@@ -7,7 +7,7 @@ import { join, resolve, sep } from 'node:path'
 import test from 'node:test'
 
 const require = createRequire(import.meta.url)
-const { shipMissingDependencies } = require('./after-pack.cjs')
+const { dropDeadWeight, oddNames, shipMissingDependencies } = require('./after-pack.cjs')
 
 /** 在 root 下面按 { '包的路径': package.json 的内容 } 建一棵 node_modules。 */
 async function install(root, packages) {
@@ -49,4 +49,31 @@ test('成品里补上没带的依赖：必需的 peer、它们的依赖和自带
   for (const name of ['@types/react', 'typescript', 'missing']) assert.equal(shipped(name), false, name)
   // 都齐了以后再跑一遍，不再拷任何东西。
   assert.deepEqual(shipMissingDependencies(app, project).added, [])
+})
+
+test('成品里删掉 node_modules 下面的源码映射和类型声明，别的都留着；我们自己的代码和 core 里的不动', async (t) => {
+  const tempRoot = resolve(tmpdir())
+  const root = await mkdtemp(join(tempRoot, 'campus-after-pack-'))
+  t.after(async () => {
+    assert.ok(resolve(root).startsWith(tempRoot + sep))
+    await rm(root, { recursive: true, force: true })
+  })
+  const app = join(root, 'resources', 'app')
+  const put = async (file, text = 'x') => { await mkdir(join(app, file, '..'), { recursive: true }); await writeFile(join(app, file), text) }
+  const gone = ['node_modules/a/lib/index.js.map', 'node_modules/a/lib/types/index.d.ts', 'node_modules/@s/b/index.d.mts', 'node_modules/@s/b/index.d.cts',
+    'node_modules/a/node_modules/c/c.css.map', 'core/zju/node_modules/d/d.d.ts', 'core/learn/engine/vendor/node_modules/e/e.js.map']
+  const kept = ['node_modules/a/lib/index.js', 'node_modules/a/package.json', 'node_modules/a/README.md', 'node_modules/a/data.ts', 'node_modules/a/roadmap',
+    'core/zju/scripts/zju.ts', 'core/zju/lib/types.d.ts', 'ui/lib/client.js.map', 'desktop/main.cjs']
+  for (const file of [...gone, ...kept]) await put(file)
+  assert.deepEqual(dropDeadWeight(app), { files: gone.length, bytes: gone.length })
+  for (const file of gone) assert.equal(existsSync(join(app, file)), false, file)
+  for (const file of kept) assert.equal(existsSync(join(app, file)), true, file)
+  // 再跑一遍没有可删的。
+  assert.deepEqual(dropDeadWeight(app), { files: 0, bytes: 0 })
+
+  // 名字带中文的文件安装程序装不了，要在打包时就找出来；带中文的文件夹只报它自己，不再往里数。
+  assert.deepEqual(oddNames(join(root, 'resources')), [])
+  await put('core/learn/朗读器.cmd')
+  await put('core/资料/a.txt')
+  assert.deepEqual(oddNames(join(root, 'resources')).sort(), [join('app', 'core', 'learn', '朗读器.cmd'), join('app', 'core', '资料')].sort())
 })

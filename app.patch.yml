@@ -29,12 +29,8 @@
 - id: ui-settings-plugin-inventory
   disabled: true
 
-# 人设从「coding agent」换成我们的智能体。补丁会整体替换该行的 config，所以两个键都要写。
-- id: system-prompt
-  config:
-    personaSuffix: Your working directory is {{cwd}}.
-    personaPrefix: >-
-      你是面向高校学生的校园事务与学习助手，由 {{model}} 模型驱动。
+# 人设不在这里换：引擎的每个 Agent 预设自己带一条「coding agent」的人设，会盖掉 system-prompt 这一行写的。
+# 换人设和助手的底层说明在 ui/profile/agent.mjs（正文是 core/AGENT.md）。
 
 # 引擎默认会把完整会话日志（含工具返回的内容）随每次请求额外上传给 DeepSeek。
 # 我们的会话里会有成绩、课表这类个人信息，这里关掉；模型请求本身不受影响。

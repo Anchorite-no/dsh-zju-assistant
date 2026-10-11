@@ -1,7 +1,7 @@
 {
   "name": "campus-agent",
   "productName": "CampusAgent",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "校园智能体桌面端：自写 Electron 壳 + 自己的界面包 + 自带的 ZJU / Learning core，引擎用 DeepSeek Harness",
   "main": "desktop/main.cjs",
@@ -13,12 +13,13 @@
     "test:profile": "node --test ui/profile/*.test.mjs",
     "test:trace": "node --test ui/client/trace/*.test.mjs",
     "test:credentials": "node --test desktop/config.test.mjs",
-    "test:plugins": "node --test desktop/profile.test.mjs desktop/ffmpeg.test.mjs desktop/film.test.mjs desktop/reader.test.mjs desktop/tray.test.mjs scripts/after-pack.test.mjs ui/profile/account.test.mjs ui/profile/plugins.test.mjs ui/profile/wechat.test.mjs",
-    "package": "node ui/build.mjs && electron-builder --dir",
-    "installer": "node ui/build.mjs && electron-builder --win nsis"
+    "test:plugins": "node --test desktop/profile.test.mjs desktop/ffmpeg.test.mjs desktop/node.test.mjs desktop/film.test.mjs desktop/reader.test.mjs desktop/tray.test.mjs desktop/update.test.mjs scripts/after-pack.test.mjs ui/profile/account.test.mjs ui/profile/plugins.test.mjs ui/profile/wechat.test.mjs",
+    "package": "node ui/build.mjs && electron-builder --dir --publish never",
+    "installer": "node ui/build.mjs && electron-builder --win nsis --publish never"
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.2.0-rc.2",
+    "electron-updater": "^6.8.9",
     "ffmpeg-static": "5.3.0",
     "js-yaml": "^4.3.2"
   },
@@ -46,6 +47,7 @@
       "!core/wechat/**/__pycache__/**",
       "!core/wechat/test_*.py",
       "!core/weread/*.test.mjs",
+      "!core/learn/朗读器.cmd",
       "core/learn/engine/vendor/node_modules/**/*",
       "core/zju/node_modules/**/*",
       "!core/zju/node_modules/{typescript,@types,.bin}/**",
@@ -58,13 +60,23 @@
       "output": "dist"
     },
     "afterPack": "scripts/after-pack.cjs",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Anchorite-no",
+        "repo": "campus-agent",
+        "private": true
+      }
+    ],
     "win": {
       "target": [
         "nsis"
       ]
     },
     "nsis": {
-      "artifactName": "CampusAgent-Setup-${version}.${ext}"
+      "artifactName": "CampusAgent-Setup-${version}.${ext}",
+      "useZip": true,
+      "differentialPackage": false
     }
   }
 }

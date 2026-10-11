@@ -1,17 +1,18 @@
 /**
  * 学习页切到「超星」时的两栏。学习通上基本只有一门课（大物实验），所以不先列课程，直接是这门课的内容：
- * 左栏像文件目录一样排章节，一个大章（力学实验、电磁学实验……）一组，点开是下面的各节，「资料」栏的文件夹排在最后；
- * 最上面多一组「我的实验」，是本人实验课表上的实验，按上课的先后排（没有课表、对不上时没有这一组）。
- * 点一节，右栏就是它的课件和视频，一个文件一行，点「下载」存到本机，下过的变成「打开文件夹」；视频可以选清晰度。
+ * 左栏是章节目录，一个大章（力学实验、电磁学实验……）一块，标题条点一下展开或收起，下面是它的各节，「资料」栏的文件夹排在最后；
+ * 最上面多一块「我的实验」，是本人实验课表上的实验，按上课的先后排（没有课表、对不上时没有这一块）。
+ * 点一节，右栏就是它：课件一块、视频一块，一个文件一行，行尾一个小图标下载，下过的变成打开文件夹；视频可以选清晰度。
+ * 块的样子和智云那一边学在浙大的章是同一种（style.css 的 .campus-learn-chapter），两边看着是一套东西。
  * 这一边没有总结和讲解。和智云那一边一样先照上一次读到的画，后台再去读。数据和缓存在引擎侧的 ui/profile/chaoxing.mjs。
  */
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import {
-  Button, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconDownloadOutlineRegular, IconFolderOpenOutlineRegular,
+  FileTypeIcon, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconDownloadOutlineRegular, IconFolderOpenOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { errorText, profileApi } from './api.ts'
 import { Choice, Select } from './controls.tsx'
-import { Note, ProgressLine, dayText, failure, pluginTitle, useDownloading } from './learnParts.tsx'
+import { IconAction, Note, PaneHead, ProgressLine, dayText, failure, move, pluginTitle, useDownloading } from './learnParts.tsx'
 import { openPlugin } from './PluginsPage.tsx'
 
 interface Course { id: string, title: string, teacher: string, className: string }
@@ -109,26 +110,26 @@ const toggle = (group: string) => { update({ opened: state.opened.includes(group
 /** 这一节有几个课件、几个视频；没有的那种不写。 */
 const countText = (section: Section) => [section.materials.length > 0 ? `课件 ${section.materials.length}` : '', section.videos.length > 0 ? `视频 ${section.videos.length}` : ''].filter(Boolean).join(' · ')
 
-/** 目录里的一组：一行组名，点一下展开或收起，下面是它的各节。 */
-function Folder({ id, title, count, open, children }: { id: string, title: string, count: number, open: boolean, children: ReactNode }) {
+/** 目录里的一块：一个大章（或「我的实验」），标题条点一下展开或收起，下面是它的各节。 */
+function Chapter({ id, title, count, open, children }: { id: string, title: string, count: number, open: boolean, children: ReactNode }) {
   return (
-    <li className="campus-tree-group">
-      <button type="button" className="campus-tree-folder" aria-expanded={open} onClick={() => { toggle(id) }}>
+    <li className="campus-learn-chapter">
+      <button type="button" className="campus-learn-chapter-head" aria-expanded={open} onClick={() => { toggle(id) }}>
         {open ? <IconChevronDownOutlineRegular size={14} /> : <IconChevronRightOutlineRegular size={14} />}
-        <span className="campus-tree-name">{title}</span>
+        <span className="campus-learn-chapter-name">{title}</span>
         <span className="campus-count">{count}</span>
       </button>
-      {open && <ul className="campus-tree-items">{children}</ul>}
+      {open && <ul className="campus-learn-chapter-files">{children}</ul>}
     </li>
   )
 }
 
-/** 目录里的一节：点了右栏就是它的文件。side 是行右边的小字（有几个文件，或者哪天上）。 */
+/** 块里的一节：点了右栏就是它的文件（换的时候带动效）。side 是行右边的小字（有几个文件，或者哪天上）。 */
 function Leaf({ section, side, current }: { section: Section, side: string, current: boolean }) {
   return (
     <li>
-      <button type="button" className="campus-tree-leaf" aria-current={current ? 'true' : undefined} onClick={() => { update({ picked: section.location }) }}>
-        <span className="campus-tree-name">{section.title}</span>
+      <button type="button" className="campus-learn-leaf" aria-current={current ? 'true' : undefined} onClick={() => { if (!current) move('swap', () => { update({ picked: section.location }) }) }}>
+        <span className="campus-learn-file-name">{section.title}</span>
         {side && <span className="campus-learn-side">{side}</span>}
       </button>
     </li>
@@ -138,49 +139,45 @@ function Leaf({ section, side, current }: { section: Section, side: string, curr
 /** 对一份文件做的事：下载，或者在文件夹里找到它。which 是这个文件的哪一种。 */
 type Act = (action: 'chaoxing-download' | 'chaoxing-reveal', file: CourseFile, which: Quality) => void
 
-/** 右栏的一组文件（课件，或者视频）。quality 是下哪一种；percents 是正在下的各下到百分之几。 */
-function Files({ label, files, quality, aside, percents, fetching, failed, onAct }: {
-  label: string, files: CourseFile[], quality: Quality, aside?: ReactNode
+/**
+ * 右栏的一块文件（课件，或者视频）：上面一条标题，下面一个文件一行，前面是文件类型的图标，行尾一个小图标下载。
+ * quality 是下哪一种；percents 是正在下的各下到百分之几。这一种文件没有时块里写一句话。
+ */
+function Files({ label, files, quality, percents, fetching, failed, onAct }: {
+  label: string, files: CourseFile[], quality: Quality
   percents: Readonly<Record<string, number | null>>, fetching: readonly string[], failed: Readonly<Record<string, string>>, onAct: Act
 }) {
   return (
-    <section className="campus-section" aria-label={label}>
-      <div className="campus-section-head">
-        <div className="campus-titleline">
-          <h3 className="campus-section-title">{label}</h3>
-          {files.length > 0 && <span className="campus-count">{files.length}</span>}
-        </div>
-        {files.length > 0 && aside}
+    <li className="campus-learn-chapter" aria-label={label}>
+      <div className="campus-learn-chapter-head" data-static="">
+        <span className="campus-learn-chapter-name">{label}</span>
+        {files.length > 0 && <span className="campus-count">{files.length}</span>}
       </div>
-      {files.length === 0 ? <p className="campus-task-empty">这一节没有{label}。</p> : (
-        <ul className="campus-rows">
-          {files.map((file, index) => {
-            const which: Quality = file.copies[quality] ? quality : 'original', copy = file.copies[which]!
-            const down = copy.busy || fetching.includes(copy.id), percent = down ? percents[copy.id] : null
-            // 行右边的小字：下的时候是百分之几，平时是多大。播放版事先不知道多大，不写。
-            const side = [percent != null ? `${percent}%` : '', which === 'original' ? file.size : ''].filter(Boolean).join(' · ')
-            return (
-              <li className="campus-row" key={`${copy.id}\n${index}`}>
-                <span className="campus-task-file">
-                  {file.name}
-                  {!copy.saved && !file.downloadable && <span className="campus-note">老师没有开放下载</span>}
-                  {failed[copy.id] && <span className="campus-form-error">{failed[copy.id]}</span>}
-                </span>
-                {side && <span className="campus-learn-side">{side}</span>}
-                {copy.saved
-                  ? <Button size="sm" variant="outline" icon={<IconFolderOpenOutlineRegular size={14} />} onClick={() => { onAct('chaoxing-reveal', file, which) }}>打开文件夹</Button>
-                  : file.downloadable && (
-                    <Button size="sm" variant="outline" icon={<IconDownloadOutlineRegular size={14} />} disabled={down} onClick={() => { onAct('chaoxing-download', file, which) }}>
-                      {down ? '下载中' : '下载'}
-                    </Button>
-                  )}
-                <ProgressLine percent={percent} />
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </section>
+      <ul className="campus-learn-chapter-files">
+        {files.length === 0 && <li className="campus-learn-file" data-empty="">这一节没有{label}。</li>}
+        {files.map((file, index) => {
+          const which: Quality = file.copies[quality] ? quality : 'original', copy = file.copies[which]!
+          const down = copy.busy || fetching.includes(copy.id), percent = down ? percents[copy.id] : null
+          // 行右边的小字：下的时候是百分之几，平时是多大。播放版事先不知道多大，不写。
+          const side = [percent != null ? `${percent}%` : '', which === 'original' ? file.size : ''].filter(Boolean).join(' · ')
+          return (
+            <li className="campus-learn-file" key={`${copy.id}\n${index}`}>
+              <FileTypeIcon path={file.name} size={18} />
+              <span className="campus-learn-file-name">
+                {file.name}
+                {!copy.saved && !file.downloadable && <span className="campus-note">老师没有开放下载</span>}
+                {failed[copy.id] && <span className="campus-form-error">{failed[copy.id]}</span>}
+              </span>
+              {side && <span className="campus-learn-side">{side}</span>}
+              {copy.saved
+                ? <IconAction label="打开文件夹" icon={<IconFolderOpenOutlineRegular size={14} />} onClick={() => { onAct('chaoxing-reveal', file, which) }} />
+                : file.downloadable && <IconAction label={down ? '下载中' : '下载'} icon={<IconDownloadOutlineRegular size={14} />} disabled={down} onClick={() => { onAct('chaoxing-download', file, which) }} />}
+              <ProgressLine percent={percent} />
+            </li>
+          )
+        })}
+      </ul>
+    </li>
   )
 }
 
@@ -209,8 +206,15 @@ export function ChaoxingColumns({ now }: { now: number }) {
     }).finally(() => { setFetching(old => old.filter(item => item !== id)) })
   }
 
-  // 目录：大章照课程里的顺序各成一组，「我的实验」在最前面。
-  const groups = [...new Set(sections.map(item => item.group))]
+  // 目录：大章照课程里的顺序各成一块，「我的实验」在最前面。自己就是最上面一层的一节（这门课没有分大章）不套同名的大章，
+  // 挨着的几节合成一块，没有标题条。
+  const blocks: ({ group: string, items: Section[] } | { loose: Section[] })[] = []
+  for (const group of new Set(sections.map(item => item.group))) {
+    const items = sections.filter(item => item.group === group), only = items[0]!, last = blocks.at(-1)
+    if (items.length > 1 || only.title !== group) blocks.push({ group, items })
+    else if (last && 'loose' in last) last.loose.push(only)
+    else blocks.push({ loose: [only] })
+  }
   const mine = (page?.mine ?? []).flatMap((item) => { const found = sections.find(one => one.location === item.location); return found ? [{ section: found, date: item.date }] : [] })
   const courses = snapshot?.courses ?? [], title = courses.find(item => item.id === course)?.title ?? page?.course.title ?? '章节'
   // 右栏名字下面的小字：它在哪个大章里；是自己要上的实验时带上哪天上。
@@ -222,7 +226,7 @@ export function ChaoxingColumns({ now }: { now: number }) {
       : page?.fetchedAt ? '这门课在超星上没有能下载的课件和视频。' : busy ? '第一次读这门课，要一节一节地读，等一会儿。' : ''
   return (
     <div className="campus-affairs-columns">
-      <section className="campus-section" aria-label="章节">
+      <section className="campus-section campus-learn-x" aria-label="章节">
         <div className="campus-section-head">
           {courses.length > 1
             ? <div className="campus-learn-course"><Select label="看哪门课" value={course} options={courses.map(item => ({ value: item.id, label: item.title }))} onChange={pickCourse} /></div>
@@ -235,22 +239,23 @@ export function ChaoxingColumns({ now }: { now: number }) {
         </div>
         {sections.length > 0 && (
           <div className="campus-notice-scroll campus-tree-scroll">
-            <ul className="campus-tree">
+            <ul className="campus-learn-chapters">
               {mine.length > 0 && (
-                <Folder id={MINE} title="我的实验" count={mine.length} open={opened.includes(MINE)}>
+                <Chapter id={MINE} title="我的实验" count={mine.length} open={opened.includes(MINE)}>
                   {mine.map(item => <Leaf key={item.section.location} section={item.section} side={dayText(item.date, now)} current={item.section.location === picked} />)}
-                </Folder>
+                </Chapter>
               )}
-              {groups.map((group) => {
-                const items = sections.filter(item => item.group === group), only = items[0]!
-                // 自己就是最上面一层的一节（这门课没有分大章）：直接是一行，不再套一层同名的组。
-                if (items.length === 1 && only.title === group) return <Leaf key={group} section={only} side={countText(only)} current={only.location === picked} />
-                return (
-                  <Folder key={group} id={group} title={group} count={items.length} open={opened.includes(group)}>
-                    {items.map(item => <Leaf key={item.location} section={item} side={countText(item)} current={item.location === picked} />)}
-                  </Folder>
-                )
-              })}
+              {blocks.map(block => 'loose' in block ? (
+                <li className="campus-learn-chapter" data-flat="" key={block.loose[0]!.location}>
+                  <ul className="campus-learn-chapter-files">
+                    {block.loose.map(item => <Leaf key={item.location} section={item} side={countText(item)} current={item.location === picked} />)}
+                  </ul>
+                </li>
+              ) : (
+                <Chapter key={block.group} id={block.group} title={block.group} count={block.items.length} open={opened.includes(block.group)}>
+                  {block.items.map(item => <Leaf key={item.location} section={item} side={countText(item)} current={item.location === picked} />)}
+                </Chapter>
+              ))}
             </ul>
           </div>
         )}
@@ -263,15 +268,17 @@ export function ChaoxingColumns({ now }: { now: number }) {
         {snapshot?.state === 'ready' && !snapshot.error && page?.error && !busy && <Note text={failure('这门课的文件', page.fetchedAt, page.error, now)} action="再试一次" onAction={() => { void visitChaoxing(true) }} />}
       </section>
       {section && (
-        <div className="campus-learn-files">
-          <div className="campus-learn-picked">
-            <h2 className="campus-learn-picked-title">{section.title}</h2>
-            {where && <span className="campus-note">{where}</span>}
+        <section className="campus-section campus-learn-c" aria-label={section.title}>
+          {/* 这一节有视频时，最上面那一行的右边选清晰度（和智云那一边「智云 / 学在浙大」的切换是同一个位置）。 */}
+          <PaneHead title={section.title} note={where}
+            aside={section.videos.length > 0 ? <Choice label="视频清晰度" value={quality} options={QUALITIES} onChange={(next) => { if (next) { setQuality(next); localStorage.setItem(QUALITY_KEY, next) } }} /> : undefined} />
+          <div className="campus-learn-pane">
+            <ul className="campus-learn-chapters">
+              <Files label="课件" files={section.materials} quality="original" percents={percents} fetching={fetching} failed={failed} onAct={act('material')} />
+              <Files label="视频" files={section.videos} quality={quality} percents={percents} fetching={fetching} failed={failed} onAct={act('video')} />
+            </ul>
           </div>
-          <Files label="课件" files={section.materials} quality="original" percents={percents} fetching={fetching} failed={failed} onAct={act('material')} />
-          <Files label="视频" files={section.videos} quality={quality} percents={percents} fetching={fetching} failed={failed} onAct={act('video')}
-            aside={<Choice label="视频清晰度" value={quality} options={QUALITIES} onChange={(next) => { if (next) { setQuality(next); localStorage.setItem(QUALITY_KEY, next) } }} />} />
-        </div>
+        </section>
       )}
     </div>
   )

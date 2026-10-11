@@ -5,12 +5,6 @@
 import { useEffect, useState } from 'react'
 import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 
-declare global {
-  interface Window {
-    campusShell?: { closeToTray: () => Promise<boolean>, setCloseToTray: (on: boolean) => Promise<boolean> }
-  }
-}
-
 const TITLE = '关闭窗口时隐藏到系统托盘'
 
 export function TrayRow() {

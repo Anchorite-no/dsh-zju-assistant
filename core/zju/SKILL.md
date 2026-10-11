@@ -36,7 +36,7 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 | 查作业、DDL | `xuezai todos`，自动合并原生待办和课程作业，按截止先后给出北京时间和 currentTime |
 | 某课作业 | `xuezai homework list --course 课程名`；某个作业的完整要求和我的提交记录 `xuezai homework view --course 课程名 --name 作业名`；老师随作业给的附件 `xuezai homework attachments --course 课程名 --name 作业名`；我交过的文件、老师批改后传回的文件 `xuezai homework download --course 课程名 --name 作业名` |
 | 找课件、看一门课每章有什么 | `xuezai material list --course 课程名`；章节和活动 `xuezai course view --course 课程名` |
-| 下载课件 | `xuezai material download --course 课程名 --name 文件名`，多个用竖线分隔，整门课全部用 `--all`；返回本地路径 |
+| 下载课件 | `xuezai material download --course 课程名 --name 文件名`，多个用竖线分隔，某一章的全部用 `--chapter 章节名`，整门课全部用 `--all`（后两种不含视频，要视频再加 `--video`）；返回本地路径 |
 | 超星学习通的课件 | 一条命令直接下载：`chaoxing material download --course 课程名 --chapter 实验或章节名`，返回本地路径。章节名照用户的说法写，命令自己会对上（差一两个字也行），不要先 list 再找。只有用户问「有哪些」时才用 `chaoxing material list --course 课程名`（只看一章加 `--chapter`） |
 | 超星学习通的视频 | 同上，换成 `chaoxing video download` / `chaoxing video list`；课件和视频都要时两条各调一次。默认下原文件（几百 MB）；用户要快、要小或要把视频发过去时加 `--quality playback`（720p，十几 MB）。用户给了学习通课程页面链接时，链接原样写进 `--course` |
 | 提交明确的作业 | `xuezai homework submit --course 课程名 --name 作业名 --file 文件 --confirm` |

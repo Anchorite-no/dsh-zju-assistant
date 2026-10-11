@@ -257,7 +257,15 @@ export class Learning {
     return course
   }
 
-  /** 一门课的课次，只看缓存和本机文件夹：已经上过的从新到旧，每一次带上本机有什么；upcoming 是还没上的有几次。 */
+  /** 课程表里编号是 id 的那门课，不在了就报错。学在浙大那一边按它的名字和教师去对是哪门课（xuezai.mjs）。 */
+  known(id) {
+    return this.find(this.status(), id)
+  }
+
+  /**
+   * 一门课的课次，只看缓存和本机文件夹：已经上过的从新到旧，每一次带上本机有什么（saved 是下了哪几种资料，summary 是有没有总结，
+   * film 是讲解做到哪了，做好了的 filmId 是成品的文件名，页面凭它直接放）；upcoming 是还没上的有几次。
+   */
   async course({ id } = {}) {
     const status = this.status(), course = this.find(status, id), entry = this.kept(status).lessons[course.id], now = this.now()
     const [shelf, films] = await Promise.all([this.shelf(), this.films()])
@@ -265,8 +273,8 @@ export class Learning {
     return {
       course, upcoming: all.length - held.length, fetchedAt: entry?.fetchedAt ?? null, error: entry?.error ?? null,
       lessons: held.reverse().map((lesson) => {
-        const local = shelf.get(`${course.id}:${lesson.lesson}`)
-        return { ...lesson, saved: [...new Set(local?.files.map(file => file.kind) ?? [])], summary: !!local?.summaryAt, film: films.find(film => film.topic === lessonTopic(course.id, lesson.lesson))?.state ?? null }
+        const local = shelf.get(`${course.id}:${lesson.lesson}`), film = films.find(item => item.topic === lessonTopic(course.id, lesson.lesson))
+        return { ...lesson, saved: [...new Set(local?.files.map(file => file.kind) ?? [])], summary: !!local?.summaryAt, film: film?.state ?? null, ...(film?.state === 'done' ? { filmId: film.id } : {}) }
       }),
     }
   }

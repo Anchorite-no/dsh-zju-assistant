@@ -1,0 +1,26 @@
+/** 壳经 desktop/preload.cjs 给页面的东西。不在壳里打开（比如浏览器）时没有 campusShell。 */
+
+/** 检查更新走到哪了（desktop/update.cjs）。 */
+interface CampusUpdateState {
+  status: 'unavailable' | 'idle' | 'checking' | 'current' | 'downloading' | 'ready' | 'no-access' | 'error'
+  /** 现在装着的版本。 */
+  current: string
+  /** 正在下或已经下好的那一版。 */
+  version?: string
+  /** 下到百分之几。 */
+  percent?: number
+  /** 没成功的原因。 */
+  message?: string
+}
+
+interface Window {
+  campusShell?: {
+    closeToTray: () => Promise<boolean>
+    setCloseToTray: (on: boolean) => Promise<boolean>
+    update: () => Promise<CampusUpdateState | undefined>
+    checkUpdate: () => Promise<CampusUpdateState | undefined>
+    installUpdate: () => Promise<void>
+    /** 存下读私有仓库用的 GitHub 令牌（给空的是删掉），随后重新查一次。 */
+    saveUpdateToken: (token: string) => Promise<CampusUpdateState | undefined>
+  }
+}

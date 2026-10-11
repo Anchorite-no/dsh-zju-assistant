@@ -4,13 +4,15 @@ import { beijingMinute, fileSize } from "../core/output.ts";
 import { uniqueMatch } from "../core/match.ts";
 import type { Xuezai } from "./client.ts";
 import { findCourse, getActivity, getCourse, listActivities, listCourses, listModules, pickSemesters, courseRow, courseView } from "./courses.ts";
-import { listMaterials, downloadMaterials, materialRow } from "./materials.ts";
+import { courseMaterials, downloadMaterials, materialRow, placeOf, type Material } from "./materials.ts";
+import type { CourseModule } from "./types.ts";
 import { listHomework, getHomework, submitHomework, retractHomework, downloadAttachments, downloadSubmission, homeworkList, homeworkView, submissionView } from "./homework.ts";
 import { getTodos } from "./todos.ts";
 import { withClient, localSession, writeSetup } from "./cli-common.ts";
 import { rollcallCommands } from "./rollcall-cli.ts";
 
-const COURSE: Option = { description: "课程名称，可用常见简称（计组、概统）", required: true };
+const COURSE: Option = { description: "课程名称，可用常见简称（计组、概统）；也可以写 course list 给的课程链接", required: true };
+const CHAPTER: Option = { description: "只要这一章（或节）里的文件，写章节名称" };
 const HOMEWORK: Option = { description: "作业名称", required: true };
 const CONFIRM: Option = { description: "确认执行；同时需要环境变量 ZJU_ALLOW_WRITE=1", type: "boolean" };
 
@@ -25,6 +27,15 @@ async function homeworkTarget(c: Xuezai, f: Flags) {
   const rows = await listHomework(c, course.id);
   if (!rows.length) throw new NeedsUser(`${course.name} 在学在浙大没有布置作业`);
   return { ...uniqueMatch(rows, f.name as string, (r) => [r.title], (r) => ({ name: r.title, deadline: beijingMinute(r.end_time) }), "作业"), courseName: course.name };
+}
+
+/** 给了 --chapter 就只留那一章（或节）里的文件。几章同名时一起算；名字对到几个不同的章节时给候选。 */
+function inChapter(rows: Material[], modules: CourseModule[], chapter: string | undefined): Material[] {
+  if (chapter === undefined) return rows;
+  const names = [...new Set(rows.flatMap((row) => Object.values(placeOf(row, modules))))];
+  if (!names.length) throw new NeedsUser("这门课的文件没有分章节");
+  const picked = uniqueMatch(names, chapter, (name) => [name], (name) => name, "章节");
+  return rows.filter((row) => Object.values(placeOf(row, modules)).includes(picked));
 }
 
 const course = group("我的课程；一门课的简介、章节和每章里的资料、作业", {
@@ -45,23 +56,36 @@ const course = group("我的课程；一门课的简介、章节和每章里的�
 });
 
 const material = group("课件等课程文件：清单与下载", {
-  list: read("一门课的全部文件：文件名、大小和所在活动", { course: COURSE }, async (c, f) => {
-    const found = await findCourse(c, f.course as string), rows = await listMaterials(c, found.id);
-    return { course: found.name, count: rows.length, materials: rows.map(materialRow) };
+  list: read("一门课的全部文件，照课程里的先后：文件名、大小、在哪一章和所在活动", { course: COURSE, chapter: CHAPTER }, async (c, f) => {
+    const found = await findCourse(c, f.course as string), { materials, modules } = await courseMaterials(c, found.id);
+    const rows = inChapter(materials, modules, text(f, "chapter"));
+    return { course: found.name, count: rows.length, materials: rows.map((row) => materialRow(row, modules)) };
   }),
   download: read("下载课程文件，返回本地路径；下载过的直接复用。默认存到 data/output/xuezai/课程名/", {
     course: COURSE,
     name: { description: "文件名或所在活动名，多个用竖线分隔；与 --all 二选一" },
-    all: { description: "这门课的全部文件", type: "boolean" },
+    chapter: { description: `${CHAPTER.description}；只给它、不给 --name 时下载这一章的全部文件，不含视频` },
+    all: { description: "这门课的全部文件，不含视频", type: "boolean" },
+    video: { description: "和 --all 或单独的 --chapter 一起用：视频也下载", type: "boolean" },
     "out-dir": { description: "保存目录" },
   }, async (c, f) => {
-    const names = list(text(f, "name"));
-    if (bool(f, "all") === (names.length > 0)) throw new ConfigError("需要 --name 文件名，或 --all 下载这门课的全部文件");
-    const found = await findCourse(c, f.course as string), rows = await listMaterials(c, found.id);
-    if (!rows.length) throw new NeedsUser(`${found.name} 没有文件`);
-    const wanted = bool(f, "all") ? rows.filter((r) => r.allow_download !== false)
-      : names.map((name) => uniqueMatch(rows, name, (r) => [r.name, ...r.activities.map((a) => a.title)], materialRow, "文件"));
-    return { course: found.name, ...await downloadMaterials(c, found.name, rows, [...new Set(wanted)], { ...(text(f, "out-dir") ? { outDir: text(f, "out-dir")! } : {}) }) };
+    const names = list(text(f, "name")), chapter = text(f, "chapter");
+    if (bool(f, "all") && names.length) throw new ConfigError("--name 与 --all 只给一个");
+    // 只说了哪一章，就是要这一章的全部。
+    const whole = !names.length;
+    if (whole && !bool(f, "all") && chapter === undefined) throw new ConfigError("需要 --name 文件名、--chapter 章节名，或 --all 下载这门课的全部文件");
+    if (bool(f, "video") && !whole) throw new ConfigError("--video 只在下载整门课或整章时用；下载某个视频直接把它写进 --name");
+    const found = await findCourse(c, f.course as string), { materials, modules } = await courseMaterials(c, found.id);
+    if (!materials.length) throw new NeedsUser(`${found.name} 没有文件`);
+    const rows = inChapter(materials, modules, chapter);
+    // 整门课、整章下载默认不带视频：一门课的视频常有几个 GB。
+    const skipped = whole && !bool(f, "video") ? rows.filter((r) => r.type === "video") : [];
+    const wanted = whole ? rows.filter((r) => !skipped.includes(r))
+      : names.map((name) => uniqueMatch(rows, name, (r) => [r.name, ...r.activities.map((a) => a.title)], (r) => materialRow(r, modules), "文件"));
+    return {
+      course: found.name, ...await downloadMaterials(c, found.name, materials, [...new Set(wanted)], { ...(text(f, "out-dir") ? { outDir: text(f, "out-dir")! } : {}) }),
+      ...(skipped.length ? { note: `没有下载${chapter === undefined ? "这门课" : "这一章"}的 ${skipped.length} 个视频（共 ${fileSize(skipped.reduce((sum, r) => sum + r.size, 0))}）；要下载加 --video` } : {}),
+    };
   }),
 });
 

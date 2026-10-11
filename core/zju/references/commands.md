@@ -1,6 +1,6 @@
 # 当前命令总表
 
-生成日期：2026-10-10。共 165 条公开命令路径、17 个模块。
+生成日期：2026-10-11。共 165 条公开命令路径、17 个模块。
 
 入口为 `node scripts/zju.ts <module> <command> [参数]`。默认帮助逐级展示；`--help --all` 展开当前范围全部公开命令。参数类型与帮助来自实际注册定义，本生成器不执行登录或业务。
 
@@ -497,18 +497,18 @@ zju xuezai course view --course VALUE 一门课的简介和章节，每章列出
 ### xuezai material list
 
 ```text
-zju xuezai material list --course VALUE 一门课的全部文件：文件名、大小和所在活动
+zju xuezai material list --course VALUE [--chapter VALUE] 一门课的全部文件，照课程里的先后：文件名、大小、在哪一章和所在活动
 ```
 
-`--course`：文本/路径，必填。
+`--course`：文本/路径，必填；`--chapter`：文本/路径。
 
 ### xuezai material download
 
 ```text
-zju xuezai material download --course VALUE [--name VALUE] [--all] [--out-dir VALUE] 下载课程文件，返回本地路径；下载过的直接复用。默认存到 data/output/xuezai/课程名/
+zju xuezai material download --course VALUE [--name VALUE] [--chapter VALUE] [--all] [--video] [--out-dir VALUE] 下载课程文件，返回本地路径；下载过的直接复用。默认存到 data/output/xuezai/课程名/
 ```
 
-`--course`：文本/路径，必填；`--name`：文本/路径；`--all`：开关；`--out-dir`：文本/路径。
+`--course`：文本/路径，必填；`--name`：文本/路径；`--chapter`：文本/路径；`--all`：开关；`--video`：开关；`--out-dir`：文本/路径。
 
 ### xuezai homework list
 

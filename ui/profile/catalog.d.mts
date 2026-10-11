@@ -29,12 +29,15 @@ export interface AppPlugin {
   id: string
   title: string
   description: string
-  art: 'account' | 'courses' | 'notices' | 'activities' | 'materials' | 'community' | 'wechat'
+  art: 'account' | 'courses' | 'notices' | 'activities' | 'materials' | 'community' | 'wechat' | 'learn'
   /** 基础能力，没有开关。 */
   base?: boolean
+  /** 默认关着，要用户自己打开；没有这一项的默认开着。 */
+  optIn?: boolean
   /** 这一项管的 ZJU Core 模块。 */
   modules?: readonly string[]
-  backend?: 'wechat'
+  /** 不是 ZJU Core 的功能背后是哪一样：公众号的本地采集，或者 Learning Core（learn 技能）。 */
+  backend?: 'wechat' | 'learn'
   /** 详情页里可以填写的账号。 */
   accounts: readonly AccountId[]
   /** 缺了就整项用不了的账号，列表上会提示。 */

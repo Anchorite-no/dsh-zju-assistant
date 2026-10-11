@@ -12,15 +12,15 @@ xuezai
 └─ session   login · status · logout        排障用
 ```
 
-课程一律写名称，可用常见简称（计组、概统）；同名课程优先当前学期，仍不唯一时返回候选。作业、文件也按名称定位，不需要任何 ID。结果时间都是北京时间 `YYYY-MM-DD HH:mm`，并附 currentTime，用它判断今天截止或已过期。
+课程一律写名称，可用常见简称（计组、概统）；同名课程优先当前学期，仍不唯一时返回候选。`course list` 的每门课带着课程页面的链接（`link`），把它原样写进 `--course` 也行，用户给了学在浙大的课程链接时照此办。作业、文件也按名称定位，不需要任何 ID。结果时间都是北京时间 `YYYY-MM-DD HH:mm`，并附 currentTime，用它判断今天截止或已过期。
 
 | 用户目标 | 命令 | 结果 |
 |---|---|---|
 | 有什么作业、DDL | `todos`，只看一门课加 `--course` | 当前学期各课未交的作业和测验，按截止先后：course、title、type、deadline、requirement（作业要求全文） |
 | 这学期有哪些课 | `course list` | 当前学期的课程、教师；往年加 `--semester 2025-2026春夏`（或只写学年 `2025-2026`），全部学期加 `--all` |
 | 一门课讲什么、每章有什么 | `course view --course 课程名` | 简介、开课日期，章节下的每个活动：类型、说明、链接、截止时间、文件名 |
-| 找课件 | `material list --course 课程名` | 文件名、大小、所在活动；老师未开放下载的标 `downloadable: false` |
-| 下载课件 | `material download --course 课程名 --name 文件名` | 本地路径。`--name` 可写文件名或所在活动名，多个用竖线分隔；整门课全部下载用 `--all`。下载过的直接复用 |
+| 找课件 | `material list --course 课程名`，只看一章加 `--chapter 章节名` | 照课程里的先后：文件名、大小、在哪一章（`chapter`，有小节时还有 `section`）、所在活动，视频带 `video`；网页上只能预览、没有下载按钮的文件同样能下载 |
+| 下载课件 | `material download --course 课程名 --name 文件名` | 本地路径。`--name` 可写文件名或所在活动名，多个用竖线分隔；某一章的全部写 `--chapter 章节名`（章节名照用户的说法写，对到几章时返回候选），整门课全部用 `--all`，这两种都不含视频（结果的 `note` 会说跳过了几个、共多大），用户要连视频一起下再加 `--video`；某一个视频直接写进 `--name`。各章有同名文件（都叫「课件.pdf」）时 `--chapter` 和 `--name` 一起给。下载过的直接复用，中断的下次接着下 |
 | 一门课的作业 | `homework list --course 课程名` | 全部作业（含已交）：status 为 未交 / 已交 / 已截止未交，requirement、score |
 | 某个作业的要求和我交了什么 | `homework view --course 课程名 --name 作业名` | 完整要求、老师附件、提交方式与次数、能否撤回，本人提交记录（文件、分数、老师评语、批改附件；老师只在网页上批注时为 `annotation`） |
 | 下载作业的附件（老师给的题目、模板） | `homework attachments --course 课程名 --name 作业名` | 本地路径，在 `files`。只要其中一个加 `--file 附件名`（多个用竖线分隔）；下载过的直接复用 |

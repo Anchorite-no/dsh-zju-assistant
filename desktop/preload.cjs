@@ -51,10 +51,18 @@ function syncCaptionColors() {
 // 壳转来的「后退」（鼠标侧键）：变成窗口上的一个事件，页面上的返回听它（ui/client/back.ts）。
 ipcRenderer.on('campus:back', () => { window.dispatchEvent(new Event('campus:back')) })
 
-// 设置里「关闭窗口时隐藏到系统托盘」的开关：值存在壳这边（tray.cjs），页面经这两个函数读和改（ui/client/TrayRow.tsx）。
+// 检查更新的状态变了（开始下载、下到百分之几、下好了）：壳喊一声，页面听到后自己来读（ui/client/UpdateRow.tsx）。
+ipcRenderer.on('campus:update', () => { window.dispatchEvent(new Event('campus:update')) })
+
+// 存在壳这边的两样设置，页面经这些函数读和改：
+// 「关闭窗口时隐藏到系统托盘」的开关（tray.cjs，ui/client/TrayRow.tsx），和检查更新（update.cjs，ui/client/UpdateRow.tsx）。
 contextBridge.exposeInMainWorld('campusShell', {
   closeToTray: () => ipcRenderer.invoke('campus:close-to-tray:get'),
   setCloseToTray: on => ipcRenderer.invoke('campus:close-to-tray:set', on === true),
+  update: () => ipcRenderer.invoke('campus:update:get'),
+  checkUpdate: () => ipcRenderer.invoke('campus:update:check'),
+  installUpdate: () => ipcRenderer.invoke('campus:update:install'),
+  saveUpdateToken: token => ipcRenderer.invoke('campus:update:token', String(token ?? '')),
 })
 
 if (process.platform === 'win32') {

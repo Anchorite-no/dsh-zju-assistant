@@ -7,7 +7,7 @@
 import type {
   ConversationNodeDefinition, ConversationTimelineSnapshot, ConversationViewDefinition, ConversationViewNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { describeCall, readOutcome, resultText, type Action, type Outcome } from './parse.ts'
+import { describeCall, outcomeOf, resultText, type Action, type Outcome } from './parse.ts'
 
 export const TRACE_TARGET = 'campus-trace'
 
@@ -75,10 +75,7 @@ export const traceCallDefinition: ConversationNodeDefinition<TraceCall> = {
   update: (context, match) => {
     const event = match.event
     if (event.type !== 'tool/result') return context.state
-    const isError = event.data.message.isError === true
-    const outcome = context.state.action.kind === 'campus'
-      ? readOutcome(resultText(event.data.message.content), isError)
-      : { ok: !isError }
+    const outcome = outcomeOf(context.state.action, resultText(event.data.message.content), event.data.message.isError === true)
     return { ...context.state, done: { at: event.time, outcome } }
   },
   buildViewNode: context => context.state === undefined ? null : {

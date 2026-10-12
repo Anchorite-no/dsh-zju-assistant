@@ -10,8 +10,15 @@ import { stepName } from './steps.ts'
 /** campus 是校园命令，web 是联网搜索和打开网页，other 是读写文件、跑脚本这些本地操作。 */
 export type ActionKind = 'campus' | 'web' | 'other'
 
+/**
+ * 结果是哪一种写法，决定怎么看这一步成没成（outcomeOf）：
+ * envelope 是校园命令输出的 JSON 信封，shell 是别的命令行的输出，tool 是引擎自带工具的结果。
+ */
+export type OutputForm = 'envelope' | 'shell' | 'tool'
+
 export interface Action {
   kind: ActionKind
+  output: OutputForm
   /** 网站的名字；本地操作没有。 */
   site?: string
   /** 做了什么。 */
@@ -172,7 +179,7 @@ function campusAction(words: string[], command: string): Action {
     if (COMMANDS[candidate]) known = candidate
   }
   if (flags.help || !known) {
-    return { kind: 'other', label: flags.help ? '查看命令用法' : `${site ?? module}：${path.join(' ') || '命令'}`, key: 'other', command }
+    return { kind: 'other', output: 'envelope', label: flags.help ? '查看命令用法' : `${site ?? module}：${path.join(' ') || '命令'}`, key: 'other', command }
   }
   const entry = COMMANDS[known]!
   // 值是 shell 变量（循环里的 $d）时不知道实际是什么，纯数字的是帖子、课程的编号，人看不懂，都不显示。
@@ -183,9 +190,10 @@ function campusAction(words: string[], command: string): Action {
   const about = values.slice(0, 2).map(value => /^https?:\/\//.test(value) ? hostOf(value) ?? value : value).join(' · ')
   const cancel = flags.cancel === true
   const label = stepName(known, cancel, entry.label)
-  if (site === undefined) return { kind: 'other', label, ...(about ? { about: shorten(about) } : {}), key: 'other', command }
+  if (site === undefined) return { kind: 'other', output: 'envelope', label, ...(about ? { about: shorten(about) } : {}), key: 'other', command }
   return {
     kind: 'campus',
+    output: 'envelope',
     site,
     label,
     ...(about ? { about: shorten(about) } : {}),
@@ -210,22 +218,22 @@ export function describeCall(name: string, argsRaw: string): Action {
     const words = zjuWords(command)
     if (words && words.length > 0) return campusAction(words, command)
     const about = text('description') ?? command
-    return { kind: 'other', label: '运行命令', ...(about ? { about: shorten(about) } : {}), key: 'other', command }
+    return { kind: 'other', output: 'shell', label: '运行命令', ...(about ? { about: shorten(about) } : {}), key: 'other', command }
   }
   if (name === 'web_search') {
     const query = text('query') ?? ''
-    return { kind: 'web', site: '联网搜索', label: '搜索', ...(query ? { about: shorten(query) } : {}), key: 'web_search', command: query }
+    return { kind: 'web', output: 'tool', site: '联网搜索', label: '搜索', ...(query ? { about: shorten(query) } : {}), key: 'web_search', command: query }
   }
   if (name === 'web_fetch') {
     const url = text('url') ?? ''
     const host = hostOf(url)
-    return { kind: 'web', site: host ?? '网页', label: '打开网页', key: `web_fetch ${host ?? ''}`, command: url, ...(host ? { link: url } : {}) }
+    return { kind: 'web', output: 'tool', site: host ?? '网页', label: '打开网页', key: `web_fetch ${host ?? ''}`, command: url, ...(host ? { link: url } : {}) }
   }
   const local = LOCAL_TOOLS[name]
   const target = local?.about ? text(local.about) : undefined
   const about = target === undefined ? undefined : /path$/.test(local!.about!) ? baseName(target) : target
   // 不认识的工具不把内部名字摆出来，名字留在「看命令」里。
-  return { kind: 'other', label: local?.label ?? '其他操作', ...(about ? { about: shorten(about) } : {}), key: 'other', command: `${name} ${argsRaw}` }
+  return { kind: 'other', output: 'tool', label: local?.label ?? '其他操作', ...(about ? { about: shorten(about) } : {}), key: 'other', command: `${name} ${argsRaw}` }
 }
 
 /** 结果里的文字：引擎把工具输出包成 text 块，或者再包一层 tool-result。 */
@@ -285,4 +293,87 @@ export function readOutcome(text: string, isError: boolean): Outcome {
     return { ok: false, ...(typeof error === 'string' ? { error: shorten(error, 160) } : {}) }
   }
   return { ok: !isError }
+}
+
+/**
+ * 命令行结果末尾的几行标记，一行一条，都排在输出后面（引擎 dsh-tool-pwsh、dsh-tool-bash 的写法）：
+ *   [sandbox: file access denied under … mode]   对话的权限不让读写
+ *   [sandbox: escalation available — …]          给模型看的提示，不管
+ *   [timed out after N ms]、[stopped: …]          没跑完就被停掉
+ *   [killed by signal: X] 或 [exit code: N]       怎么结束的；正常结束（0）不写
+ */
+interface ShellTail {
+  /** 去掉这些标记以后的输出。 */
+  body: string
+  denied: boolean
+  /** 等了多少毫秒没跑完。 */
+  timedOut?: number
+  signal?: string
+  exitCode?: number
+}
+
+function shellTail(text: string): ShellTail {
+  const lines = text.trimEnd().split('\n')
+  const tail: ShellTail = { body: '', denied: false }
+  for (; lines.length > 0; lines.pop()) {
+    const mark = /^\[(sandbox|timed out after|stopped|killed by signal|exit code)\b:? ?([^\]]*)\]$/.exec(lines[lines.length - 1]!.trim())
+    if (!mark) break
+    const [, name, value = ''] = mark
+    if (name === 'sandbox') tail.denied ||= value.includes('denied')
+    else if (name === 'timed out after') tail.timedOut = Number.parseInt(value, 10) || 0
+    else if (name === 'killed by signal') tail.signal = value
+    else if (name === 'exit code') tail.exitCode = Number(value)
+  }
+  tail.body = lines.join('\n')
+  return tail
+}
+
+/** 命令自己报的第一句错：写到 stderr 的那一段的第一行；whole 是引擎标了出错，这时整段结果就是原因。 */
+function firstComplaint(body: string, whole: boolean): string | undefined {
+  const lines = body.split('\n').map(line => line.trim())
+  const from = lines.lastIndexOf('[stderr]')
+  const said = (from >= 0 ? lines.slice(from + 1) : whole ? lines : []).find(line => line !== '')
+  return said?.replace(/^Error:\s*/, '') || undefined
+}
+
+/** 没成功的原因，给人看的一句：先说是权限不让还是超时，再跟上命令自己报的那一句；都没有就说它是怎么结束的。 */
+function failureText(tail: ShellTail, said: string | undefined): string | undefined {
+  const why = tail.denied ? '对话的权限不让读写这个位置'
+    : tail.timedOut !== undefined ? `等了 ${String(Math.max(1, Math.round(tail.timedOut / 1000)))} 秒没有跑完，被停掉了`
+      : undefined
+  const reason = [why, said].filter(Boolean).join('：')
+  if (reason) return shorten(reason, 160)
+  if (tail.signal !== undefined) return `被中止了（${tail.signal}）`
+  return tail.exitCode ? `命令没有成功，退出码 ${String(tail.exitCode)}` : undefined
+}
+
+const failed = (error: string | undefined): Outcome => ({ ok: false, ...(error ? { error } : {}) })
+
+/**
+ * 别的命令行（不是校园命令）的结果。命令退出码不是 0 时引擎并不算它出错（isError 还是 false），只在输出最后写一行退出码；
+ * 这里和对话里那张命令卡片一个看法（引擎 dsh-shell 的 parseExitStatus）：退出码不是 0、被信号杀掉、超时被停掉，都是没成功。
+ */
+export function readShellOutcome(text: string, isError: boolean): Outcome {
+  const tail = shellTail(text)
+  if (!isError && tail.signal === undefined && tail.timedOut === undefined && (tail.exitCode ?? 0) === 0) return { ok: true }
+  return failed(failureText(tail, firstComplaint(tail.body, isError)))
+}
+
+/** 引擎自带工具（读写文件、查找、联网）的结果：只看引擎的出错标记，出错时结果里写的就是原因。 */
+export function readToolOutcome(text: string, isError: boolean): Outcome {
+  if (!isError) return { ok: true }
+  const tail = shellTail(text)
+  return failed(failureText(tail, firstComplaint(tail.body, true)))
+}
+
+/** 这一步结果怎么样，按它是哪一种调用来读。 */
+export function outcomeOf(action: Action, text: string, isError: boolean): Outcome {
+  if (action.output === 'shell') return readShellOutcome(text, isError)
+  if (action.output === 'tool') return readToolOutcome(text, isError)
+  const outcome = readOutcome(text, isError)
+  if (!outcome.ok) return outcome
+  // 校园命令没等到自己说完就被停掉（超时、被杀掉）：信封不完整，读出来像是成功了，按没成功算。
+  // 它自己写到 stderr 的是进度，不是原因，不拿来用。
+  const tail = shellTail(text)
+  return tail.timedOut === undefined && tail.signal === undefined ? outcome : failed(failureText(tail, undefined))
 }

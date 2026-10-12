@@ -1548,7 +1548,7 @@ html[data-campus-pane] body {
   fill: var(--campus-trace-ink);
 }
 
-.campus-trace-row[data-failed] .campus-trace-graph circle {
+.campus-trace-row[data-state='failed'] .campus-trace-graph circle {
   fill: var(--dsw-alias-state-error-primary);
   stroke: none;
 }
@@ -1638,6 +1638,19 @@ html[data-campus-pane] body {
     animation: campus-trace-ink 260ms ease-out backwards;
     animation-delay: var(--campus-trace-step);
   }
+
+  /* 以前长出来过的行（data-quiet，TraceTab.tsx 的 useGrowth）重新摆上去时不再长一遍：行、线、圆点、字都直接在那。
+     data-quiet 在行挂上去时定下来就不变，之后这一行多出来的线没有它，照样画；正在做的那一步照样一闪一闪。 */
+  .campus-trace-row[data-quiet],
+  .campus-trace-row[data-quiet] > :is(.campus-trace-site, .campus-trace-cell),
+  .campus-trace-row[data-quiet] .campus-trace-graph circle,
+  .campus-trace-graph path[data-quiet] {
+    animation: none;
+  }
+
+  .campus-trace-row[data-quiet][data-state='running'] .campus-trace-graph circle {
+    animation: campus-trace-pulse 1.4s ease-in-out infinite;
+  }
 }
 
 .campus-trace-cell {
@@ -1706,13 +1719,13 @@ button.campus-trace-line:focus-visible::before {
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* 读写文件、跑脚本这些本地操作不是重点；还没等到的回答、被打断的一步也一样淡。 */
-.campus-trace-row[data-kind='other'] .campus-trace-line,
+/* 读写文件、跑脚本这些本地操作不是重点，失败了的除外；还没等到的回答、被打断的一步也一样淡。 */
+.campus-trace-row[data-kind='other']:not([data-state='failed']) .campus-trace-line,
 .campus-trace-row:is([data-state='pending'], [data-state='stopped']) .campus-trace-line {
   color: var(--dsw-alias-label-tertiary);
 }
 
-.campus-trace-row[data-failed] .campus-trace-result {
+.campus-trace-row[data-state='failed'] .campus-trace-result {
   color: var(--dsw-alias-state-error-primary);
 }
 
@@ -2345,19 +2358,6 @@ button[aria-label='工作区“对话”的操作'] {
   line-height: 17px;
 }
 
-/* 收起的那些展开以后：字淡一档，看得出是另一类。 */
-.campus-notice[data-folded] .campus-notice-open {
-  color: var(--dsw-alias-label-tertiary);
-  font-weight: 400;
-}
-
-/* ── 插件页的技能 ───────────────────────────────────────── */
-.campus-plugin-none {
-  margin: 0;
-  padding: 8px 0;
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-tertiary);
 /* 二课平台的活动用同一种标签，写「二课」，底色换成浅橘色，和公众号的浅蓝一眼分得开（颜色是用户 2026-10-12 定的）。
    引擎的色板里暖色只有偏黄的琥珀色，橘色是这里自己定的；字往正文的颜色那边靠一点，亮色下深一些、暗色下浅一些，都看得清。 */
 .campus-notice-account[data-kind='sztz'] > span {
@@ -2403,6 +2403,19 @@ button[aria-label='工作区“对话”的操作'] {
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* 收起的那些展开以后：字淡一档，看得出是另一类。 */
+.campus-notice[data-folded] .campus-notice-open {
+  color: var(--dsw-alias-label-tertiary);
+  font-weight: 400;
+}
+
+/* ── 插件页的技能 ───────────────────────────────────────── */
+.campus-plugin-none {
+  margin: 0;
+  padding: 8px 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
 }
 
 /* ── 设置里的个人档案 ─────────────────────────────────────
@@ -2427,19 +2440,6 @@ button[aria-label='工作区“对话”的操作'] {
   outline-offset: 2px;
 }
 
-/* ── 学习 ─────────────────────────────────────────────────
-   两栏和校园事务一样宽（用它的 .campus-affairs-columns），课程、总结和讲解各放在定高的框里滚动（.campus-notice-scroll）。
-   一行用通知那一行的样子（.campus-notice）：标题点开，下面一行小字，右边是这一行自己的东西。 */
-.campus-learn {
-  overflow-x: hidden;
-  /* 整页滚动条的位置一直留着：内容长短一变（换一节、展开目录）滚动条时有时无，不留的话整页的东西会跟着左右挪几个像素。 */
-  scrollbar-gutter: stable;
-}
-
-/* 标题和紧跟着它的「智云 / 超星」排成一行；位置只由标题定，右边的字怎么变它都不动。 */
-.campus-learn-title {
-  display: flex;
-  flex: none;
 /* 个人档案里「自动整理」一块，最近整理的一行：左边是哪一条和加了、去掉了什么，右边是日期和撤销。 */
 .campus-review-row {
   display: flex;
@@ -2482,6 +2482,19 @@ button[aria-label='工作区“对话”的操作'] {
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* ── 学习 ─────────────────────────────────────────────────
+   两栏和校园事务一样宽（用它的 .campus-affairs-columns），课程、总结和讲解各放在定高的框里滚动（.campus-notice-scroll）。
+   一行用通知那一行的样子（.campus-notice）：标题点开，下面一行小字，右边是这一行自己的东西。 */
+.campus-learn {
+  overflow-x: hidden;
+  /* 整页滚动条的位置一直留着：内容长短一变（换一节、展开目录）滚动条时有时无，不留的话整页的东西会跟着左右挪几个像素。 */
+  scrollbar-gutter: stable;
+}
+
+/* 标题和紧跟着它的「智云 / 超星」排成一行；位置只由标题定，右边的字怎么变它都不动。 */
+.campus-learn-title {
+  display: flex;
+  flex: none;
   align-items: center;
   gap: 16px;
 }

@@ -92,7 +92,7 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 - stdout 是完整 JSON；失败读取 error.message/detail，不能只提取 data 或忽略退出码。
 - 不绕过 ZJU_DISABLED_MODULES。会话维护及网络诊断仅在排障时使用，参数见 [命令总表](references/commands.md)。
 - CC98 发帖、回复、私信遵守站点规则，只发布用户提供并授权的内容。
-- 技能目录（SKILL.md、references、flows、代码、dev）只由开发维护，使用中不新增或修改其中任何文件；探索出来的做法按上文用 campus_skill_save 存，不写进这个目录。查到的、关于用户本人的稳定信息需要留存时，先用 campus_profile_read 搜一下有没有同主题的记忆，再用 campus_profile_write 新建或更新那一条，来源写在属性里；用户让记的一件事（报名、截止时间）用 campus_note_write 记进备忘录；不写进 references，也不另建个人记忆副本。账号、密码由用户在应用的「插件」页填写，学院和专业在设置的「个人档案」里填写，都不要代填。
+- 技能目录（SKILL.md、references、flows、代码、dev）只由开发维护，使用中不新增或修改其中任何文件；探索出来的做法按上文用 campus_skill_save 存，不写进这个目录。查到的课表、成绩、作业这些随时能再查，不往记忆里存；用户明确让你记住关于他本人的事时，先用 campus_profile_read 搜一下有没有同主题的记忆，再用 campus_profile_write 新建或更新那一条，来源写在属性里；用户让记的一件事（报名、截止时间）用 campus_note_write 记进备忘录；不写进 references，也不另建个人记忆副本。账号、密码由用户在应用的「插件」页填写，学院和专业在设置的「个人档案」里填写，都不要代填。
 
 ## 文件交付
 

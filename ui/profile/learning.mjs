@@ -217,6 +217,14 @@ export class Learning {
     return { state: status.state, plugin: status.plugin, courses, products, filmRoot: roots.films, fetchedAt: cache.courses?.fetchedAt ?? null, error: errors[0] ?? null }
   }
 
+  /**
+   * 缓存里这位学生上过的全部课的名字（智云「我的课程」里各学期的都在）。
+   * 对话后的复盘拿它认一个标题是不是课（review.mjs）。插件关着、账号没填、还没读过时是空的。
+   */
+  courseTitles() {
+    try { return [...new Set((this.kept(this.status()).courses?.items ?? []).map(course => course.title).filter(Boolean))] } catch { return [] }
+  }
+
   /** 缓存的课程表里本学期的那几门。 */
   current(cache) {
     const term = currentTerm(this.now())

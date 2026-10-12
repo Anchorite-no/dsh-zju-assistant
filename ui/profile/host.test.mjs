@@ -32,8 +32,8 @@ test('model tools, UI route and context share one profile; skills come from the 
   installProfile(ctx, { wechatRun: async args => args[0] === 'track' ? { ok: true, tracked: [tracked] }
     : args[0] === 'login' ? { ok: true, loggedIn: false }
     : { ok: true, sources: { local: { ok: true } }, accounts: [{ ...tracked, source: 'local', articles: [{ id: 'a1', title: '测试推文', url: 'https://mp.weixin.qq.com/s/x', publishedAt: '2026-10-09T09:00:00+08:00' }] }] } })
-  // 两样有始有终的：公众号的定时检查，和校园命令问模型用的管道。
-  assert.equal(effects.length, 2)
+  // 三样有始有终的：公众号的定时检查、对话后的复盘、校园命令问模型用的管道。
+  assert.equal(effects.length, 3)
   const call = async (action, input = {}) => {
     const response = await route.fetch(new Request('http://localhost/api/campus/profile', { method: 'POST', body: JSON.stringify({ action, input }) }))
     return { status: response.status, ...(await response.json()) }
@@ -84,6 +84,27 @@ test('model tools, UI route and context share one profile; skills come from the 
   assert.equal((await call('skill-read', { name: 'course-withdrawal' })).value.body, '先查通知。\n')
   assert.ok((await provider.list()).some(skill => skill.name === 'course-withdrawal'))
   assert.deepEqual((await call('skill-delete', { name: 'course-withdrawal' })).value, { name: 'course-withdrawal' })
+
+  // 工作流的补充存在档案目录，拼在 zju 技能正文的末尾；页面上列得出来、删得掉，删了引擎重读技能。
+  const zju = async () => (await provider.list()).find(skill => skill.name === 'zju').content
+  assert.doesNotMatch(await zju(), /工作流的补充/)
+  assert.deepEqual((await call('flow-notes-list')).value, [])
+  fs.writeFileSync(path.join(root, 'profile', 'flow-notes.json'), JSON.stringify({ notes: [{ id: 'n1', flow: 'course-selection', text: '实验课的教学班在单独的页面里选。', source: '用户说', addedAt: '2026-10-12T00:00:00Z', flowHash: 'old' }] }))
+  assert.match(await zju(), /## 工作流的补充[\s\S]*### 本科选课工作流（flows\/course-selection\.md）：工作流在这些补充之后更新过，先对照正文\n- 实验课的教学班在单独的页面里选。（用户说）\n$/)
+  assert.deepEqual((await call('flow-notes-list')).value.map(note => [note.id, note.flowTitle, note.stale]), [['n1', '本科选课工作流', true]])
+  // 插件页「技能」一组里它算一项，点开是那几条。
+  assert.deepEqual((await call('skills-list')).value.map(item => [item.name, item.title]), [['flow:course-selection', '本科选课工作流的补充']])
+  assert.equal((await call('skill-read', { name: 'flow:course-selection' })).value.body, '- 实验课的教学班在单独的页面里选。（用户说）\n')
+  const reloaded = reloads
+  assert.deepEqual((await call('flow-note-delete', { id: 'n1' })).value, { id: 'n1' })
+  assert.equal(reloads, reloaded + 1)
+  assert.doesNotMatch(await zju(), /工作流的补充/)
+  // 对话后的复盘默认开着，能关；还没整理过时列表是空的。
+  assert.deepEqual((await call('review-read')).value, { enabled: true, idleMinutes: 10, entries: [] })
+  assert.equal((await call('review-set', { enabled: false })).value.enabled, false)
+  assert.equal((await call('review-undo', { id: 'x' })).status, 400)
+  // 对话里的助手不再顺手记记忆：工具的说明和底层说明里都这么写。
+  assert.match(writeTool.description, /只在两种时候用：用户明确让你记住关于他本人的事；技能里写明要记的那一步/)
 
   // 通知的筛选：默认带着几个屏蔽词，可以改；这里没有模型服务，问不成就不筛，通知照原样给。
   assert.deepEqual((await call('notice-filter-read')).value, { blocked: ['劳务派遣', '经费认领', '汇款认领'], byProfile: true })

@@ -30,7 +30,7 @@ const COMPACT_LIMIT = 5
 const BODY_VIEWS = [{ value: 'edit', label: '编辑' }, { value: 'preview', label: '预览' }] as const
 const MARKDOWN_LABELS = { code: { copyLabel: '复制', copiedLabel: '已复制' }, footnotes: '注释' }
 
-const day = (value: string) => {
+export const day = (value: string) => {
   const date = new Date(value)
   return date.toLocaleDateString('zh-CN', date.getFullYear() === new Date().getFullYear() ? { month: 'long', day: 'numeric' } : { year: 'numeric', month: 'long', day: 'numeric' })
 }

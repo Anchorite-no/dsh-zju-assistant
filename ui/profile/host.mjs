@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { ProfileStore } from './store.mjs'
-import { coreSkillNames, installCoreSkills } from './skills.mjs'
+import { CORE_ROOT, coreSkillNames, installCoreSkills } from './skills.mjs'
 import { LearnedSkills } from './learned.mjs'
 import { Feed } from './feed.mjs'
 import { AccountSettings } from './account.mjs'
@@ -24,6 +24,8 @@ import { LearnKit } from './learn.mjs'
 import { installPermissions } from './permissions.mjs'
 import { officeText } from './office.mjs'
 import { startModelBridge } from './vision.mjs'
+import { FlowNotes, isFlowGroup } from './flow-notes.mjs'
+import { Review } from './review.mjs'
 
 /** wechatRun 只在测试里给：换掉跑 weread 技能命令的那一步。 */
 export function installProfile(ctx, { wechatRun } = {}) {
@@ -37,7 +39,17 @@ export function installProfile(ctx, { wechatRun } = {}) {
   const account = new AccountSettings(store)
   const plugins = new PluginSwitches(store)
   // 「课程讲解」「微信公众号」关着时它们的技能不交给引擎；开关一变就让引擎重读技能目录。
-  const reloadSkills = installCoreSkills(ctx, learned, plugins)
+  // 工作流的补充：照 zju 的工作流办事时学到、正文里没有的那一条，存在档案目录，拼在 zju 技能正文的末尾。
+  const flowNotes = new FlowNotes({ file: store.file('flow-notes.json'), flowsDir: path.join(CORE_ROOT, 'zju', 'flows') })
+  const reloadSkills = installCoreSkills(ctx, learned, plugins, flowNotes)
+  // 对话后复盘：聊完过一阵回看一遍，把该留的整理进记忆和工作流的补充（review.mjs）。对话里的助手不再顺手记记忆。
+  const review = new Review({
+    store, flowNotes, ask: input => askModel(ctx, { ...input, reasoningEffort: 'low', maxTokens: 4000, timeoutMs: 120_000 }),
+    // 认一个标题是不是课：照学习页缓存里这位学生上过的课。
+    courses: () => learning.courseTitles(),
+    settingsFile: store.file('review.json'), logFile: store.file('review-log.json'), stateFile: path.join(path.dirname(store.root), 'cache', 'review.json'),
+  })
+  ctx.effect(() => review.watch(ctx), 'campus: review after conversation')
   // 「课程讲解」的可选依赖（排公式的 TeX、检查版面的浏览器），装在应用的数据目录里。
   const learnKit = new LearnKit({ dataDir: path.dirname(store.root), plugins })
   // 「微信公众号」：跟踪的号和它们最近的文章（wechat.mjs），背后是 weread 技能。它的两个选择存在档案目录，壳也要读；文章缓存放在档案目录旁边。
@@ -125,9 +137,15 @@ export function installProfile(ctx, { wechatRun } = {}) {
           : action === 'xuezai-download' ? await xuezai.download(input)
           : action === 'xuezai-downloading' ? xuezai.downloading(input)
           : action === 'xuezai-reveal' ? await xuezai.reveal(input)
-          : action === 'skills-list' ? learned.list().map(({ body: _body, path: _path, ...skill }) => skill)
-          : action === 'skill-read' ? learned.read(input)
-          : action === 'skill-delete' ? learned.remove(input)
+          // 插件页「技能」一组：助手存下的技能，和有补充的工作流（各算一项）。
+          : action === 'skills-list' ? [...flowNotes.groups().map(({ body: _body, ...group }) => group), ...learned.list().map(({ body: _body, path: _path, ...skill }) => skill)]
+          : action === 'skill-read' ? (isFlowGroup(input?.name) ? flowNotes.group(input) : learned.read(input))
+          : action === 'skill-delete' ? (isFlowGroup(input?.name) ? flowNotes.removeGroup(input) : learned.remove(input))
+          : action === 'flow-notes-list' ? flowNotes.list()
+          : action === 'flow-note-delete' ? flowNotes.remove(input)
+          : action === 'review-read' ? review.snapshot()
+          : action === 'review-set' ? review.set(input)
+          : action === 'review-undo' ? review.undo(input)
           : action === 'learn-read' ? learnKit.snapshot()
           : action === 'learn-install' ? learnKit.install(input)
           : action === 'learn-remove' ? learnKit.remove(input)
@@ -162,7 +180,7 @@ export function installProfile(ctx, { wechatRun } = {}) {
   }))
   ctx.tools.register(defineTool({
     name: 'campus_profile_write',
-    description: '新建或更新一条记忆，记下对以后有用、相对稳定的个人信息（学过什么、偏好、长期目标、对讲解的反馈）。一次性的查询结果、账号和密码不记；用户让你记的一件事（比赛、待办、要带的东西）也不记在这里，用 campus_note_write。写之前先用 campus_profile_read 搜一下：同一个主题只留一条，已有就改那一条。记忆是给用户本人看和改的，照人自己记笔记的样子写：标题是主题本身，简短，不带日期和学期；tags 只写这条是哪一类（如 课程、偏好、目标），一条一个就够，先用目录里已有的，没有合适的再起新的；学期、状态、来源这类信息放 properties，正文里不再重复；正文先用一两句话说清楚，再分小标题列要点，只写事实，不写给模型看的指令和处理办法；提到另一条记忆写成 [[那条的标题]]。更新已有的要带读到的 revision；用户改过的只能用 append 在后面补充。',
+    description: '新建或更新一条记忆（关于用户这个人的、相对稳定的了解：学过什么、偏好、长期目标）。只在两种时候用：用户明确让你记住关于他本人的事；技能里写明要记的那一步。别的不用你记，对话结束后应用会自己回看并整理。一次性的查询结果、账号和密码不记；用户让你记的一件事（比赛、待办、要带的东西）也不记在这里，用 campus_note_write。写之前先用 campus_profile_read 搜一下：同一个主题只留一条，已有就改那一条。记忆是给用户本人看和改的，照人自己记笔记的样子写：标题是主题本身，简短，不带日期和学期；tags 只写这条是哪一类（如 课程、偏好、目标），一条一个就够，先用目录里已有的，没有合适的再起新的；学期、状态、来源这类信息放 properties，正文里不再重复；正文先用一两句话说清楚，再分小标题列要点，只写事实，不写给模型看的指令和处理办法；提到另一条记忆写成 [[那条的标题]]。更新已有的要带读到的 revision；用户改过的只能用 append 在后面补充。',
     parameters: {
       title: { type: 'string', required: true, description: '记忆的标题，也是文件名。已有这个标题就是更新那一条' },
       revision: { type: 'string', description: '更新已有的记忆时必填，用 campus_profile_read 读到的 revision' },

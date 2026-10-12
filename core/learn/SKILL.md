@@ -116,7 +116,7 @@ description: 把用户想学的一份资料（课件和课堂字幕、教材章�
 
 ## 命令
 
-切字幕行、打包、版面自查、截图和预览的命令见 `references/animation.md`。
+切字幕行、打包、版面自查、截图和预览的命令见 `references/animation.md`。那里写的 `engine/…` 在本技能的目录下，`lessons/…` 在讲解目录下：在讲解目录里运行，脚本写完整路径并用双引号括起来（本技能的目录里常有空格，如 `C:\Program Files\…`），如 `node "<SKILL>/engine/build.mjs" lessons/<主题>/film`。
 
 ## 交付
 

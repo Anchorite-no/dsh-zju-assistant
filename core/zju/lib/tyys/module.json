@@ -19,24 +19,12 @@
     "tyys venue book",
     "tyys venue order list",
     "tyys venue order cancel",
-    "tyys venue notice",
-    "tyys venue setup",
-    "tyys venue check"
+    "tyys venue notice"
   ],
   "requires": [
     "core",
     "profile",
     "webvpn",
     "zjuam"
-  ],
-  "localDependencies": {
-    "captcha": {
-      "runtime": "python",
-      "packages": ["ddddocr==1.6.1", "paddleocr==3.4.0", "paddlepaddle==3.3.1"],
-      "location": "data/tools/tyys/.venv",
-      "setup": "tyys venue setup",
-      "purpose": "预约期间本地点字验证码识别；查询不需要",
-      "systemPackages": { "ubuntu": ["python3-venv", "libgl1"] }
-    }
-  }
+  ]
 }

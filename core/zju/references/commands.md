@@ -1,6 +1,6 @@
 # 当前命令总表
 
-生成日期：2026-10-12。共 160 条公开命令路径、17 个模块。
+生成日期：2026-10-12。共 158 条公开命令路径、17 个模块。
 
 入口为 `node scripts/zju.ts <module> <command> [参数]`。默认帮助逐级展示；`--help --all` 展开当前范围全部公开命令。参数类型与帮助来自实际注册定义，本生成器不执行登录或业务。
 
@@ -17,7 +17,7 @@
 | [ebook](#ebook) | 1 | 学校订购的电子图书：有没有某本书的电子版、在哪个平台有全文（图书馆电子书刊导航和超星） |
 | [lab](#lab) | 9 | 实验班次、周次余量与选课执行 |
 | [xuezai](#xuezai) | 16 | 课程资料、作业、待办与点名 |
-| [tyys](#tyys) | 11 | 体育课考勤记录与体育场馆预约 |
+| [tyys](#tyys) | 9 | 体育课考勤记录与体育场馆预约 |
 | [pta](#pta) | 14 | PTA 独立登录、作业进度、小题保存与提交 |
 | [chaoxing](#chaoxing) | 9 | 超星学习通的课程、课件与视频下载 |
 | [zhiyun](#zhiyun) | 15 | 课堂资源查询、下载、实时字幕与本地转写 |
@@ -641,22 +641,6 @@ zju tyys venue order cancel --date VALUE --time VALUE [--venue VALUE] --confirm 
 ```
 
 `--date`：文本/路径，必填；`--time`：文本/路径，必填；`--venue`：文本/路径；`--confirm`：开关，必填。
-
-### tyys venue setup
-
-```text
-zju tyys venue setup  安装本地验证码识别环境与模型，不请求场馆服务器
-```
-
-无参数。
-
-### tyys venue check
-
-```text
-zju tyys venue check  检查本地验证码检测、识别和模型，不请求场馆服务器
-```
-
-无参数。
 
 ### tyys rollcall history
 

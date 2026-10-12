@@ -7,7 +7,6 @@ import { history } from "./rollcall.ts";
 import { log } from "../core/output.ts";
 import { openVenue, listVenues, targetDate, timeRange, type VenueApi } from "./venue.ts";
 import { bookVenue, cancelVenue, listOrders, VenueJournal, type VenueResult } from "./booking.ts";
-import { setupCaptcha, checkCaptcha } from "./captcha.ts";
 const venueFilters: Record<string, Option> = {
   sport: { description: "运动名称，如羽毛球、网球" }, campus: { description: "校区名称，如紫金港" }, venue: { description: "场馆名称，可带校区；重名时返回候选" },
 };
@@ -72,8 +71,6 @@ const venueCommands = group("场馆：查空场、预约、本人订单和预约
       return useVenue(async client => { const journal = new VenueJournal(client.username); return finished({ ...await cancelVenue(client, { date, time, confirm: true, journal, ...(typeof f.venue === "string" ? { venue: f.venue } : {}) }), journalFile: journal.file }); });
     }),
   }),
-  setup: command("安装本地验证码识别环境与模型，不请求场馆服务器", {}, async () => setupCaptcha(), "local"),
-  check: command("检查本地验证码检测、识别和模型，不请求场馆服务器", {}, async () => checkCaptcha(), "local"),
 });
 function localSession() {
   const username = readProfile().zju_username;

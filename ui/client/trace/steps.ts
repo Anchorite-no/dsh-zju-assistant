@@ -90,8 +90,6 @@ export const STEPS: Readonly<Record<string, string>> = {
   'tyys venue book': '预约场地',
   'tyys venue order list': '查看我的场地预约',
   'tyys venue order cancel': '取消场地预约',
-  'tyys venue setup': '安装验证码识别组件',
-  'tyys venue check': '检查验证码识别组件',
   'tyys rollcall history': '查看体育课考勤',
   'tyys session login': '登录体艺平台',
   'tyys session status': '检查体艺平台登录状态',

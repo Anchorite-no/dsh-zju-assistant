@@ -32,7 +32,8 @@ test('model tools, UI route and context share one profile; skills come from the 
   installProfile(ctx, { wechatRun: async args => args[0] === 'track' ? { ok: true, tracked: [tracked] }
     : args[0] === 'login' ? { ok: true, loggedIn: false }
     : { ok: true, sources: { local: { ok: true } }, accounts: [{ ...tracked, source: 'local', articles: [{ id: 'a1', title: '测试推文', url: 'https://mp.weixin.qq.com/s/x', publishedAt: '2026-10-09T09:00:00+08:00' }] }] } })
-  assert.equal(effects.length, 1)
+  // 两样有始有终的：公众号的定时检查，和校园命令问模型用的管道。
+  assert.equal(effects.length, 2)
   const call = async (action, input = {}) => {
     const response = await route.fetch(new Request('http://localhost/api/campus/profile', { method: 'POST', body: JSON.stringify({ action, input }) }))
     return { status: response.status, ...(await response.json()) }

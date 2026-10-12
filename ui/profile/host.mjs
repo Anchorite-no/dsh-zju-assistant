@@ -23,6 +23,7 @@ import { installAgent } from './agent.mjs'
 import { LearnKit } from './learn.mjs'
 import { installPermissions } from './permissions.mjs'
 import { officeText } from './office.mjs'
+import { startModelBridge } from './vision.mjs'
 
 /** wechatRun 只在测试里给：换掉跑 weread 技能命令的那一步。 */
 export function installProfile(ctx, { wechatRun } = {}) {
@@ -42,6 +43,8 @@ export function installProfile(ctx, { wechatRun } = {}) {
   // 「微信公众号」：跟踪的号和它们最近的文章（wechat.mjs），背后是 weread 技能。它的两个选择存在档案目录，壳也要读；文章缓存放在档案目录旁边。
   const wechat = new Wechat({ plugins, settingsFile: store.file('wechat.json'), cacheFile: path.join(path.dirname(store.root), 'cache', 'wechat.json'), ...(wechatRun ? { run: wechatRun } : {}) })
   ctx.effect(() => wechat.start(), 'campus: public-account checking lifecycle')
+  // 校园命令要模型看图时（场馆预约认验证码）从这条管道来问，用的是用户现在选的那个模型（vision.mjs）。
+  ctx.effect(() => startModelBridge(ctx), 'campus: model bridge for campus commands')
   // 两个带技能的插件，开关一变就让引擎重读技能目录；公众号的还要停下或者重新开始检查。
   const setPlugin = (input) => {
     const value = plugins.set(input)

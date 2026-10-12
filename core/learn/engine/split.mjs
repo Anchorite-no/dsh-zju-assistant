@@ -7,8 +7,11 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 if (!process.argv[2]) { console.error('用法: node engine/split.mjs lessons/<主题>/film'); process.exit(1); }
-const here = resolve(process.argv[2]); mkdirSync(here, { recursive: true });
-const md = readFileSync(join(here, '..', 'plan', 'narration.md'), 'utf8').split(/\r?\n/);
+const here = resolve(process.argv[2]), narration = join(here, '..', 'plan', 'narration.md');
+// 先看讲稿在不在，再建成片的文件夹：目录给错了（比如当前目录不是讲解目录）时，不在别处留下一串空文件夹。
+if (!existsSync(narration)) { console.error(`找不到讲稿：${narration}\n在讲解目录里运行，或者把这一集的目录写成完整路径。`); process.exit(1); }
+mkdirSync(here, { recursive: true });
+const md = readFileSync(narration, 'utf8').split(/\r?\n/);
 const LIMIT = 27, SHORT = 7;
 
 // 公式按排出来大概占几个字算

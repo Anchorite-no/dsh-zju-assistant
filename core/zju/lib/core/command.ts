@@ -1,5 +1,8 @@
 import { ConfigError } from "./errors.ts";
+import { outPath } from "./paths.ts";
 export type Flags = Record<string, string | boolean | undefined>;
+/** 各个模块里叫这两个名字的选项都是「存到哪」，取值在这里统一定成完整路径（见 outPath）。 */
+const OUTPUT_OPTIONS = new Set(["out", "out-dir"]);
 export interface Option {
     description: string;
     type?: "string" | "boolean" | "integer" | "number";
@@ -51,7 +54,7 @@ export function validateOptions(options: Record<string, Option>, input: Flags): 
             throw new ConfigError(`--${name} 须为 ${option.min ?? "不限"}..${option.max ?? "不限"} 的整数`);
         if (option.choices && !option.choices.includes(value))
             throw new ConfigError(`--${name} 须为 ${option.choices.join(" / ")}`);
-        result[name] = value;
+        result[name] = OUTPUT_OPTIONS.has(name) ? outPath(value) : value;
     }
     return result;
 }

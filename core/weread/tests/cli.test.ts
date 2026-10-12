@@ -34,6 +34,15 @@ test('results and errors are JSON; bad arguments fail before any source is touch
   assert.deepEqual(fs.readdirSync(directory), [], 'nothing above needed a browser profile or wrote any state')
 })
 
+test('a relative --out given from inside the skill folder is saved under the data folder, not next to the code', () => {
+  const source = `import { outPath } from ${JSON.stringify(new URL('../lib/config.ts', import.meta.url).href)}; console.log(JSON.stringify(process.argv.slice(1).map(cwd => outPath('saved', cwd))))`
+  const root = fileURLToPath(new URL('..', import.meta.url)), elsewhere = fs.realpathSync(os.tmpdir())
+  // The skill folder is where the app is installed: read-only under C:\Program Files, and replaced on every upgrade.
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', source, root, path.join(root, 'scripts'), elsewhere, path.dirname(path.resolve(root))], { env: { ...process.env, WEREAD_DATA_DIR: directory }, windowsHide: true, encoding: 'utf8' })
+  const inData = path.join(directory, 'downloads', 'saved')
+  assert.deepEqual(JSON.parse(result.stdout), [inData, inData, path.join(elsewhere, 'saved'), path.join(path.dirname(path.resolve(root)), 'saved')])
+})
+
 test('the vision model comes from .env, and real environment variables win', () => {
   const file = path.join(os.tmpdir(), `weread-env-${process.pid}`)
   fs.writeFileSync(file, 'WEREAD_VISION_ENDPOINT=https://model.example/chat\nWEREAD_VISION_MODEL=from-file\nWEREAD_VISION_AUDIO_INPUT=false\n')

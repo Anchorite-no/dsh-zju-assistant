@@ -10,6 +10,7 @@ import { RESTART, errorText, profileApi } from './api.ts'
 import { Alert, Choice, Field, Select, type SelectOption } from './controls.tsx'
 import { MEMORY_WORDS, NoteList, type Note } from './Notes.tsx'
 import { importNotes, noteScreen, type NoteScreen, type Notebook, type Run } from './notebook.tsx'
+import { ReviewSettings } from './ReviewSettings.tsx'
 
 interface Identity { values: Record<string, string>, revision: string }
 interface Snapshot { identity: Identity, memory: Note[], warnings: string[] }
@@ -62,6 +63,7 @@ export function ProfileSettings() {
         <>
           {data.warnings.length > 0 && <Alert tone="warn"><span>{data.warnings.join(' ')}</span></Alert>}
           <IdentitySection identity={data.identity} busy={busy} run={run} reload={reload} notify={notify} setError={setError} />
+          <ReviewSettings reload={reload} notify={notify} />
           <NoteList words={MEMORY_WORDS} notes={data.memory} busy={busy} onImport={files => importNotes(notebook, files)}
             onOpen={(note) => { go({ name: 'note', title: note.title }) }} onNew={() => { go({ name: 'edit', title: null }) }} />
         </>

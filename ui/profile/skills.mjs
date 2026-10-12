@@ -20,15 +20,17 @@ const CORE_PLUGIN = { learn: 'campus.learn', weread: 'campus.wechat' }
 /**
  * 注册校园、学习和公众号技能，以及助手学到的技能（learned，见 learned.mjs）。
  * plugins 是插件开关：关掉的插件对应的那份 core 不交给引擎，助手的技能目录和输入框的 / 菜单里就没有它。
+ * flowNotes 是工作流的补充（flow-notes.mjs）：拼在 zju 正文的末尾，助手加载 zju 时一起看到。
  * 返回一个函数，开关变了以后叫它，引擎会重新读目录。
  */
-export function installCoreSkills(ctx, learned, plugins) {
+export function installCoreSkills(ctx, learned, plugins, flowNotes) {
   let reload = () => {}
   const provider = 'campus-core-skills'
   ctx.skills.registerProvider((control) => {
     // 学到的技能有增减时让引擎重新读目录，新存的技能在同一个对话里就能用。
     reload = () => { control.invalidate() }
     if (learned) learned.onChange = reload
+    if (flowNotes) flowNotes.onChange = reload
     const learnedEntries = () => (learned?.list() ?? []).map(skill => ({
       name: skill.name, description: `${skill.title}：${skill.description}`, path: skill.path, source: 'custom', provider,
       resourceBase: { kind: 'directory', path: learned.dir }, rank: 140, locator: skill.path,
@@ -44,7 +46,7 @@ export function installCoreSkills(ctx, learned, plugins) {
       if (!meta?.name || !meta?.description) return []
       return [{ name: meta.name, description: meta.description, path: file, source: 'custom', provider,
         resourceBase: { kind: 'directory', path: directory }, rank: 150, locator: file,
-        invocation: { modelInvocable: true, userInvocable: true }, content: raw.slice(match[0].length) }]
+        invocation: { modelInvocable: true, userInvocable: true }, content: raw.slice(match[0].length) + (name === 'zju' ? flowNotes?.section() ?? '' : '') }]
     })
     const entries = () => [...coreEntries(), ...learnedEntries()]
     return {

@@ -38,7 +38,7 @@ function atomic(file, value) {
 }
 
 /** 标题就是文件名，所以不能有文件名和双链里用不了的符号。 */
-function noteTitle(value) {
+export function noteTitle(value) {
   const title = typeof value === 'string' ? value.trim() : ''
   if (!title) throw new Error('请填写标题')
   if (title.length > 80) throw new Error('标题太长了，最多 80 个字')
@@ -225,6 +225,23 @@ class Shelf {
       if (!current || raw !== current.raw) atomic(target, raw)
       if (owned) this.mark(current?.title ?? title, hash(raw))
       return this.note(title)
+    })
+  }
+  /** 这一条是不是助手写下以后没人动过。 */
+  owned(note) { return this.assistantMarks()[note.title] === note.revision }
+  /**
+   * 撤销一次对话后的整理（review.mjs）时用：现在的内容还是整理完的样子（revision 对得上）才换回 raw。
+   * owned 是整理之前这一条算不算助手写的，照样记回去。
+   */
+  restore(input) {
+    return this.store.locked(() => {
+      const note = this.note(input.title)
+      this.store.checkRevision(note.revision, input.revision)
+      const raw = text(input.raw)
+      parseNote(raw)
+      atomic(this.notePath(note.title, note.archived), raw)
+      this.mark(note.title, input.owned ? hash(raw) : undefined)
+      return this.note(note.title)
     })
   }
   /** 归档或取消归档：在这个文件夹和它下面的归档文件夹之间挪文件。 */

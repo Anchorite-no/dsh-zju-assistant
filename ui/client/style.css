@@ -2440,6 +2440,48 @@ button[aria-label='工作区“对话”的操作'] {
 .campus-learn-title {
   display: flex;
   flex: none;
+/* 个人档案里「自动整理」一块，最近整理的一行：左边是哪一条和加了、去掉了什么，右边是日期和撤销。 */
+.campus-review-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.campus-review-row:first-child {
+  border-top: 0;
+}
+
+.campus-review-what {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--dsw-alias-label-secondary);
+  overflow-wrap: anywhere;
+}
+
+.campus-review-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+
+.campus-review-row > time,
+.campus-review-done {
+  flex: none;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+}
+
+/* 撤销过的一行整行变淡。 */
+.campus-review-row[data-undone] :is(.campus-review-what, .campus-review-title) {
+  color: var(--dsw-alias-label-tertiary);
+}
+
   align-items: center;
   gap: 16px;
 }

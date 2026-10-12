@@ -19,6 +19,7 @@ import { installRightPane } from './rightpane.ts'
 import { installPluginsPage } from './PluginsPage.tsx'
 import { installFolderlessChats } from './chats.ts'
 import { installHandoff } from './handoff.tsx'
+import { installAlerts } from './alerts.ts'
 import { installBack } from './back.ts'
 import { ProfileSettings } from './ProfileSettings.tsx'
 import css from './style.css'
@@ -27,9 +28,10 @@ export const inject = ['slots', 'sidebarRightTabs', 'layout', 'remote', 'remote.
 
 export function apply(ctx: Context): void {
   installPluginsPage(ctx)
-  // 新对话默认不选文件夹；别的页面可以把一件事交给助手（开一个新对话，话先写进输入框）。
+  // 新对话默认不选文件夹；别的页面可以把一件事交给助手（开一个新对话，话先写进输入框）；
+  // 托盘上点了一条消息时，打开它说的那个对话或那一页。
   // 这三个服务是引擎的工作区界面提供的，等它们都在了再接管。
-  ctx.inject(['uiWorkspace', 'sessions', 'workspaces'], (inner) => { installFolderlessChats(inner); installHandoff(inner) })
+  ctx.inject(['uiWorkspace', 'sessions', 'workspaces'], (inner) => { installFolderlessChats(inner); installHandoff(inner); installAlerts(inner) })
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = 'campus-ui'

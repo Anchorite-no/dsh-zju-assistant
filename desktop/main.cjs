@@ -2,7 +2,7 @@
  * 最小的自写壳：一个窗口 + 一个引擎子进程。
  * 壳只负责窗口、名字和进程生命周期；界面由引擎的 Web 应用提供，壳直接加载它的地址。
  */
-const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeTheme, safeStorage, screen, session, shell } = require('electron')
+const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeImage, nativeTheme, safeStorage, screen, session, shell } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const { createTray } = require('./tray.cjs')
 const { createPane } = require('./pane.cjs')
@@ -44,6 +44,8 @@ const keysDir = app.isPackaged ? app.getPath('userData') : path.join(__dirname, 
 let host
 let wereadBridge
 let quitting = false
+/** 引擎说有一条新消息（公众号有新文章、助手提醒的事）时叫它；主窗口和托盘都在了才接上。 */
+let onAlert = () => {}
 
 function startHost() {
   return new Promise((resolve, reject) => {
@@ -56,6 +58,7 @@ function startHost() {
     host.on('message', (message) => {
       if (message?.type === 'ready') resolve(message.url)
       else if (message?.type === 'fatal') reject(new Error(message.message))
+      else if (message?.type === 'alert') onAlert(message.alert)
     })
     host.once('exit', (code) => {
       reject(new Error(`引擎进程退出，代码 ${String(code)}`))
@@ -128,12 +131,31 @@ async function main() {
     window.show()
     window.focus()
   }
+  // 用程序自己的图标，和任务栏上的是同一个。有新消息时它和一张同样大小的空白图来回换，看着就是在闪。
+  const trayIcon = await app.getFileIcon(process.execPath, { size: 'normal' })
+  const { width: iconWidth, height: iconHeight } = trayIcon.getSize()
+  /** 托盘上点了一条消息以后，页面来取的「要打开哪里」（一个对话，或者侧栏上的一页）。 */
+  let opening
   const tray = createTray({
     Tray, Menu, file: path.join(app.getPath('userData'), 'shell.json'), title: TITLE,
-    // 用程序自己的图标，和任务栏上的是同一个。
-    icon: await app.getFileIcon(process.execPath, { size: 'normal' }),
+    icon: trayIcon,
+    blank: nativeImage.createFromBitmap(Buffer.alloc(iconWidth * iconHeight * 4), { width: iconWidth, height: iconHeight }),
     show, quit: () => { app.quit() },
+    open: (alert) => {
+      show()
+      opening = alert.sessionId ? { sessionId: alert.sessionId } : alert.panel ? { panel: alert.panel } : undefined
+      if (opening && !window.isDestroyed()) window.webContents.send('campus:open')
+    },
   })
+  onAlert = (input) => {
+    // 人正看着主窗口时不闪：页面上自己有标记（通知前的小圆点、对话那一行的未读点）。
+    if (window.isDestroyed() || window.isFocused()) return
+    if (!tray.alert(input)) return
+    // 窗口没藏起来（最小化了，或者被别的窗口盖着）时，任务栏上的按钮也跟着闪。
+    if (window.isVisible()) window.flashFrame(true)
+  }
+  // 人回到主窗口，消息就算看过了。
+  window.on('focus', () => { tray.clear(); window.flashFrame(false) })
   window.on('close', (event) => {
     if (quitting || !tray.enabled()) return
     event.preventDefault()
@@ -147,6 +169,13 @@ async function main() {
   const fromPage = event => !window.isDestroyed() && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame
   ipcMain.handle('campus:close-to-tray:get', event => fromPage(event) && tray.enabled())
   ipcMain.handle('campus:close-to-tray:set', (event, on) => fromPage(event) ? tray.set(on === true) : false)
+  // 托盘上点了一条消息：壳喊一声（campus:open），页面来取要打开哪里，取走就清掉（ui/client/alerts.ts）。
+  ipcMain.handle('campus:open:take', (event) => {
+    if (!fromPage(event)) return undefined
+    const target = opening
+    opening = undefined
+    return target
+  })
   // 右边栏向右打开（pane.cjs）：页面报来右边栏要多宽，窗口跟着加宽、缩回，回给页面实际加了多少。
   const pane = createPane({ window, screen, minWidth: MIN_WIDTH })
   ipcMain.handle('campus:side-pane', (event, width, instant) =>

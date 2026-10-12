@@ -17,7 +17,7 @@ function setup(t, patch = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'campus-wechat-test-'))
   t.after(() => { fs.rmSync(root, { recursive: true, force: true }) })
   const world = {
-    disabled: [], calls: [], tracked: [], loggedIn: false, at: Date.parse('2026-10-11T09:00:00+08:00'), env: {},
+    disabled: [], calls: [], fresh: [], tracked: [], loggedIn: false, at: Date.parse('2026-10-11T09:00:00+08:00'), env: {},
     local: new Map([[SPORTS.biz, [article('s1', '全明星校园行', '2026-10-09T17:00:00+08:00')]]]), localProblem: null,
     web: new Map(), webProblem: null, ...patch,
   }
@@ -56,6 +56,8 @@ function setup(t, patch = {}) {
   const service = new Wechat({
     plugins: { disabled: () => world.disabled }, settingsFile: path.join(root, 'profile', 'wechat.json'), cacheFile: path.join(root, 'cache', 'wechat.json'),
     run, now: () => world.at, env: world.env, schedule: (callback) => { world.timer = callback; return 7 }, cancel: (id) => { world.cancelled = id },
+    // 每次读到新出现的文章时叫一声（给托盘的提醒用），记下是哪几篇。
+    onNew: (articles) => { world.fresh.push(articles.map(item => `${item.from}：${item.title}`)) },
   })
   t.after(() => { service.dispose() })
   /** 等后台的事都做完。 */
@@ -75,6 +77,7 @@ test('半小时看一遍：一个号现有的文章不算新出现的，之后�
   await settle()
   assert.deepEqual(lists().at(-1), { args: 'list --limit 20 --source local', interactive: true }, '微信读书没登录，只看本机')
   assert.deepEqual(service.articles().articles.map(item => [item.title, item.from, item.foundAt]), [['全明星校园行', '浙大体育与艺术', null]])
+  assert.deepEqual(world.fresh, [], '刚加的号现有的文章不提醒')
 
   // 不到半小时不检查，打开详情页也不去读文章；到点以后多出来的一篇带上发现的时间。
   const before = lists().length
@@ -90,12 +93,18 @@ test('半小时看一遍：一个号现有的文章不算新出现的，之后�
   const snapshot = service.snapshot()
   assert.deepEqual([snapshot.accounts[0].count, snapshot.accounts[0].latest.title, snapshot.accounts[0].source, snapshot.checkedAt], [2, '校园赛车体验', 'local', new Date(world.at).toISOString()])
   assert.deepEqual(service.articles().articles.map(item => item.foundAt), [new Date(world.at).toISOString(), null])
+  // 新出现的那一篇叫了一声，只叫这一次：下一次检查没有新的就不叫。
+  assert.deepEqual(world.fresh, [['浙大体育与艺术：校园赛车体验']])
+  world.at += 31 * MINUTE
+  await service.tick()
+  assert.equal(world.fresh.length, 1)
 
   // 「校园事务」页点刷新：不等半小时，马上再看一遍。
   world.local.get(SPORTS.biz).unshift(article('s3', '临湖歌会报名', '2026-10-11T09:20:00+08:00'))
   world.at += MINUTE
   await service.refresh()
   assert.deepEqual([lists().at(-1).interactive, service.articles().articles[0].title], [false, '临湖歌会报名'])
+  assert.deepEqual(world.fresh.at(-1), ['浙大体育与艺术：临湖歌会报名'])
 
   // 助手在对话里去掉了这个号：下一次检查名单跟着变。
   world.tracked = []

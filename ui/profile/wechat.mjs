@@ -77,8 +77,9 @@ export class Wechat {
    * plugins 是插件开关；settingsFile、cacheFile 是上面说的两个文件；run 跑一条技能命令。
    * env 是引擎进程的环境：助手调用技能时会继承它，「不用本机微信」靠它告诉技能（WEREAD_SOURCE）。
    */
-  constructor({ plugins, settingsFile, cacheFile, run = runWeread, now = () => Date.now(), env = process.env, schedule = setInterval, cancel = clearInterval }) {
-    Object.assign(this, { plugins, settingsFile, cacheFile, run, now, env, schedule, cancel })
+  constructor({ plugins, settingsFile, cacheFile, run = runWeread, now = () => Date.now(), env = process.env, schedule = setInterval, cancel = clearInterval, onNew = () => {} }) {
+    // onNew：一次检查读到了新出现的文章时叫它（给托盘的提醒用），参数是这些文章，从新到旧，各带号名 from。
+    Object.assign(this, { plugins, settingsFile, cacheFile, run, now, env, schedule, cancel, onNew })
     // 启动环境里原有的来源设置不归我们管，本机微信开着时照原样留着。
     this.inherited = env.WEREAD_SOURCE
     this.queue = Promise.resolve()
@@ -241,6 +242,9 @@ export class Wechat {
     const sources = { ...this.cache().sources }
     for (const source of ['local', 'web']) if (result.sources?.[source]) sources[source] = { ...result.sources[source], at }
     this.write({ accounts, sources })
+    // 这一次才出现的文章（发现时间就是这一次）：告诉外面一声。一个号第一次读到的不算，它们的发现时间是空的。
+    const fresh = accounts.flatMap(account => account.articles.filter(article => article.foundAt === at).map(article => ({ ...article, from: account.name }))).sort(byTime)
+    if (fresh.length) { try { this.onNew(fresh) } catch { /* 提醒发不出去不影响读文章 */ } }
   }
 
   /** 一次完整的检查：对一遍跟踪名单，看一眼微信读书的登录状态，再读一遍文章。 */

@@ -102,4 +102,6 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 
 [教务](references/zdbk.md) · [通知](references/notice.md) · [二三四课堂](references/sztz.md) · [电子图书](references/ebook.md) · [选课](references/zdbk-selection.md)（多轮流程见 [选课工作流](flows/course-selection.md)） · [实验课](references/lab.md) · [学在](references/xuezai.md) · [体艺](references/tyys.md) · [PTA](references/pta.md) · [超星学习通](references/chaoxing.md) · [智云](references/zhiyun.md) · [CC98](references/cc98.md) · [查老师](references/chalaoshi.md) · [知网](references/cnki.md)
 
+几步连起来、跨几个系统的事照工作流走：[本科选课](flows/course-selection.md) · [选课前比较老师](flows/course-teachers.md) · [交作业](flows/homework-submit.md) · [课后总结](flows/lesson-summary.md) · [考前准备](flows/exam-prep.md) · [今日安排](flows/daily-brief.md)。它们在技能目录里各有一项，从那边加载的是同一篇。
+
 提醒和定时见 [定时任务](references/schedule.md)。修改本技能时遵循 [开发原则](AGENTS.md)。

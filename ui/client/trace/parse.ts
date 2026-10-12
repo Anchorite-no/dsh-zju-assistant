@@ -74,6 +74,7 @@ const LOCAL_TOOLS: Record<string, { label: string, about?: string }> = {
   campus_note_read: { label: '读取备忘录' },
   campus_note_write: { label: '写入备忘录', about: 'title' },
   campus_skill_save: { label: '保存技能', about: 'title' },
+  campus_notify: { label: '在托盘上提醒', about: 'title' },
 }
 
 function shorten(text: string, max = 40): string {

@@ -80,13 +80,37 @@ function unwrapUrl(vpnUrl) {
 const isCampusHost = host => host === 'zju.edu.cn' || host.endsWith('.zju.edu.cn')
 
 /**
- * 一个要去的地址实际该打开哪个地址。transport 是 Core 的访问方式（webvpn 或 direct）；
- * publicHosts 是标注为公网可达的主机，经 WebVPN 时它们也直连。不是 http(s) 的返回 undefined，不打开。
+ * 学校搬了家、旧地址又没留跳转的网站（Core 的那张表 core/zju/lib/core/moved.json，Core 自己也照它换）：
+ * 每行是旧地址的主机名、路径（这段路径和它下面的都算，没有路径就是整个网站）和现在的地址。读不了就是空的。
  */
-function routeUrl(target, transport, publicHosts = new Set()) {
+function movedFrom(file) {
+  try {
+    return (JSON.parse(fs.readFileSync(file, 'utf8')).moved ?? []).flatMap((row) => {
+      if (typeof row?.from !== 'string' || typeof row.to !== 'string') return []
+      const [host, ...rest] = row.from.toLowerCase().replace(/\/+$/, '').split('/')
+      return host ? [{ host, path: rest.length ? `/${rest.join('/')}` : '', to: row.to }] : []
+    })
+  } catch { return [] }
+}
+
+/** 这个地址是旧地址的话，现在的地址是什么；不是就返回 undefined。 */
+function movedUrl(url, moved) {
+  const host = url.hostname.toLowerCase(), at = url.pathname.toLowerCase()
+  return moved.find(entry => host === entry.host && (!entry.path || at === entry.path || at.startsWith(`${entry.path}/`)))?.to
+}
+
+/**
+ * 一个要去的地址实际该打开哪个地址。transport 是 Core 的访问方式（webvpn 或 direct）；
+ * publicHosts 是标注为公网可达的主机，经 WebVPN 时它们也直连；moved 是搬了家的旧地址（movedFrom）。
+ * 不是 http(s) 的返回 undefined，不打开。
+ */
+function routeUrl(target, transport, publicHosts = new Set(), moved = []) {
   let url
   try { url = new URL(target) } catch { return undefined }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined
+  // 旧文件里的老地址（比如老素拓网）学校已经停用：开现在的地址。页面是经 WebVPN 看的时候，里面的链接也被改写成了 WebVPN 形式，先还原再认。
+  const now = movedUrl(url.hostname === WEBVPN_HOST ? new URL(unwrapUrl(url.href)) : url, moved)
+  if (now) url = new URL(now)
   if (transport !== 'webvpn') return url.href
   if (url.hostname === WEBVPN_HOST) {
     // WebVPN 把去统一身份认证的跳转改写成了它自己的地址；统一身份认证要直连。
@@ -224,7 +248,8 @@ function createReader({ BrowserWindow, session, profileDir, coreRoot, dark = () 
     return found
   }
   const publicHosts = publicHostsFrom(path.join(coreRoot, 'zju', 'lib', 'notice', 'hosts.json'))
-  const route = target => routeUrl(target, transport(), publicHosts)
+  const moved = movedFrom(path.join(coreRoot, 'zju', 'lib', 'core', 'moved.json'))
+  const route = target => routeUrl(target, transport(), publicHosts, moved)
 
   /** 把 Core 存着的统一身份认证和 WebVPN 的 cookie 放进窗口的会话。 */
   async function syncCookies() {
@@ -366,4 +391,4 @@ function createReader({ BrowserWindow, session, profileDir, coreRoot, dark = () 
   return { open: (url) => { void open(url) }, close: () => { if (alive()) window.close() } }
 }
 
-module.exports = { createReader, wrapUrl, unwrapUrl, routeUrl, publicHostsFrom, loginPage, deniedPage, cookieDetails, SITE_LOGINS, CORE_UA }
+module.exports = { createReader, wrapUrl, unwrapUrl, routeUrl, publicHostsFrom, movedFrom, loginPage, deniedPage, cookieDetails, SITE_LOGINS, CORE_UA }

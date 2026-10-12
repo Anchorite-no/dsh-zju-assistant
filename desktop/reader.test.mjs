@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { createRequire } from 'node:module'
 import { rewriteUrl, unwrapUrl as coreUnwrap } from '../core/zju/lib/webvpn/client.ts'
 
-const { wrapUrl, unwrapUrl, routeUrl, publicHostsFrom, loginPage, cookieDetails } = createRequire(import.meta.url)('./reader.cjs')
+const { wrapUrl, unwrapUrl, routeUrl, publicHostsFrom, movedFrom, loginPage, cookieDetails } = createRequire(import.meta.url)('./reader.cjs')
 
 const URLS = [
   'http://www.xgb.zju.edu.cn/53388/list.htm',
@@ -51,6 +51,26 @@ test('经 WebVPN 时：校内网站改走 WebVPN，统一身份认证和校外�
   assert.equal(publicHostsFrom('no-such-file.json').has('bksy.zju.edu.cn'), false)
   // 只开网页地址。
   for (const bad of ['file:///C:/Windows/win.ini', 'javascript:alert(1)', 'zju://x', 'not a url', '']) assert.equal(routeUrl(bad, 'webvpn'), undefined)
+})
+
+test('学校已经停用的旧地址开现在的地址：老素拓网开素质拓展平台，用的是 Core 的那张表', async () => {
+  const { fileURLToPath } = await import('node:url')
+  const moved = movedFrom(fileURLToPath(new URL('../core/zju/lib/core/moved.json', import.meta.url)))
+  const now = 'https://sztz.zju.edu.cn/dekt/'
+  for (const old of ['http://www.youth.zju.edu.cn/sztz', 'https://www.youth.zju.edu.cn/sztz/', 'http://www.youth.zju.edu.cn/sztz/index.php?id=3', 'http://www.qzlake.zju.edu.cn/']) {
+    // 平台只有校内到得了，经 WebVPN 时走 WebVPN；校园网直连时直接开。
+    assert.equal(routeUrl(old, 'webvpn', new Set(), moved), wrapUrl(now), old)
+    assert.equal(routeUrl(old, 'direct', new Set(), moved), now, old)
+    // 通知是经 WebVPN 看的，里面的旧链接已经被改写成 WebVPN 形式：照样认得出。
+    assert.equal(routeUrl(wrapUrl(old), 'webvpn', new Set(), moved), wrapUrl(now), old)
+  }
+  // 团委的旧域名学校自己会跳到新网站，不在表里；别的地址照旧。
+  const youth = 'http://www.youth.zju.edu.cn/', other = 'http://www.youth.zju.edu.cn/sztzabc'
+  assert.equal(routeUrl(youth, 'webvpn', new Set(), moved), wrapUrl(youth))
+  assert.equal(routeUrl(other, 'webvpn', new Set(), moved), wrapUrl(other))
+  // 表读不了就什么都不换。
+  assert.deepEqual(movedFrom('no-such-file.json'), [])
+  assert.equal(routeUrl('http://www.youth.zju.edu.cn/sztz', 'direct', new Set(), movedFrom('no-such-file.json')), 'http://www.youth.zju.edu.cn/sztz')
 })
 
 test('认得出停在了哪个登录页', () => {

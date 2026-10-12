@@ -239,6 +239,7 @@ node core/zju/scripts/notice/hosts.ts --via server
 
 **本地操作失败了也标出来**（2026-10-12 用户要的；之前的说法是「本地操作偶尔出错是常事，不标」）。一条命令被对话的权限拦住、助手转头换了个办法，或者第一次读文档缺环境、装好再读一遍，图上都看不出中间失败过。现在失败的本地操作和网站那边一样：圆点画成同样大的红点，行尾写「失败」，这一行不再是淡的，点开有原因。成没成按这一次调用是哪一种来看（`parse.ts` 的 `outcomeOf`）：校园命令看输出的 JSON 信封，不访问网站的那几个模块（读文档、看本地档案）也一样，以前它们只看引擎的出错标记；别的命令行和对话里那张命令卡片一个看法（引擎 `dsh-shell` 的 `parseExitStatus`），退出码不是 0、被信号杀掉、超时被停掉都是没成功，因为命令退出码不是 0 时引擎并不算它出错，只在输出最后写一行 `[exit code: N]`；引擎自带的工具（读写文件、查找、联网）只看引擎的出错标记。原因取命令自己写到 stderr 的第一句；被对话的权限拦住的（结果里有 `[sandbox: file access denied …]`）前面加一句「对话的权限不让读写这个位置」。对着 2026-10-12 的两次真实对话核过：往 D 盘根目录写文件被拦住的那条 `Set-Content`，和读作业附件时缺环境的 `doc text`、目录不存在的 `glob`。
 
+- 学校已经停用、又没留跳转的旧地址，开现在的地址（2026-10-12，用户要的：同学会照着旧文件里的地址去点）。现在有两个，都是老素拓网以前的地址（一个是团委旧网站下面的子目录，现在 404；一个是更早的独立域名，现在是空页面），都改开素质拓展平台 `https://sztz.zju.edu.cn/dekt/`。旧地址只写在那张表（`core/zju/lib/core/moved.json`）和它的测试里，说明里不再出现（用户要的：不保留旧地址）。Core 自己也照这张表换：命令结果里出现的旧地址换成现在的，请求旧地址时改去请求现在的（`core/zju/lib/core/moved.ts`）。通知是经 WebVPN 看的时候，页面里的旧链接已经被改写成 WebVPN 形式，窗口先还原再认。团委以前的域名学校自己会跳到新网站 `zjutw.zju.edu.cn`，不在表里。验证：`desktop/reader.test.mjs` 和 `core/zju/tests/moved.test.ts`；命令行上拿老素拓网的地址跑 `zju doc text --url`，原来是 404，现在读到的是平台的页面。在打开的应用里点一个旧链接没有试过。
 代码在 `ui/client/trace/`，页签本身是 `ui/client/TraceTab.tsx`：
 
 - `model.ts`：数据从哪来。向引擎的 `uiConversation` 登记两个 Definition（工具调用、用户的提问）和一个 View，引擎按会话把事件喂过来，对话进行时实时更新；页签用 `uiConversation.binding(sessionId).target('campus-trace')` 订阅。写法照引擎自己的 `ui-tool/todo-history`。

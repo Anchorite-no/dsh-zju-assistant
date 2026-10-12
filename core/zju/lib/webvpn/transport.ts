@@ -21,6 +21,7 @@ import { credentials, webvpnCredentials, currentTransport, type Transport } from
 import { Zjuam } from "../zjuam/login.ts";
 import { Webvpn, rewriteUrl, WEBVPN_HOST } from "./client.ts";
 import { debug } from "../core/output.ts";
+import { currentUrl } from "../core/moved.ts";
 import { TransportError } from "../core/errors.ts";
 
 /** 网站群把校外读者挡下来时跳去的页面；原来要看的地址在它的 parentUrl 参数里 */
@@ -119,7 +120,8 @@ export async function openContext(req: ModuleRequirements, opts: OpenOptions = {
     settled.push(() => { clearTimeout(timer); done(); });
   });
   const perform = async (url: string, o?: RequestOptions, follow = false): Promise<HttpResponse> => {
-    const target = resolve(url);
+    // 学校已经停用的旧地址（core/moved.ts）改去请求现在的地址。
+    const target = resolve(currentUrl(url));
     const send = () => follow ? http.requestFollow(target, withReferer(o)) : http.request(target, withReferer(o));
     const host = new URL(target).host.toLowerCase();
     if (webvpn && open.has(host)) {

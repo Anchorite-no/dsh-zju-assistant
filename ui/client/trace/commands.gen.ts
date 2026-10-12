@@ -72,8 +72,6 @@ export const COMMANDS: Readonly<Record<string, { readonly label: string, readonl
   "tyys venue book": { label: "按目标日期和时段完成预约、确认与回查", write: true },
   "tyys venue order list": { label: "本人今天及以后的预约" },
   "tyys venue order cancel": { label: "定位一个明确的本人预约", write: true },
-  "tyys venue setup": { label: "安装本地验证码识别环境与模型" },
-  "tyys venue check": { label: "检查本地验证码检测、识别和模型" },
   "tyys rollcall history": { label: "体育课历史考勤" },
   "tyys session login": { label: "检查或更新体艺 App 会话" },
   "tyys session status": { label: "本地体艺会话状态" },

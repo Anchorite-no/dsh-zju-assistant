@@ -8,7 +8,7 @@ import { fileJournal } from "../core/journal.ts";
 import { writeAllowed } from "../core/env.ts";
 import { ACCOUNT_PAGE, readProfileAll } from "../profile/profile.ts";
 import { BadResponse, ConfigError, NeedsUser, RateLimited, RemoteRejected, WriteGateClosed } from "../core/errors.ts";
-import { CaptchaSolver, captchaPython } from "./captcha.ts";
+import { CaptchaSolver } from "./captcha.ts";
 import { atDate, beijingDate, chooseSite, localTime, nearbyTimes, openVenue, releaseAt, row, rows, siteName, targetDate, text, type DayInfo, type Row, type Site, type Slot, type TimeRange, type VenueApi } from "./venue.ts";
 
 export interface Order { id: string; number: string; siteId: string; venue: string; date: string; start: string; end: string; description: string; status: number; payStatus: number; amount: string; expires: string }
@@ -81,22 +81,23 @@ function captchaPackage(value: string, secret: string): string {
   const cipher = createCipheriv("aes-128-ecb", Buffer.from(secret), null);
   return Buffer.concat([cipher.update(value, "utf8"), cipher.final()]).toString("base64");
 }
-export interface Solver { start(): Promise<void>; solve(image: string, words: string[]): Promise<{ x: number; y: number }[]>; close(): void }
+/** solve 返回 undefined 是这道题没认齐，换一道。 */
+export interface Solver { start(): Promise<void>; solve(image: string, words: string[]): Promise<{ x: number; y: number }[] | undefined>; close(): void }
+/** 最多取三道题。场馆对取题有次数限制（见 README），不多试。 */
 async function captcha(client: VenueApi, solver: Solver): Promise<string> {
   await solver.start();
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     const challenge = row(await client.request("GET", "/api/captcha/get", { captchaType: "clickWord", clientUid: "point-" + randomUUID(), ts: Date.now() }));
     if (text(challenge.repCode) !== "0000") throw new NeedsUser("场馆验证码暂不可用");
     const data = row(challenge.repData), words = data.wordList;
     if (!Array.isArray(words) || words.length !== 3 || words.some(w => typeof w !== "string") || !data.token || !data.originalImageBase64) throw new BadResponse("验证码题目不完整");
-    let points: { x: number; y: number }[];
-    try { points = await solver.solve(text(data.originalImageBase64), words as string[]); }
-    catch (e) { if (e instanceof NeedsUser && attempt === 0) continue; throw e; }
+    const points = await solver.solve(text(data.originalImageBase64), words as string[]);
+    if (!points) continue;
     const json = JSON.stringify(points), secret = text(data.secretKey);
     const checked = row(await client.request("POST", "/api/captcha/check", { captchaType: "clickWord", token: data.token, pointJson: captchaPackage(json, secret) }));
     if (text(checked.repCode) === "0000") return captchaPackage(text(data.token) + "---" + json, secret);
   }
-  throw new NeedsUser("验证码两次未通过，本次没有提交预约");
+  throw new NeedsUser("验证码三次未通过，本次没有提交预约");
 }
 
 export async function companionParams(client: VenueApi, preview: Row, names: string | undefined, signal?: AbortSignal): Promise<Row> {
@@ -237,8 +238,6 @@ export async function bookVenue(client: VenueApi, opts: BookingOptions): Promise
         if (release !== undefined && release > now()) {
           if (release >= opts.deadline) return { status: "not-released", message: `目标日期尚未开放，按须知和当前窗口预计 ${localTime(release)} 放号，超出本次等待时限`, date: opts.date, venue: siteName(site), releaseAt: localTime(release) };
           opts.onProgress?.(`等待 ${localTime(release)} 放号，目标日期固定为 ${opts.date}`);
-          await wait(Math.max(0, release - now() - 30_000));
-          if (fs.existsSync(captchaPython()) || opts.solver) { try { await solver.start(); } catch { /* Non-captcha venues can still proceed; required captcha reports the error later. */ } }
           await wait(Math.max(0, Math.min(release - now(), opts.deadline - now()))); continue;
         }
         if (release === undefined) return { status: "not-released", message: "目标日期尚未发布时段，缺少可确认的放号日期规则；未扫描其他日期", date: opts.date, venue: siteName(site) };

@@ -264,9 +264,8 @@ CLI 将一个结构化 JSON 结果写入 stdout，进度和帮助写入 stderr�
 | 功能 | 准备 | 检查 |
 |---|---|---|
 | 智云媒体处理（FFmpeg，应用自带）；音频转写只需模型，第一次用时自动下载 | `zhiyun setup` | `zhiyun check` |
-| 场馆预约的验证码识别（Python 环境与识别模型） | `tyys venue setup` | `tyys venue check` |
 
-细节见 [智云依赖检查](references/zhiyun.md#依赖检查)、[lib/doc](lib/doc/README.md) 与 [体艺开发参考](lib/tyys/README.md)。
+细节见 [智云依赖检查](references/zhiyun.md#依赖检查) 与 [lib/doc](lib/doc/README.md)。场馆预约的验证码不用本地环境，交给应用里现在选的那个模型识别，见 [体艺开发参考](lib/tyys/README.md#验证码识别)。
 
 ## 目录与数据
 

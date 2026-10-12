@@ -34,7 +34,7 @@ export const SOURCES: Source[] = [
     { id: "qbgg", name: "全部公告", audience: "grad", default: true, feed: true },
   ] },
   // 二课、志愿服务、社会实践、社团、创新创业的通知。「通知公告」是下面各分类的汇总，默认只读它；分类栏供指名。
-  // www.youth.zju.edu.cn 会跳到这个地址。
+  // 团委以前的域名会跳到这个地址。
   { id: "youth", name: "团委", aliases: ["校团委", "共青团", "二课", "第二课堂"], adapter: "webplus", base: "https://zjutw.zju.edu.cn", columns: [
     { id: "tzgg", name: "通知公告", default: true, feed: true },
     { id: "shsjhzyz_32442", name: "实践志愿", aliases: ["志愿", "志愿服务", "社会实践"] },

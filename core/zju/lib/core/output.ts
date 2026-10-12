@@ -3,6 +3,7 @@
  */
 import { ZjuError, exitCodeFor } from "./errors.ts";
 import { debugEnabled } from "./env.ts";
+import { currentAddresses } from "./moved.ts";
 
 export type Source = "live" | "cache" | "local";
 
@@ -24,8 +25,9 @@ export interface ErrorEnvelope {
   error: { code: string; message: string; hint?: string; detail?: Record<string, unknown> };
 }
 
+/** 结果里出现的、学校已经停用的旧地址（旧文件里的老素拓网地址这类）换成现在的地址，见 moved.ts。 */
 export function envelope<T>(system: string, action: string, data: T, opts: { source?: Source; meta?: Record<string, unknown> } = {}): Envelope<T> {
-  return { ok: true, system, action, source: opts.source ?? "live", generated_at: new Date().toISOString(), meta: opts.meta ?? {}, data };
+  return { ok: true, system, action, source: opts.source ?? "live", generated_at: new Date().toISOString(), meta: opts.meta ?? {}, data: currentAddresses(data) };
 }
 
 export function errorEnvelope(system: string, action: string, err: unknown): ErrorEnvelope {

@@ -3,6 +3,7 @@
 CLI 用法见 [二三四课堂](../../references/sztz.md)。本文件记录登录、端点和字段，供开发和排障使用。
 
 - 地址：`https://sztz.zju.edu.cn/dekt/`（`sztz.zju.edu.cn/` 用脚本跳到这里；团委首页的「二三四课堂」入口）。页面标题「浙江大学大学生素质拓展数智平台」，Vite 单页应用，业务页面按需加载。
+- 旧名字和旧地址（2026-10-12 经 WebVPN 核对）：学校文件里叫它「素拓网」，平台自己的通知里把现在这个叫「新素拓平台」，给的地址是 `http://sztz.zju.edu.cn/`。它以前有过两个地址，都已经停用：一个是团委旧网站下面的子目录，现在返回 404，没有留跳转；一个是更早的独立域名，现在是个空页面，团委首页「二三四课堂」那一格的图上还印着它，那一格链的是 `http://sztz.zju.edu.cn/`。这两个旧地址只写在 `lib/core/moved.json` 里，说明里不再出现（用户 2026-10-12 要的：都改成新的地址，不保留旧的，同学会照着旧文件去点）：命令结果里出现时换成现在的地址，请求它们时改去请求现在的地址（`lib/core/moved.ts`，接在 `output.ts` 的 `envelope` 和 `webvpn/transport.ts` 上）。实测拿老素拓网的地址跑 `doc text --url`，原来是 404，现在读到平台的页面。以后再有搬了家又没留跳转的网站，往那张表里加一行。
 - 声明：`auth=cas network=campus writes=true`。主机只解析到校内地址 `10.203.15.167`，经 WebVPN。
 - 代码：`lib/sztz/{index,cli}.ts` · CLI：`zju sztz credits | activity list · new · mine · signup · favorite | projects | notices` · 没有本地会话文件。
 - 端点最近核对：只读 2026-10-06；报名、取消报名、收藏 2026-10-07；`activity new` 和活动页的地址 2026-10-12（本机经 WebVPN，真实请求）。

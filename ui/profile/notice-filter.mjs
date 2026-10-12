@@ -34,6 +34,7 @@ const SYSTEM = `你在替一位浙江大学的学生筛选通知。下面给你�
 和他有关的：面向全体学生或者他这一类学生的事务、活动、讲座、比赛、奖助学金、选课和考试安排，他所在校区的生活服务。拿不准的算有关。
 
 来源以「公众号」开头的是他自己订阅的公众号发的文章，只有明显和学生无关时才算无关。
+来源以「二课」开头的是素质拓展平台上可以报名的学生活动，后面是举办单位；只有明确只面向别的学院、别的校区或别的年级时才算无关。
 基础信息里没有的项当作不知道。
 
 只输出一个 JSON 对象，形如 {"无关": [2, 5]}，里面是无关的那几条的编号；都有关就输出 {"无关": []}。不要输出别的文字。`
@@ -140,7 +141,7 @@ export class NoticeFilter {
     try {
       for (let round = 0; round < ROUNDS && round * BATCH < waiting.length; round++) {
         const batch = waiting.slice(round * BATCH, (round + 1) * BATCH)
-        const lines = batch.map((item, index) => `${index + 1}. [${item.kind === 'wechat' ? `公众号·${item.from}` : item.from}] ${item.title}`)
+        const lines = batch.map((item, index) => `${index + 1}. [${item.kind === 'wechat' ? `公众号·${item.from}` : item.kind === 'sztz' ? `二课·${item.from}` : item.from}] ${item.title}`)
         const answer = await this.ask({ system: SYSTEM, text: `基础信息：${JSON.stringify(profile)}\n今天：${today}\n通知：\n${lines.join('\n')}` })
         const irrelevant = parseVerdict(answer, batch.length)
         batch.forEach((item, index) => { verdicts[item.id] = !irrelevant.has(index + 1) })

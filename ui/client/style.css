@@ -2358,6 +2358,51 @@ button[aria-label='工作区“对话”的操作'] {
   font-size: 13px;
   line-height: 18px;
   color: var(--dsw-alias-label-tertiary);
+/* 二课平台的活动用同一种标签，写「二课」，底色换成浅橘色，和公众号的浅蓝一眼分得开（颜色是用户 2026-10-12 定的）。
+   引擎的色板里暖色只有偏黄的琥珀色，橘色是这里自己定的；字往正文的颜色那边靠一点，亮色下深一些、暗色下浅一些，都看得清。 */
+.campus-notice-account[data-kind='sztz'] > span {
+  --campus-orange: #f0700f;
+  background: color-mix(in srgb, var(--campus-orange) 14%, transparent);
+  color: color-mix(in srgb, var(--campus-orange) 78%, var(--dsw-alias-label-primary));
+}
+
+/* 通知那一栏表头右边的按钮：写着现在看的是多久以内的、哪一种，点开是菜单，时间和种类都在里面选。
+   加了二课以后要能只看一种；先想的是表头下面再加一排「全部 / 通知 / 公众号 / 二课」，用户说上面的按钮又多又长，
+   三种画法里选了收进一个菜单（2026-10-12）。高度和底色照左边作业那一栏的几选一（.campus-choice），两栏的表头一样高。 */
+.campus-feed-filter {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 10px 0 14px;
+  border: 0;
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.campus-feed-filter:hover,
+.campus-feed-filter[aria-expanded='true'] {
+  background: var(--dsw-alias-interactive-bg-active, var(--dsw-alias-interactive-bg-hover));
+}
+
+.campus-feed-filter:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+.campus-feed-filter > svg {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+}
+
 }
 
 /* ── 设置里的个人档案 ─────────────────────────────────────

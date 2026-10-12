@@ -7,7 +7,7 @@
 ```text
 sztz
 ├─ credits                                       我的记点、学分、是否达标，成绩单上的每一条记录
-├─ activity  list · mine · signup · favorite     活动：能报的、我报名和收藏的；报名、收藏（--cancel 取消）
+├─ activity  list · new · mine · signup · favorite   活动：能报的、新出的、我报名和收藏的；报名、收藏（--cancel 取消）
 ├─ projects                                      可以自己申请认定记点的项目
 └─ notices                                       平台通知全文
 ```
@@ -19,6 +19,7 @@ sztz
 | 找某类或某个单位的活动 | `sztz activity list --keyword 图书馆`（活动名或举办单位里的文字） | 同上 |
 | 某一天有哪些活动 | `sztz activity list --date 2026-10-09` | 同上 |
 | 往期活动（查某个活动当时记多少点） | 加 `--include-ended` | 连已结束的一起给，新的在前 |
+| 有没有新出的活动 | `sztz activity new` | 上次调用之后新出现、还能报名或还没开始报名的活动：名称、举办单位、记点、活动时间地点、报名起止，没有简介；第一次调用给出现在能报的全部。要看其中一个的简介和联系人，用 `sztz activity list --keyword 活动名` |
 | 竞赛、社会实践、实习能记多少点 | `sztz projects`，可加 `--keyword 竞赛`、`--category 第三课堂`（或学科竞赛、劳育等） | 可申请认定的项目、记点范围、适用年级 |
 | 我报了哪些、收藏了哪些活动 | `sztz activity mine` | `signedUp`、`favorites`、`recognized` 三个列表 |
 | 项目什么时候审核、记点怎么申请 | `sztz notices` | 平台全部通知的全文和附件链接（十几条） |

@@ -36,6 +36,7 @@ export const COMMANDS: Readonly<Record<string, { readonly label: string, readonl
   "notice sources": { label: "已接入的通知来源和栏目" },
   "sztz credits": { label: "本人第二、三、四课堂的记点、学分和是否达标" },
   "sztz activity list": { label: "活动中心里还没结束的活动" },
+  "sztz activity new": { label: "上次查看之后新出现、还能报名或还没开始报名的活动" },
   "sztz activity mine": { label: "本人在平台上报名的、收藏的和已认定记点的活动" },
   "sztz activity signup": { label: "报名一个活动", write: true },
   "sztz activity favorite": { label: "收藏一个活动", write: true },

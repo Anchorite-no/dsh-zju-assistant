@@ -53,12 +53,13 @@ test('模型照基础信息判断：只给它看要用的几项，一条只问�
   assert.deepEqual(text.split('\n').slice(3), ['1. [综合服务网] 科研院转发关于发布专项项目申报指南的通知', '2. [学工部] 关于做好2026年国家助学金评选工作的通知', '3. [公众号·浙大体育与艺术] 临湖歌会第十期（观众报名）'])
   assert.deepEqual(hidden(filter), { n1: 'blocked', n2: 'irrelevant' })
 
-  // 再来一遍不重复问；多了一条只问新的那一条。
+  // 再来一遍不重复问；多了两条只问新的那两条。二课的活动写明是二课，后面是举办单位。
   await filter.judge(ITEMS)
   assert.equal(state.asked.length, 1)
   state.answers.push('{"无关": [1]}')
-  await filter.judge([...ITEMS, notice('n4', '关于举办教职工发展对象培训班的通知')])
-  assert.deepEqual([state.asked.length, state.asked[1].text.split('\n').slice(3)], [2, ['1. [综合服务网] 关于举办教职工发展对象培训班的通知']])
+  await filter.judge([...ITEMS, notice('n4', '关于举办教职工发展对象培训班的通知'), notice('s1', '新生杯辩论赛', '校学生会', { kind: 'sztz' })])
+  assert.deepEqual([state.asked.length, state.asked[1].text.split('\n').slice(3)], [2, ['1. [综合服务网] 关于举办教职工发展对象培训班的通知', '2. [二课·校学生会] 新生杯辩论赛']])
+  assert.match(state.asked[1].system, /来源以「二课」开头的是素质拓展平台上可以报名的学生活动/)
 
   // 关掉以后只剩屏蔽词；再打开，以前的判断还在。
   filter.save({ byProfile: false })

@@ -12,6 +12,7 @@
   "provides": [
     "sztz credits",
     "sztz activity list",
+    "sztz activity new",
     "sztz activity mine",
     "sztz activity signup",
     "sztz activity favorite",

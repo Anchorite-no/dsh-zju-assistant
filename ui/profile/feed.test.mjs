@@ -3,21 +3,32 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { Feed, fromNotice } from './feed.mjs'
+import { Feed, fromActivity, fromNotice } from './feed.mjs'
 
 const READY = { zju_username: '3250100000', zju_password: 'x', webvpn_username: 'a', webvpn_password: 'b' }
 
-function fixture(t, { accounts = READY, disabled = [], articles = async () => ({ articles: [], attention: '' }), refreshArticles, filter, run } = {}) {
+/**
+ * run 答学校通知的那条命令，activities 答二课活动的那条；两条各记各的次数（calls、sztzCalls）。
+ * 不给 run 的话学校通知那边是空的。
+ */
+function fixture(t, { accounts = READY, disabled = [], articles = async () => ({ articles: [], attention: '' }), refreshArticles, filter, run = () => ({ notices: [] }), activities = () => ({ activities: [] }) } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'campus-feed-test-'))
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
-  const state = { accounts, disabled, at: Date.parse('2026-10-09T12:00:00+08:00'), calls: [] }
+  const state = { accounts, disabled, at: Date.parse('2026-10-09T12:00:00+08:00'), calls: [], sztzCalls: [] }
   const feed = new Feed({
     file: path.join(root, 'cache', 'feed.json'), account: { read: () => ({ data: state.accounts }) }, plugins: { disabled: () => state.disabled },
-    articles, refreshArticles, filter, now: () => state.at, run: async (args, options) => { state.calls.push({ args, options }); return run(state) },
+    articles, refreshArticles, filter, now: () => state.at,
+    run: async (args, options) => {
+      if (args[0] === 'sztz') { state.sztzCalls.push({ args, options }); return activities(state) }
+      state.calls.push({ args, options })
+      return run(state)
+    },
   })
   return { feed, state, file: path.join(root, 'cache', 'feed.json') }
 }
 const notice = (title, date, source = '教务网·本科生院通知公告') => ({ title, date, source, url: `https://example.test/${encodeURIComponent(title)}` })
+/** `sztz activity new` 里的一个活动；opens、closes 是报名起止的北京时间。 */
+const activity = (id, name, opens, closes, organizer = '校学生会') => ({ id, name, organizer, status: '报名中', signupOpens: opens, signupCloses: closes, url: `https://sztz.zju.edu.cn/dekt/#/index/hdzx?xmId=${id}` })
 
 test('学校通知一条条攒进缓存，和公众号文章按时间排在一起', async (t) => {
   const { feed, state, file } = fixture(t, {
@@ -107,10 +118,10 @@ test('平时进页面不催公众号，点刷新才让它马上再看一遍；�
 test('插件关着或账号没填时不去读，也不拿缓存给人看', async (t) => {
   const { feed, state } = fixture(t, { run: () => ({ notices: [notice('甲', '2026-10-09')] }) })
   await feed.refresh()
-  state.disabled = ['campus.notices', 'campus.wechat']
+  state.disabled = ['campus.notices', 'campus.wechat', 'campus.activities']
   const off = await feed.refresh({ force: true })
   assert.deepEqual(off.items, [])
-  assert.deepEqual(off.sources.map(source => source.state), ['off', 'off'])
+  assert.deepEqual(off.sources.map(source => [source.id, source.state]), [['school', 'off'], ['wechat', 'off'], ['sztz', 'off']])
   state.disabled = ['campus.wechat']
   state.accounts = { zju_username: '3250100000' }
   const account = await feed.refresh({ force: true })
@@ -121,8 +132,83 @@ test('插件关着或账号没填时不去读，也不拿缓存给人看', async
   assert.equal((await feed.snapshot()).sources[0].state, 'ready')
 })
 
+test('二课新出的活动攒进缓存，和另外两种排在一起；开始报名时重新排到前面，报名截止就不再给', async (t) => {
+  const { feed, state, file } = fixture(t, {
+    run: () => ({ notices: [notice('第三轮选课通知', '2026-10-09')] }),
+    activities: s => ({ activities: s.sztzCalls.length > 1 ? [] : [
+      activity(1, '新生杯辩论赛', '2026-10-01 00:00', '2026-10-12 00:00'),
+      activity(2, '十佳歌手大赛', '2026-10-11 08:00', '2026-10-20 00:00', '竺可桢学院'),
+      { id: 3, name: '没有报名时间的不要', url: 'https://sztz.zju.edu.cn/dekt/' },
+    ] }),
+  })
+  // 第一次读到的算现在出现的，排在今天（零点）的通知前面。
+  const first = await feed.refresh(), found = new Date(state.at).toISOString()
+  assert.deepEqual(first.items.map(item => item.kind), ['sztz', 'sztz', 'school'])
+  const singer = first.items.find(item => item.title === '十佳歌手大赛')
+  assert.deepEqual([singer.id, singer.from, singer.at, singer.foundAt, singer.opens, singer.closes, singer.dated],
+    ['sztz:2', '竺可桢学院', found, found, '2026-10-11T00:00:00.000Z', '2026-10-19T16:00:00.000Z', true])
+  // 应用用自己的那份已读记录，不动助手的。
+  assert.deepEqual([state.sztzCalls[0].args, state.sztzCalls[0].options.env], [['sztz', 'activity', 'new'], { ZJU_NOTICE_READER: 'app' }])
+  assert.deepEqual([first.sources[2].id, first.sources[2].state, first.sources[2].fetchedAt], ['sztz', 'ready', found])
+  // 学校通知过十分钟就再读，二课要过半小时。
+  state.at += 11 * 60_000
+  await feed.refresh()
+  assert.deepEqual([state.calls.length, state.sztzCalls.length], [2, 1])
+  state.at += 20 * 60_000
+  await feed.refresh()
+  assert.equal(state.sztzCalls.length, 2)
+  // 还没开始报名的，到开始报名以后从那时起算：重新排到最前面，页面的小圆点也跟着。
+  state.at = Date.parse('2026-10-11T09:00:00+08:00')
+  const opened = (await feed.snapshot()).items
+  assert.deepEqual(opened.map(item => item.title), ['十佳歌手大赛', '新生杯辩论赛', '第三轮选课通知'])
+  assert.deepEqual([opened[0].at, opened[0].foundAt, opened[1].at], ['2026-10-11T00:00:00.000Z', '2026-10-11T00:00:00.000Z', found])
+  // 报名截止的不再给页面；下一次读的时候从缓存里清掉。
+  state.at = Date.parse('2026-10-12T00:00:01+08:00')
+  assert.deepEqual((await feed.snapshot()).items.filter(item => item.kind === 'sztz').map(item => item.title), ['十佳歌手大赛'])
+  await feed.refresh({ force: true })
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).activities.items.map(item => item.id), ['sztz:2'])
+})
+
+test('二课这次没读到时原来的留着并说明原因；「活动与场馆」关着时不读也不给', async (t) => {
+  let fail = false
+  const { feed, state } = fixture(t, { activities: () => {
+    if (fail) throw new Error('素质拓展平台一直没有回应，稍后再试。')
+    return { activities: [activity(1, '新生杯辩论赛', '2026-10-01 00:00', '2026-10-20 00:00')] }
+  } })
+  await feed.refresh()
+  fail = true
+  const failed = await feed.refresh({ force: true })
+  assert.deepEqual(failed.items.map(item => item.title), ['新生杯辩论赛'])
+  assert.match(failed.sources[2].error, /没有回应/)
+  assert.ok(failed.sources[2].fetchedAt)
+  // 失败后五分钟内不自动重试，点刷新才读。
+  state.at += 60_000
+  await feed.refresh()
+  assert.equal(state.sztzCalls.length, 2)
+  state.disabled = ['campus.activities']
+  const off = await feed.refresh({ force: true })
+  assert.deepEqual([off.items, off.sources[2].state, state.sztzCalls.length], [[], 'off', 2])
+})
+
+test('加二课以前存下的缓存照样能用', async (t) => {
+  const { feed, state, file } = fixture(t, { activities: () => ({ activities: [activity(1, '新生杯辩论赛', '2026-10-01 00:00', '2026-10-20 00:00')] }) })
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const tried = new Date(state.at - 60_000).toISOString()
+  fs.writeFileSync(file, JSON.stringify({ items: [{ id: 'school:https://x', kind: 'school', title: '旧的通知', from: '教务网', at: '2026-10-08T00:00:00+08:00', dated: false, url: 'https://x', foundAt: tried }], fetchedAt: tried, triedAt: tried, error: null }))
+  assert.deepEqual((await feed.refresh()).items.map(item => item.title), ['新生杯辩论赛', '旧的通知'])
+  // 学校通知一分钟前刚读过，这一趟只读了二课；写回去以后两样都在。
+  assert.deepEqual([state.calls.length, state.sztzCalls.length], [0, 1])
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).items.map(item => item.title), ['旧的通知'])
+})
+
 test('格式不对的条目不要', () => {
   assert.equal(fromNotice({ title: '', date: '2026-10-09', url: 'x' }, ''), undefined)
   assert.equal(fromNotice({ title: '甲', date: '十月', url: 'x' }, ''), undefined)
   assert.equal(fromNotice({ title: '甲', date: '2026-10-09 08:00', source: '计算机科学与技术学院·本科生教育', url: 'https://x' }, 'now').from, '计算机科学与技术学院')
+  assert.equal(fromActivity({ id: 1, name: '甲', signupCloses: '下周', url: 'https://x' }, 'now'), undefined)
+  assert.equal(fromActivity({ id: '1', name: '甲', signupCloses: '2026-10-20 00:00', url: 'https://x' }, 'now'), undefined)
+  assert.equal(fromActivity({ id: 1, name: '甲', signupCloses: '2026-10-20 00:00' }, 'now'), undefined)
+  // 没写举办单位的写平台的名字；没有开始报名的时间也收。
+  assert.deepEqual(fromActivity({ id: 1, name: ' 甲 ', signupCloses: '2026-10-20 00:00', url: 'https://x' }, 'now'),
+    { id: 'sztz:1', kind: 'sztz', title: '甲', from: '素质拓展平台', dated: true, url: 'https://x', foundAt: 'now', opens: null, closes: '2026-10-19T16:00:00.000Z' })
 })

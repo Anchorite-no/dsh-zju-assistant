@@ -5,13 +5,17 @@
  * 和这位学生关系不大的（标题里有屏蔽词，或者模型照个人档案判断的）默认收起，列表下面一行说有几条，点开还在。
  * 列表放在一个定高的框里自己滚动，条数再多页面也不会被拉长。
  * 和左边的作业一样，打开时先照上一次读到的画，后台再去读新的；上次来过之后新出现的，标题前带一个点。
- * 点一条打开原文，右边的图标把它交给助手。数据和缓存在引擎侧的 ui/profile/feed.mjs。
+ * 点一条打开原文，右边的图标把它加到左栏的备忘录：直接加，或者先让模型总结了再加。
+ * 这一行原来还有一个「交给助手」，有了带总结的备忘以后用户觉得多余，拿掉了（2026-10-12）；作业那边的还在。
+ * 数据和缓存在引擎侧的 ui/profile/feed.mjs，加到备忘录在 ui/profile/notice-memo.mjs。
  */
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { IconChevronDownOutlineRegular, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Button, IconCheckOutlineRegular, IconChevronDownOutlineRegular, IconListPenOutlineRegular, IconLoadingOutlineRegular, IconPlusOutlineRegular, IconSparkleRegular, Menu, Tooltip,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import { errorText, profileApi } from './api.ts'
 import { Flow } from './Flow.tsx'
-import { HandIconButton, handToAssistant } from './handoff.tsx'
+import type { NoticeMemos } from './Memos.tsx'
 import { APP_PLUGINS } from './pluginCatalog.ts'
 import { openPlugin } from './PluginsPage.tsx'
 import { DAY, agoText, clock, dateText, midnight, mixed } from './when.ts'
@@ -27,10 +31,11 @@ interface Item {
 /** state：ready 能读，account 账号还没填，off 插件关着。plugin 是去插件页的哪一项处理。 */
 interface Source { id: 'school' | 'wechat' | 'sztz', name: string, state: 'ready' | 'account' | 'off', plugin: string, fetchedAt: string | null, error: string | null }
 interface Snapshot { items: Item[], sources: Source[] }
-interface State { snapshot: Snapshot | null, busy: boolean, error: string }
+/** adding 是正在加进备忘录的那几条的编号（要总结的要等一阵）。 */
+interface State { snapshot: Snapshot | null, busy: boolean, error: string, adding: readonly string[] }
 
 /** 状态放在组件外面：离开这一页再回来直接照上一次的画，正在进行的读取也不会断。 */
-let state: State = { snapshot: null, busy: false, error: '' }
+let state: State = { snapshot: null, busy: false, error: '', adding: [] }
 const listeners = new Set<() => void>()
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }
 const update = (patch: Partial<State>) => { state = { ...state, ...patch }; for (const listener of [...listeners]) listener() }
@@ -89,18 +94,40 @@ function when(item: Item, now: number): { text: string, at: string } {
   return { text: days === 1 ? '昨天' : dateText(at, now), at: item.at }
 }
 
-/** 交给助手时替用户写好的那段话。标题和链接照原样写，助手要拿它们去读原文；日期写具体的，过几天再看也不会错。 */
-function handoffText(item: Item, now: number): string {
-  // 二课活动不给链接：平台的页面要登录，助手是用活动名去平台上查的。
-  if (item.kind === 'sztz') return `帮我看看二课平台上的这个活动：《${item.title}》（${item.from}）。告诉我记多少点、什么时候在哪、怎么报名、什么时候截止，再等我说下一步。`
-  const what = item.kind === 'wechat' ? `「${item.from}」公众号的这篇文章` : '这条通知'
-  const origin = item.kind === 'wechat' ? '' : `${item.from}，`
-  const ask = item.kind === 'wechat' ? '讲了什么、有没有要报名或者有截止时间的事' : '和我有没有关系、要我做什么、什么时候截止'
-  return `帮我看看${what}：《${item.title}》（${origin}${dateText(Date.parse(item.at), now)}）。原文：${item.url} 。先读全文，告诉我${ask}，再等我说下一步。`
+/**
+ * 一行右边的「加到备忘录」：点开两个选项，直接添加，或者先让模型总结。
+ * 已经加过的（memo 是那条备忘的标题）换成一个勾，点它打开那条备忘；正在加的转圈，点不了。
+ */
+function MemoButton({ memo, busy, onAdd, onOpen }: { memo: string, busy: boolean, onAdd: (summarize: boolean) => void, onOpen: () => void }) {
+  const [choosing, setChoosing] = useState(false)
+  const label = busy ? '正在加到备忘录' : memo ? '已在备忘录里，点开看' : '加到备忘录'
+  return (
+    <Menu
+      open={choosing && !memo && !busy}
+      onClose={() => { setChoosing(false) }}
+      items={[
+        { id: 'plain', label: '直接添加', icon: <IconPlusOutlineRegular size={14} /> },
+        { id: 'summary', label: 'AI 总结后添加', icon: <IconSparkleRegular size={14} /> },
+      ]}
+      onSelect={(id) => { setChoosing(false); onAdd(id === 'summary') }}
+      align="end"
+      portal
+      anchor={(
+        <Tooltip label={label} side="top" portal>
+          <Button className="campus-hand" size="sm" variant="outline" aria-label={label} aria-busy={busy} disabled={busy} data-added={memo ? '' : undefined}
+            {...(memo ? {} : { 'aria-haspopup': 'menu' as const, 'aria-expanded': choosing })}
+            icon={busy ? <IconLoadingOutlineRegular size={14} /> : memo ? <IconCheckOutlineRegular size={14} /> : <IconListPenOutlineRegular size={14} />}
+            onClick={() => { if (memo) onOpen(); else setChoosing(old => !old) }} />
+        </Tooltip>
+      )}
+    />
+  )
 }
 
-/** 一条通知。整行点开原文，右边「交给助手」的图标保留自己的点击；fresh 的标题前带一个点。 */
-function NoticeRow({ item, now, fresh, onHand }: { item: Item, now: number, fresh: boolean, onHand: () => void }) {
+/** 一条通知。整行点开原文，右边「加到备忘录」的图标保留自己的点击；fresh 的标题前带一个点。 */
+function NoticeRow({ item, now, fresh, memo, adding, onMemo, onOpenMemo }: {
+  item: Item, now: number, fresh: boolean, memo: string, adding: boolean, onMemo: (summarize: boolean) => void, onOpenMemo: () => void
+}) {
   const time = when(item, now)
   return (
     <article className="campus-notice" data-new={fresh ? '' : undefined} data-folded={item.hidden ? '' : undefined}>
@@ -113,13 +140,13 @@ function NoticeRow({ item, now, fresh, onHand }: { item: Item, now: number, fres
           <time dateTime={time.at}>{time.text}</time>
         </span>
       </div>
-      <HandIconButton onClick={onHand} />
+      <MemoButton memo={memo} busy={adding} onAdd={onMemo} onOpen={onOpenMemo} />
     </article>
   )
 }
 
-export function FeedColumn({ now }: { now: number }) {
-  const { snapshot, busy, error } = useSyncExternalStore(subscribe, () => state)
+export function FeedColumn({ now, memos }: { now: number, memos: NoticeMemos }) {
+  const { snapshot, busy, error, adding } = useSyncExternalStore(subscribe, () => state)
   const [range, setRange] = useState<Range>('recent')
   const [kind, setKind] = useState<Kind>('all')
   const [choosing, setChoosing] = useState(false)
@@ -144,7 +171,13 @@ export function FeedColumn({ now }: { now: number }) {
   const folded = inRange.filter(item => item.hidden).length
   const visible = unfolded ? inRange : inRange.filter(item => !item.hidden)
   const fresh = (item: Item) => Number.isFinite(seenAt) && Date.parse(item.foundAt ?? item.at) > seenAt
-  const hand = (item: Item) => { handToAssistant(handoffText(item, now)).catch((reason: unknown) => { update({ error: errorText(reason) }) }) }
+  // 加到备忘录：做完（成了、退回直接添加了、本来就在）由备忘录那边在窗口顶上提示；这里只管这一行转不转圈，和请求本身没发成时的那句话。
+  const addMemo = (item: Item, summarize: boolean) => {
+    update({ adding: [...state.adding, item.id], error: '' })
+    memos.add(item.id, summarize)
+      .catch((reason: unknown) => { update({ error: errorText(reason) }) })
+      .finally(() => { update({ adding: state.adding.filter(id => id !== item.id) }) })
+  }
 
   // 列表空着的时候说清楚是哪一种空：真的没有、还在第一次读、还是根本没法读（下面另有说明）。
   let empty = ''
@@ -195,7 +228,13 @@ export function FeedColumn({ now }: { now: number }) {
         // 条数多了在这个框里滚动。换时间、换种类都是换了一份列表，整个重画（回到顶上），不放进出的动画。
         <div className="campus-notice-scroll" key={`${range}:${picked.value}`}>
           <Flow items={visible} keyOf={itemKey} label="通知">
-            {item => <NoticeRow item={item} now={now} fresh={fresh(item)} onHand={() => { hand(item) }} />}
+            {(item) => {
+              const memo = memos.titleOf(item.url)
+              return (
+                <NoticeRow item={item} now={now} fresh={fresh(item)} memo={memo} adding={adding.includes(item.id)}
+                  onMemo={(summarize) => { addMemo(item, summarize) }} onOpenMemo={() => { memos.open(memo) }} />
+              )
+            }}
           </Flow>
         </div>
       )}

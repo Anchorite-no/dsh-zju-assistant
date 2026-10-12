@@ -146,6 +146,18 @@ export class Wechat {
     }
   }
 
+  /**
+   * 读一篇文章的全文（通知加到备忘录时总结用，见 notice-memo.mjs），返回技能给的那篇：{ title, markdown, … }。
+   * 没有人在场：要扫码、要用户自己验证的时候不开窗口，照技能的话说读不了。和别的检查排着队做。
+   */
+  article(url) {
+    return this.serial(async () => {
+      const result = await this.call(['read', '--url', url])
+      if (!result.ok) throw new Error(result.message)
+      return result.article
+    }, '正在读文章')
+  }
+
   async call(args, { interactive = false } = {}) {
     const controller = new AbortController()
     this.controllers.add(controller)

@@ -141,6 +141,13 @@ test('model tools, UI route and context share one profile; skills come from the 
   assert.equal(feed.sources.find(source => source.id === 'school').state, 'account')
   assert.equal(feed.sources.find(source => source.id === 'wechat').state, 'ready')
   assert.deepEqual(feed.items.map(item => [item.title, item.from, item.hidden]), [['测试推文', '浙大体育与艺术', null]])
+  // 通知那一行的「加到备忘录」：加进去的带着来源、日期和原文链接；再点一次不重复加；不在列表里的拒绝。
+  assert.deepEqual((await call('feed-memo', { id: feed.items[0].id })).value, { title: '测试推文', existed: false, summarized: false, reason: '' })
+  const clipped = (await call('memo-list')).value.notes.find(item => item.title === '测试推文')
+  assert.deepEqual(clipped.properties, [{ key: '来源', value: '浙大体育与艺术' }, { key: '日期', value: '2026-10-09' }])
+  assert.equal(clipped.body, '[查看原文](https://mp.weixin.qq.com/s/x)\n')
+  assert.equal((await call('feed-memo', { id: feed.items[0].id, summarize: true })).value.existed, true)
+  assert.equal((await call('feed-memo', { id: 'wechat:没有的' })).status, 400)
 
   // 账号页能读写密码，模型看得到的上下文和档案工具里没有它。这里不用统一身份认证的账号：保存它会去教务网读学籍。
   const account = (await call('account-read')).value

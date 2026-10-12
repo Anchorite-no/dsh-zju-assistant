@@ -2040,7 +2040,8 @@ button[aria-label='工作区“对话”的操作'] {
   outline-offset: 2px;
 }
 
-/* 「交给助手」的图标按钮：28px 见方，只有一个图标，鼠标放上去才显示这四个字。压在整行的点击范围上面。 */
+/* 「交给助手」的图标按钮：28px 见方，只有一个图标，鼠标放上去才显示这四个字。压在整行的点击范围上面。
+   通知那一行的「加到备忘录」是同一个样子。 */
 .campus-hand {
   position: relative;
   z-index: 1;
@@ -2051,6 +2052,22 @@ button[aria-label='工作区“对话”的操作'] {
   min-width: 0;
   height: 28px;
   padding: 0;
+}
+
+/* 已经加进备忘录的那一条：图标是一个勾，用强调色。 */
+.campus-hand[data-added] {
+  color: var(--dsw-alias-state-business-primary);
+}
+
+/* 正在加（要总结的要等一阵）：图标转圈。 */
+.campus-hand[aria-busy='true'] svg {
+  animation: campus-spin 900ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .campus-hand[aria-busy='true'] svg {
+    animation: none;
+  }
 }
 
 .campus-task-meta {

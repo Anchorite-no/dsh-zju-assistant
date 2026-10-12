@@ -379,7 +379,7 @@ export function AffairsPage() {
           </section>
           {memos.list}
         </div>
-        <FeedColumn now={now} />
+        <FeedColumn now={now} memos={memos.notices} />
       </div>
       {memos.toast}
     </div>

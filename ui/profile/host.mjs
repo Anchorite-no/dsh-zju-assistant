@@ -17,6 +17,7 @@ import { Xuezai } from './xuezai.mjs'
 import { engineStamp } from './stamp.mjs'
 import { Wechat } from './wechat.mjs'
 import { NoticeFilter } from './notice-filter.mjs'
+import { NoticeMemo } from './notice-memo.mjs'
 import { askModel } from './model.mjs'
 import { ChatGpt } from './chatgpt.mjs'
 import { installAgent } from './agent.mjs'
@@ -83,6 +84,11 @@ export function installProfile(ctx, { wechatRun, alertSend } = {}) {
   })
   // 校园事务页右边的通知：学校通知攒在缓存里，公众号文章取公众号插件已经存下的。
   const feed = new Feed({ filter: noticeFilter, file: path.join(path.dirname(store.root), 'cache', 'feed.json'), account, plugins, articles: input => wechat.articles(input), refreshArticles: () => wechat.refresh() })
+  // 通知那一栏每行的「加到备忘录」：直接加，或者先读正文、让模型总结了再加（notice-memo.mjs）。
+  const noticeMemo = new NoticeMemo({
+    store, feed, article: url => wechat.article(url),
+    ask: input => askModel(ctx, { ...input, reasoningEffort: 'low', maxTokens: 4000, timeoutMs: 60_000 }),
+  })
   // 学习页：智云的课程和课次（缓存），加上「文档」里课程文件夹和讲解目录现有的东西。
   const learning = new Learning({ file: path.join(path.dirname(store.root), 'cache', 'learning.json'), account, plugins, chats, downloads: new Downloads() })
   // 学习页切到「超星」时的内容：学习通里一门课各节的课件、视频（缓存）和本人的实验课表，下载的文件也放进「文档」的课程文件夹。
@@ -120,6 +126,7 @@ export function installProfile(ctx, { wechatRun, alertSend } = {}) {
           : action === 'affairs-file-reveal' ? affairs.reveal(input)
           : action === 'feed-read' ? await feed.snapshot()
           : action === 'feed-refresh' ? await feed.refresh(input)
+          : action === 'feed-memo' ? await noticeMemo.add(input)
           : action === 'notice-filter-read' ? noticeFilter.settings()
           : action === 'notice-filter-save' ? noticeFilter.save(input)
           : action === 'learning-read' ? await learning.snapshot()

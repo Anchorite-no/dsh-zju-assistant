@@ -5,11 +5,13 @@
  * 接着在同一个网站上做的，竖着接在圆圈下面；同一步里发出的几次调用，共用一条从主线弯出来的竖线，各自横着挂在上面，谁也不挂在谁下面。
  * 一次调用一行，不合并：做了几次就是几行。只用黑白灰，失败的才是红的。点一行，详情接在它下面。
  * 图是长出来的：一行接一行往下长，线沿着走向画过去，画到了圆点才出来，字跟在后面（见「长出来」一段和 style.css 里同名的那段）。
+ * 长过的行不再长：引擎会在页签看不见时把它卸掉、回来重新挂，长过哪些行记在页签外面（trace/grown.ts）。
  * 数据见 trace/model.ts，怎么拼成路线见 trace/route.ts。
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, IconCodeOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import { grownBefore, rememberGrown } from './trace/grown.ts'
 import type { TraceCall, TraceSnapshot } from './trace/model.ts'
 import { buildRoutes, formatDuration, type Stop, type TurnRoute } from './trace/route.ts'
 
@@ -51,9 +53,12 @@ const still = () => typeof window !== 'undefined' && window.matchMedia('(prefers
 /**
  * 哪些行已经长出来了。ids 是现在该有的行，按从上到下的顺序；每隔 STEP 放出下一行，
  * 认的是行的身份而不是个数：中间插进来一行时，下面已经在的行不会被收回去重长一遍。
+ * memo 是这一轮在 trace/grown.ts 里的名字：这张图以前挂着的时候长过的行（before），这一次直接摆好，不再长一遍。
  */
-function useGrowth(ids: readonly string[]): ReadonlySet<string> {
-  const [grown, setGrown] = useState<ReadonlySet<string>>(() => new Set(still() ? ids : ids.slice(0, 1)))
+function useGrowth(memo: string, ids: readonly string[]): { grown: ReadonlySet<string>, before: ReadonlySet<string> } {
+  const [before] = useState(() => grownBefore(memo))
+  const [grown, setGrown] = useState<ReadonlySet<string>>(() => before.size > 0 ? before : new Set(still() ? ids : ids.slice(0, 1)))
+  useEffect(() => { rememberGrown(memo, grown) }, [memo, grown])
   const waiting = ids.filter(id => !grown.has(id))
   const next = waiting.slice(0, Math.max(1, Math.ceil(waiting.length / GROWTH_STEPS))).join('\n')
   useEffect(() => {
@@ -63,7 +68,7 @@ function useGrowth(ids: readonly string[]): ReadonlySet<string> {
     const timer = setTimeout(grow, STEP)
     return () => { clearTimeout(timer) }
   }, [next])
-  return grown
+  return { grown, before }
 }
 
 /** 这一行是不是早就在了（不是这一次才画上去的）：后来才多出来的线不用排队等这一行的其它线。 */
@@ -78,12 +83,13 @@ type Segment = 'up' | 'down' | 'rail' | 'railend' | 'hook' | 'alone' | 'stop' | 
 
 /**
  * 一段线，挂上去的时候沿着走向画出来（长度归成 1，虚线的偏移从 1 走到 0）。
- * 和这一行一起出现的线按先后排队；这一行早就在了、后来才多出来的线（比如下面又接了一站）马上画。
- * 排不排队在它挂上去的那一刻定下来，之后不变：画到一半被改了延时会跳一下。
+ * 和这一行一起出现的线按先后排队（queued）；这一行早就在了、后来才多出来的线（比如下面又接了一站）马上画（late）；
+ * 这一行以前就长出来过、这次只是重新摆上去的，线不画，直接在那（none）。
+ * 怎么出场在它挂上去的那一刻定下来，之后不变：画到一半被改了延时会跳一下。
  */
-function Line({ segment, d, settled }: { segment: Segment, d: string, settled: boolean }) {
-  const [late] = useState(settled)
-  return <path d={d} pathLength={1} data-segment={segment} data-late={late ? '' : undefined} />
+function Line({ segment, d, settled, quiet }: { segment: Segment, d: string, settled: boolean, quiet: boolean }) {
+  const [entrance] = useState<'queued' | 'late' | 'none'>(settled ? 'late' : quiet ? 'none' : 'queued')
+  return <path d={d} pathLength={1} data-segment={segment} data-late={entrance === 'late' ? '' : undefined} data-quiet={entrance === 'none' ? '' : undefined} />
 }
 
 /** 圆点的画法：实心（问题、回答）、空心圈（查了一个网站）、小圆点（本地操作）。 */
@@ -155,23 +161,24 @@ function layout(route: TurnRoute): RowModel[] {
  * 线都往下走：从主线分出去的地方是弯的，挂到圆圈上的是横线，只有最后拐进圆圈的那一下是圆弧。
  * 共用的竖线弯出来的那一段有一点画在上一行里（svg 不裁掉）。
  */
-function Graph({ cell, mark, settled }: { cell: Cell, mark: Mark, settled: boolean }) {
+function Graph({ cell, mark, settled, quiet }: { cell: Cell, mark: Mark, settled: boolean, quiet: boolean }) {
   const cy = ROW / 2, side = cell.entry !== undefined
   const gap = !side && mark === 'ring' ? RING : 0
   const end = SIDE - RING
   const railBelow = cell.rail === 'start' || cell.rail === 'through'
+  const line = (segment: Segment, d: string) => <Line segment={segment} settled={settled} quiet={quiet} d={d} />
   return (
     <span className="campus-trace-graph" style={{ width: WIDTH }} aria-hidden="true">
       <svg width={WIDTH} height={ROW}>
-        {cell.up && <Line segment="up" settled={settled} d={`M${TRUNK} 0V${cy - gap}`} />}
-        {cell.down && <Line segment="down" settled={settled} d={`M${TRUNK} ${cy + gap}V${ROW}`} />}
-        {cell.rail === 'start' && <Line segment="rail" settled={settled} d={`M${TRUNK} ${-LEAD}C${TRUNK} ${cy * 0.7 - LEAD} ${RAIL} ${cy * 0.3 - LEAD} ${RAIL} ${cy - LEAD}V${ROW}`} />}
-        {cell.rail === 'through' && <Line segment="rail" settled={settled} d={`M${RAIL} 0V${ROW}`} />}
-        {cell.rail === 'end' && <Line segment="railend" settled={settled} d={`M${RAIL} 0V${cy - TURN}A${TURN} ${TURN} 0 0 0 ${RAIL + TURN} ${cy}H${end}`} />}
-        {cell.entry === 'rail' && cell.rail !== 'end' && <Line segment="hook" settled={settled} d={`M${RAIL} ${cy}H${end}`} />}
-        {cell.entry === 'alone' && <Line segment="alone" settled={settled} d={`M${TRUNK} ${cy - TURN}A${TURN} ${TURN} 0 0 0 ${TRUNK + TURN} ${cy}H${end}`} />}
-        {cell.entry === 'stop' && <Line segment="stop" settled={settled} d={`M${SIDE} 0V${cy - RING}`} />}
-        {cell.more && <Line segment="more" settled={settled} d={`M${SIDE} ${cy + RING}V${ROW}`} />}
+        {cell.up && line('up', `M${TRUNK} 0V${cy - gap}`)}
+        {cell.down && line('down', `M${TRUNK} ${cy + gap}V${ROW}`)}
+        {cell.rail === 'start' && line('rail', `M${TRUNK} ${-LEAD}C${TRUNK} ${cy * 0.7 - LEAD} ${RAIL} ${cy * 0.3 - LEAD} ${RAIL} ${cy - LEAD}V${ROW}`)}
+        {cell.rail === 'through' && line('rail', `M${RAIL} 0V${ROW}`)}
+        {cell.rail === 'end' && line('railend', `M${RAIL} 0V${cy - TURN}A${TURN} ${TURN} 0 0 0 ${RAIL + TURN} ${cy}H${end}`)}
+        {cell.entry === 'rail' && cell.rail !== 'end' && line('hook', `M${RAIL} ${cy}H${end}`)}
+        {cell.entry === 'alone' && line('alone', `M${TRUNK} ${cy - TURN}A${TURN} ${TURN} 0 0 0 ${TRUNK + TURN} ${cy}H${end}`)}
+        {cell.entry === 'stop' && line('stop', `M${SIDE} 0V${cy - RING}`)}
+        {cell.more && line('more', `M${SIDE} ${cy + RING}V${ROW}`)}
         <circle cx={side ? SIDE : TRUNK} cy={cy} r={mark === 'speck' ? SPECK : RING} data-mark={mark} data-side={side ? '' : undefined} />
       </svg>
       {cell.down && <i style={{ left: TRUNK - 0.5 }} />}
@@ -187,14 +194,15 @@ function subjectOf(call: TraceCall): string | undefined {
   return call.action.about ?? (outcome?.count === 1 ? outcome.titles?.[0] : undefined)
 }
 
-/** 查网站的一站失败了，结果标红；本地操作偶尔出错是常事，不标。 */
-const flagged = (stop: Stop) => stop.kind !== 'other' && stop.status === 'failed'
-
-/** 行尾那一小格：拿到几条、失败。没什么可说的就空着。 */
+/**
+ * 行尾那一小格：拿到几条、失败。没什么可说的就空着。
+ * 失败的都写出来，本地操作也一样（2026-10-12 用户要的：以前本地操作出错不标，一条命令被权限拦住、
+ * 助手转头换了个办法，图上看不出中间失败过）。
+ */
 function stopResult(stop: Stop): string {
   if (stop.status === 'running') return '进行中'
   if (stop.status === 'stopped') return '已中断'
-  if (flagged(stop)) return '失败'
+  if (stop.status === 'failed') return '失败'
   const outcome = stop.call.done?.outcome
   if (stop.kind === 'other' || outcome?.count === undefined) return ''
   // 只拿到一条、这一条的标题已经写在前面了（打开的是哪个帖子），就不再写「1 条」。
@@ -220,20 +228,23 @@ function Detail({ stop }: { stop: Stop }) {
   )
 }
 
-function StopRow({ stop, site, cell, open, onToggle }: {
+function StopRow({ stop, site, cell, open, quiet, onToggle }: {
   stop: Stop
   site?: string
   cell: Cell
   open: boolean
+  /** 这一行以前就长出来过，这次直接摆好。 */
+  quiet: boolean
   onToggle: () => void
 }) {
-  const local = stop.kind === 'other', settled = useSettled()
+  const settled = useSettled()
   const { label } = stop, about = subjectOf(stop.call)
-  const state: RowState = stop.status === 'failed' && local ? 'done' : stop.status
+  // 本地操作是主线上的一个小点；失败了画成和网站那边一样大的红点，不然太小看不见。
+  const mark: Mark = stop.kind === 'other' && stop.status !== 'failed' ? 'speck' : 'ring'
   return (
-    <li className="campus-trace-row" data-state={state} data-kind={stop.kind} data-failed={flagged(stop) ? '' : undefined}>
+    <li className="campus-trace-row" data-state={stop.status} data-kind={stop.kind} data-quiet={quiet ? '' : undefined}>
       <span className="campus-trace-site">{site}</span>
-      <Graph cell={cell} mark={local ? 'speck' : 'ring'} settled={settled} />
+      <Graph cell={cell} mark={mark} settled={settled} quiet={quiet} />
       <div className="campus-trace-cell">
         <button type="button" className="campus-trace-line" aria-expanded={open} title={[stop.site, label, about].filter(Boolean).join('，')} onClick={onToggle}>
           <span className="campus-trace-what">
@@ -249,12 +260,12 @@ function StopRow({ stop, site, cell, open, onToggle }: {
 }
 
 /** 路线两头的一行：你的问题、回答。 */
-function EndRow({ ask, state, cell, text, title }: { ask: boolean, state: RowState, cell: Cell, text: string | undefined, title?: string }) {
+function EndRow({ ask, state, cell, text, title, quiet }: { ask: boolean, state: RowState, cell: Cell, text: string | undefined, title?: string, quiet: boolean }) {
   const settled = useSettled()
   return (
-    <li className="campus-trace-row" data-end="" data-state={state}>
+    <li className="campus-trace-row" data-end="" data-state={state} data-quiet={quiet ? '' : undefined}>
       <span className="campus-trace-site">{ask ? '你的问题' : '回答'}</span>
-      <Graph cell={cell} mark={ask || state === 'done' ? 'solid' : 'ring'} settled={settled} />
+      <Graph cell={cell} mark={ask || state === 'done' ? 'solid' : 'ring'} settled={settled} quiet={quiet} />
       <div className="campus-trace-cell">
         <div className="campus-trace-line" title={title}>
           <span className="campus-trace-what">{text}</span>
@@ -280,11 +291,11 @@ function answerLine(route: TurnRoute): string {
 
 const rowId = (row: RowModel): string => row.type === 'stop' ? row.stop.id : row.type
 
-/** 一轮的整条路线。 */
-function Route({ route }: { route: TurnRoute }) {
+/** 一轮的整条路线。memo 是这一轮在 trace/grown.ts 里的名字。 */
+function Route({ route, memo }: { route: TurnRoute, memo: string }) {
   const [opened, setOpened] = useState<string | undefined>()
   const all = useMemo(() => layout(route), [route])
-  const grown = useGrowth(useMemo(() => all.map(rowId), [all]))
+  const { grown, before } = useGrowth(memo, useMemo(() => all.map(rowId), [all]))
   const rows = all.filter(row => grown.has(rowId(row)))
   const list = useRef<HTMLOListElement>(null)
   // 对话进行时新的一行出现，就把正在做的那一行带进视野（它可能接在前面某条支线下面）；没有正在做的就带最后一行。
@@ -302,20 +313,21 @@ function Route({ route }: { route: TurnRoute }) {
         {rows.map((row) => {
           if (row.type === 'stop') {
             const id = row.stop.id
-            return <StopRow key={id} stop={row.stop} site={row.site} cell={row.cell} open={opened === id} onToggle={() => { setOpened(current => current === id ? undefined : id) }} />
+            return <StopRow key={id} stop={row.stop} site={row.site} cell={row.cell} open={opened === id} quiet={before.has(id)} onToggle={() => { setOpened(current => current === id ? undefined : id) }} />
           }
           const ask = row.type === 'ask'
-          return <EndRow key={row.type} ask={ask} state={ask ? 'done' : answer} cell={row.cell} text={ask ? route.question : answerLine(route)} title={ask ? route.question : undefined} />
+          return <EndRow key={row.type} ask={ask} state={ask ? 'done' : answer} cell={row.cell} text={ask ? route.question : answerLine(route)} title={ask ? route.question : undefined} quiet={before.has(row.type)} />
         })}
       </ol>
     </section>
   )
 }
 
-export function TraceTab({ useTrace }: TraceTabProps) {
+export function TraceTab({ useTrace, sessionId }: TraceTabProps) {
   const snapshot = useTrace(value => value)
   const routes = useMemo(() => snapshot ? buildRoutes(snapshot) : [], [snapshot])
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
+  const memo = (route: TurnRoute) => `${sessionId}\n${String(route.turn)}`
   if (routes.length === 0) {
     return <div className="campus-trace"><p className="campus-trace-empty">发出问题后，这里会显示助手查了哪些网站。</p></div>
   }
@@ -337,11 +349,11 @@ export function TraceTab({ useTrace }: TraceTabProps) {
               <span className="campus-trace-question">{route.question ?? `第 ${route.turn} 轮`}</span>
               <span className="campus-trace-result">{route.sites.length === 0 ? '' : `${route.sites.length} 个网站`}</span>
             </button>
-            {open && <Route route={route} />}
+            {open && <Route route={route} memo={memo(route)} />}
           </div>
         )
       })}
-      <Route key={latest.turn} route={latest} />
+      <Route key={latest.turn} route={latest} memo={memo(latest)} />
     </div>
   )
 }

@@ -19,6 +19,18 @@ export function dataDir(): string {
   return override && override.trim() ? path.resolve(override) : path.join(path.dirname(profileDir()), "zju");
 }
 
+/**
+ * 命令行里给的输出位置（--out、--out-dir）。相对路径照常从当前目录算；当前目录在本技能自己的目录里时，改从输出目录算。
+ * 技能的目录是应用装着的地方：装在 C:\Program Files 下面写不进去，写得进去时升级也会把它整个换掉。
+ * 助手有时把工作目录切到这里、再给一个相对的路径，文件不该落在里面。命令的结果里写的是完整路径，落在哪看得到。
+ */
+export function outPath(given: string, cwd = process.cwd()): string {
+  if (path.isAbsolute(given)) return path.resolve(given);
+  const fromRoot = path.relative(ROOT, cwd);
+  const inside = fromRoot !== ".." && !fromRoot.startsWith(".." + path.sep) && !path.isAbsolute(fromRoot);
+  return path.resolve(inside ? paths.output() : cwd, given);
+}
+
 export const paths = {
   root: ROOT,
   data: dataDir,

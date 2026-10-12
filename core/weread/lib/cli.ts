@@ -1,6 +1,6 @@
 import { Command, InvalidArgumentError } from 'commander'
 import { exportMarkdown } from './article.ts'
-import { SkillError } from './config.ts'
+import { SkillError, outPath } from './config.ts'
 import { accounts, list, listTracked, read, track, newArticles, type Options } from './sources.ts'
 import { login, loginState, logout } from './web.ts'
 
@@ -32,7 +32,7 @@ export function commands(write: (value: unknown) => void) {
     .option('--account <公众号>', '公众号名称，可以只写一部分')
     .option('--limit <数量>', '每个号最多返回几篇', count, 20))
   article(command('read', '读取一篇文章，输出 Markdown 正文', async options => ({ ok: true, article: await read(options) })))
-  article(command('download', '把一篇文章保存为 Markdown，并下载正文图片', async options => exportMarkdown(await read(options), options.out)))
+  article(command('download', '把一篇文章保存为 Markdown，并下载正文图片', async options => exportMarkdown(await read(options), outPath(options.out))))
     .requiredOption('--out <目录>', '保存到哪个目录')
   source(command('track', '开始跟踪一个公众号；不带 --account 时只列出跟踪名单', track)
     .option('--account <公众号>', '公众号名称')

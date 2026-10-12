@@ -39,7 +39,7 @@ const SCRIPT = [
 - 场景是时间的纯函数，同一个 `t` 画出同一帧：不在帧之间保存状态，不用 `Math.random()`（用 `V.rng(种子)`），不读系统时间。进度条的拖动和截图都依赖这一点。
 - 可用区域为 `V.SAFE`：`x 90–1830, y 130–930`。上方是章节标签，下方是字幕。
 - 颜色从 `V.C`、`V.CAT` 读，见“风格”。Harness 画布上的字用 `V.txt` 写：字体跟着主题走，`$...$` 里的公式也只有它能排。
-- 每个文件包在 `(() => { ... })()` 中。打包收 `script.js`、`scenes/*.js`，和 `lib/*.js`（这一集用到的外部库，排在场景前面）。`node engine/lib.mjs lessons/<主题>/film gsap three` 把库放进 `lib/`，全局名是 `gsap` 和 `THREE`；别的库先 `npm install --prefix engine/vendor <包名>`，再写成 `包名=全局名`。
+- 每个文件包在 `(() => { ... })()` 中。打包收 `script.js`、`scenes/*.js`，和 `lib/*.js`（这一集用到的外部库，排在场景前面）。`node engine/lib.mjs lessons/<主题>/film gsap three` 把库放进 `lib/`，全局名是 `gsap` 和 `THREE`；别的库先 `npm install --prefix lessons/<主题>/film/build/vendor <包名>`（装在这一集自己的文件夹里，不往 `engine/` 里装；电脑上要有 npm），再写成 `包名=全局名`。
 - 例题的结构和每一步的状态取自 `plan/code/` 输出的数据，用 `make/` 下的一小段脚本转成 `scenes/00-data.js`（内容为 `V.data = {...}`），不照着手抄。
 
 ### 命令

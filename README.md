@@ -76,7 +76,11 @@ npm run installer
 **装进 Program Files 对应用自己的两点影响**（改之前把代码查了一遍）：
 
 - 安装目录里有空格。助手执行校园命令时要把技能的目录拼进命令（`node "<SKILL>/scripts/zju.ts" …`），脚本的路径不加引号，在空格那里就断了。`core/zju`、`core/weread`、`core/learn` 三份 `SKILL.md` 里的写法都改成带引号的，并写明目录里常有空格。`ui/profile/permissions.mjs` 认「单独一条校园命令」时本来就认引号里的路径（补了一条带空格的用例）。应用自己起脚本的地方传的都是参数数组，不经过命令行；`node.cmd` 里应用的位置从环境变量里取，括在引号里。
-- 安装目录写不进去。应用自己的代码没有往里写的，数据都在 `%APPDATA%\CampusAgent`、「文档」和「下载」里。有两处是助手照说明去做时会往里写的，原来悄悄写成了（升级时又被清掉），现在会报没有权限，这次没有改：`core/learn/references/animation.md` 里的 `npm install --prefix engine/vendor <包名>`（装好的应用里本来也没有 npm）；把工作目录切到技能目录、再给相对的 `--out` 这样的命令。
+- 安装目录写不进去。应用自己的代码没有往里写的，数据都在 `%APPDATA%\CampusAgent`、「文档」和「下载」里。助手照说明去做时会往里写的有两处，原来悄悄写成了（升级时又被清掉），装进 Program Files 以后会报没有权限，都改了：
+  - 讲解要加 gsap、three 以外的画面库时，说明里让它 `npm install --prefix engine/vendor <包名>`，装进引擎自己的目录。改成装在这一集自己的文件夹里（`lessons/<主题>/film/build/vendor`），`engine/lib.mjs` 先在那里找包，再找引擎自带的。仍然要用户的电脑上有 npm。
+  - 助手把工作目录切到技能的目录、再给一个相对的输出位置。`core/zju` 所有命令的 `--out`、`--out-dir` 在取选项的那一处（`lib/core/command.ts`）统一定成完整路径（`paths.ts` 的 `outPath`）：相对路径照常从当前目录算，当前目录在技能自己的目录里时改从输出目录（`%APPDATA%\CampusAgent\zju\output`）算，命令的结果里写的是完整路径。`core/weread` 的 `download --out` 一样，落在数据目录的 `downloads`。讲解引擎的 `split.mjs` 和 `lib.mjs` 原来不管目录对不对都先建文件夹，改成这一集的讲稿（或目录）不在就报错、什么都不建；`build`、`lint`、`shots` 本来就先看 `script.js` 在不在。
+
+  这两处的验证：`npm run test:core` 新加 `out-path.test.ts` 三项，`npm run test:weread` 的 `cli.test.ts` 新加一项；真跑了一次 `doc pdf --out 试一下.pdf`，站在技能目录里时文件落在输出目录、技能目录里没有多出东西，站在别处时落在当前目录。讲解引擎没有自动测试，手动试的：在一个临时的讲解目录里 `lib.mjs` 取出了 gsap、three 和装在这一集 `build/vendor` 里的一个包，`split.mjs` 写出了骨架；站在技能目录里给相对路径时两个脚本都报找不到、没有新建文件夹。没验证的：真的用 npm 装一个库再打进成片；在装好的应用里让助手走到这两处。
 
 验证：用一个替身应用（改了名的 `cmd.exe` 加 43 个文件）打了改了名字和标识的测试包（和正式的互不相干，几秒钟打一个），在开发机上真装。开发机的账户是管理员，系统设成了提权不弹窗，所以授权那一步没有出现过。向导用一个带管理员权限的脚本发窗口消息一页一页点过去、读每页上的字、截图看过排版：
 
@@ -408,7 +412,7 @@ ZJU Core 没有为这件事改代码，它本来就认环境变量 `FFMPEG_PATH`
 - 放在最前面，系统里已经有 Node 的也用我们这一份：要的是所有机器上跑技能的是同一份 Node，用户自己装的可能太旧。开发时（`npm start`）也一样，免得只在装好的应用里才出问题。
 - 应用的可执行文件在哪，不写进 `node.cmd`，经环境变量 `CAMPUS_NODE_EXE` 告诉它：`.cmd` 是按系统的代码页读的，用户名带中文时写在文件里的路径会读错，环境变量不会。文件本身全是 ASCII。
 - 只放 `.cmd`，不放 `.ps1`：PowerShell 会先找 `.ps1`，而系统默认不许运行脚本，那样 `node` 反而整个用不了。
-- 只做了 Windows 的。没有给 `npm`：技能日常用不到，讲解要加别的画面库时才用（`animation.md` 里的 `npm install --prefix engine/vendor`），那时仍然要用户自己有 npm。
+- 只做了 Windows 的。没有给 `npm`：技能日常用不到，讲解要加别的画面库时才用（`animation.md` 里的 `npm install --prefix lessons/<主题>/film/build/vendor`，装在这一集自己的文件夹里），那时仍然要用户自己有 npm。
 
 验证：`desktop/node.test.mjs` 三项，并入了 `npm run test:plugins`。其中一项是真的起一个 PATH 里没有 Node.js 的 PowerShell，数据目录带中文和空格，在里面敲 `node`：跑起来的是 Electron 里的那一份，`.ts` 能直接跑，带空格和中文的参数原样到，退出码传得回来，脚本里用 `process.execPath` 再起的子进程也是 Node；另一项核对引擎起命令时会把这个 PATH 和 `CAMPUS_NODE_EXE` 原样带下去。装好的测试包里也看过（见「命令」里 0.1.3 的验证）。**没验证的：在一台真的没装 Node.js 的电脑上让助手跑一条校园命令**（开发机上装着 Node，只能把它从 PATH 里拿掉来模拟）。
 

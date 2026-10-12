@@ -7,7 +7,7 @@ import { join, resolve, sep } from 'node:path'
 import test from 'node:test'
 
 const require = createRequire(import.meta.url)
-const { dropDeadWeight, oddNames, shipMissingDependencies } = require('./after-pack.cjs')
+const { dropDeadWeight, installDirRoom, oddNames, shipMissingDependencies } = require('./after-pack.cjs')
 
 /** 在 root 下面按 { '包的路径': package.json 的内容 } 建一棵 node_modules。 */
 async function install(root, packages) {
@@ -76,4 +76,23 @@ test('成品里删掉 node_modules 下面的源码映射和类型声明，别的
   await put('core/learn/朗读器.cmd')
   await put('core/资料/a.txt')
   assert.deepEqual(oddNames(join(root, 'resources')).sort(), [join('app', 'core', 'learn', '朗读器.cmd'), join('app', 'core', '资料')].sort())
+})
+
+test('安装位置最长能有多少个字符：看成品里最深的文件（整条路径 259 个字符以内）和最深的文件夹（247 个以内），取紧的那个', async (t) => {
+  const tempRoot = resolve(tmpdir())
+  const root = await mkdtemp(join(tempRoot, 'campus-after-pack-'))
+  t.after(async () => {
+    assert.ok(resolve(root).startsWith(tempRoot + sep))
+    await rm(root, { recursive: true, force: true })
+  })
+  const put = async (file) => { await mkdir(join(root, file, '..'), { recursive: true }); await writeFile(join(root, file), '') }
+  await put('App.exe')
+  await put('resources/app/node_modules/pkg/build/a-long-file-name.js')
+  // 安装位置 + 反斜杠 + 最深的那个文件，不超过 259。
+  const deepest = join('resources', 'app', 'node_modules', 'pkg', 'build', 'a-long-file-name.js')
+  assert.deepEqual(installDirRoom(root), { room: 259 - 1 - deepest.length, longest: deepest })
+  // 文件夹的限制更紧：一个很深的文件夹里只有名字很短的文件时，是它说了算。
+  const folder = join('resources', 'app', 'a'.repeat(60))
+  await put(join(folder, 'b'))
+  assert.deepEqual(installDirRoom(root), { room: 247 - 1 - folder.length, longest: join(folder, 'b') })
 })

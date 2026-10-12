@@ -30,6 +30,10 @@ test('单独一条应用自带的校园命令才算，别的脚本、带选项�
   assert.equal(trustedCommand('node scripts/zju.ts cc98 hot', path.join(CORE_ROOT, 'zju')), true)
   assert.equal(trustedCommand('node scripts/zju.ts cc98 hot', 'C:\\chat'), false)
   assert.equal(trustedCommand(`node "${path.join(CORE_ROOT, 'weread', 'scripts', 'weread.ts')}" read https://mp.weixin.qq.com/s/x`, 'C:\\chat'), true)
+  // 装在 C:\Program Files 下面时路径里有空格：括在引号里的认，没括的在空格那里断开，不认（它也跑不起来）。
+  const installed = 'C:\\Program Files\\CampusAgent\\resources\\app\\core'
+  assert.equal(trustedCommand(`node "${installed}/zju/scripts/zju.ts" zdbk timetable`, 'C:\\chat', installed), true)
+  assert.equal(trustedCommand(`node ${installed}\\zju\\scripts\\zju.ts zdbk timetable`, 'C:\\chat', installed), false)
   for (const command of [
     `node "${zju}" cc98 hot | ConvertFrom-Json`, `node "${zju}" cc98 hot; Remove-Item x`, `node "${zju}" cc98 hot > out.json`,
     `node -e "x" "${zju}"`, `node --require ./evil.js "${zju}" cc98 hot`, `python "${zju}"`, `node "${zju}.bak" cc98 hot`,

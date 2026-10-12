@@ -82,7 +82,16 @@
     "nsis": {
       "artifactName": "CampusAgent-Setup-${version}.${ext}",
       "useZip": true,
-      "differentialPackage": false
+      "differentialPackage": false,
+      "oneClick": false,
+      "perMachine": true,
+      "packElevateHelper": true,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": [
+        "zh_CN",
+        "en_US"
+      ],
+      "include": "scripts/installer.nsh"
     }
   }
 }

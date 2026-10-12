@@ -5,7 +5,7 @@ description: 读微信公众号的文章。给一个 mp.weixin.qq.com 的文章�
 
 # 微信读书与公众号
 
-用 `node <SKILL>/scripts/weread.ts <命令> [参数]`，`<SKILL>` 换成安装目录。输出是 JSON：成功为 `{"ok": true, …}`，失败为 `{"ok": false, "status": …, "message": …}`，按 message 向用户说明。
+用 `node "<SKILL>/scripts/weread.ts" <命令> [参数]`，`<SKILL>` 换成本技能的目录。目录里常有空格（`C:\Program Files\…`），脚本的路径要像这样用双引号括起来。输出是 JSON：成功为 `{"ok": true, …}`，失败为 `{"ok": false, "status": …, "message": …}`，按 message 向用户说明。
 
 用户给了公众号文章的链接（`mp.weixin.qq.com/s…`）要你看，直接 `read --url 链接`，不要先试别的办法去抓：那样会被验证拦住。
 

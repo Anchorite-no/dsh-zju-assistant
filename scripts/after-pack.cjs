@@ -7,6 +7,7 @@
  * 拷来的包再照样看，直到没有缺的。标了可选的 peer 和 devDependencies 不补。
  *
  * 补完以后再删一遍运行时用不到的文件（dropDeadWeight）：安装程序是一个文件一个文件装的，文件越多装得越慢。
+ * 最后查两件安装程序装不了的事：名字带中文的文件（oddNames）、太长的路径（installDirRoom）。
  */
 const fs = require('node:fs')
 const path = require('node:path')
@@ -112,6 +113,27 @@ function oddNames(dir, base = dir) {
   return found
 }
 
+/**
+ * 安装位置（安装文件夹的完整路径）最长能有多少个字符，和成品里路径最长的那个文件。
+ * 安装程序解压用的组件写不了超过 Windows 老限制的路径（文件 259 个字符，文件夹 247 个）：安装位置选得太深，
+ * 装到一半弹「Failed to decompress files」（拿一个 248 个字符的安装位置试出来的）。成品里最深的文件和文件夹占掉多少，剩下的就是留给安装位置的。
+ */
+function installDirRoom(dir) {
+  let file = 0, folder = 0, longest = ''
+  const walk = (current, relative) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const name = path.join(relative, entry.name)
+      if (entry.isDirectory()) { folder = Math.max(folder, name.length); walk(path.join(current, entry.name), name) }
+      else if (name.length > file) { file = name.length; longest = name }
+    }
+  }
+  walk(dir, '')
+  return { room: Math.min(259 - 1 - file, 247 - 1 - folder), longest }
+}
+
+/** 默认的安装位置有多长：C:\Program Files\<应用名>。 */
+const defaultDirLength = name => 'C:\\Program Files\\'.length + name.length
+
 /** electron-builder 的 afterPack 钩子。 */
 async function afterPack(context) {
   const appDir = path.join(context.appOutDir, 'resources', 'app')
@@ -122,6 +144,11 @@ async function afterPack(context) {
   console.log(`  • dropped ${dropped.files} source maps and type declarations (${Math.round(dropped.bytes / 1048576)} MB) nothing reads at run time`)
   const odd = oddNames(context.appOutDir)
   if (odd.length > 0) throw new Error(`安装程序装不了名字带中文的文件，改名或者在 package.json 的 build.files 里排除：${odd.slice(0, 10).join('、')}`)
+  const { room, longest } = installDirRoom(context.appOutDir)
+  if (room < defaultDirLength(context.packager.appInfo.productFilename)) throw new Error(`成品里的路径太长，安装位置只能有 ${room} 个字符，默认的位置都装不下：${longest}`)
+  // 交给安装程序：scripts/installer.nsh 编译时读这个环境变量，用户选的位置超过了就不让往下走。
+  process.env.CAMPUS_INSTALL_DIR_MAX = String(room)
+  console.log(`  • install folder path can be up to ${room} characters (deepest file: ${longest})`)
 }
 
 module.exports = afterPack
@@ -129,3 +156,4 @@ module.exports.default = afterPack
 module.exports.shipMissingDependencies = shipMissingDependencies
 module.exports.dropDeadWeight = dropDeadWeight
 module.exports.oddNames = oddNames
+module.exports.installDirRoom = installDirRoom

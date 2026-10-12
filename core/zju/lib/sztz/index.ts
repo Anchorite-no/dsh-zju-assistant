@@ -8,7 +8,11 @@
  * 接口：都在 <BASE>/ 下，GET 带查询串，POST 为表单；响应 {code, msg, data, extend, count, totalPages}，code=0 成功。
  * 时间字段是 UTC 的 ISO 串，输出换成北京时间。
  * 写：报名 hdbm、取消报名 hdqxbm、收藏开关 hdsc，都是 GET 加活动 id。写闸、写前日志；写请求只发一次，之后用本人列表回查。
+ * 已读记录：data/sztz/seen.json，只有 activity new 读写。
  */
+import path from "node:path";
+import { paths } from "../core/paths.ts";
+import { readJson, writeJson } from "../core/fsjson.ts";
 import type { ModuleRequirements } from "../core/module.ts";
 import { openContext, type Context } from "../webvpn/transport.ts";
 import { AuthExpired, BadResponse, ConfigError, NeedsUser, RemoteRejected, TransportError, WriteGateClosed } from "../core/errors.ts";
@@ -103,8 +107,9 @@ const category = (p: Project) => [p.xmfl?.mc, p.xmlb?.mc].filter(Boolean).join("
 
 const STATUSES = ["报名中", "未开始报名", "报名已截止", "进行中", "已结束"] as const;
 type Status = (typeof STATUSES)[number];
+type Times = Pick<Project, "hdkssj" | "hdjssj" | "bmkssj" | "bmjssj">;
 /** 以活动结束时间为准判断是否结束：平台上有开始时间填错年份的活动 */
-function statusOf(p: Project, now: number): Status {
+function statusOf(p: Times, now: number): Status {
   if (now > Date.parse(p.hdjssj)) return "已结束";
   if (now < Date.parse(p.bmkssj)) return "未开始报名";
   if (now <= Date.parse(p.bmjssj)) return "报名中";
@@ -175,6 +180,40 @@ export async function listProjects(s: Sztz, opts: { keyword?: string; category?:
         ...(p.bmrs != null ? { applicants: p.bmrs } : {}), ...(intro ? { intro } : {}), ...(notes && notes !== "无" ? { notes } : {}) };
     }), count: matched.length,
     note: "这些是自己提交材料申请认定的项目，不是报名参加的活动；points 是认定后可得的记点范围，grades 是可以申请的年级。申请在平台网页上办理。" };
+}
+
+// ---------- 新出现的活动 ----------
+
+/** 活动在平台上的页面：活动中心带着活动编号打开，平台首页点一个活动就是这样跳的（路由是 # 后面那一段） */
+const pageOf = (p: Project) => `${BASE}/#/index/hdzx?xmmc=${encodeURIComponent(p.mc.trim())}&xmId=${p.id}`;
+/** 应用的通知列表另记一份（ZJU_NOTICE_READER=app → seen.app.json），它读走的不影响对话里问「有没有新活动」；和 notice new 是同一个约定 */
+const seenFile = () => path.join(paths.data(), "sztz", /^[a-z]{1,16}$/.test(process.env.ZJU_NOTICE_READER ?? "") ? `seen.${process.env.ZJU_NOTICE_READER}.json` : "seen.json");
+/** 上次查看的时间，和见过的活动（编号 → 报名截止时间） */
+interface SeenState { checkedAt?: string; seen?: Record<string, string> }
+/** 报名截止这么久以后，已读记录里不再留它 */
+const SEEN_KEEP_MS = 7 * 86_400_000;
+
+/**
+ * 还能报名或还没开始报名的活动里哪些没见过，以及读完以后的已读记录。不联网。
+ * 报名已截止、进行中的不算新的，也不记：它们不会再变回能报名的。
+ */
+export function freshActivities<T extends Times & { id: number }>(rows: T[], seen: Record<string, string>, now: number): { fresh: T[]; seen: Record<string, string> } {
+  const open = rows.filter((p) => { const st = statusOf(p, now); return st === "报名中" || st === "未开始报名"; });
+  const kept = Object.entries(seen).filter(([, closes]) => Date.parse(closes) >= now - SEEN_KEEP_MS);
+  return { fresh: open.filter((p) => !(String(p.id) in seen)), seen: Object.fromEntries([...kept, ...open.map((p): [string, string] => [String(p.id), p.bmjssj])]) };
+}
+
+/** 上次查看之后新出现、还能报名或还没开始报名的活动。只读活动列表，不读本人的报名和收藏，所以不用登录统一身份认证 */
+export async function newActivities(s: Sztz) {
+  const now = Date.now(), state = readJson<SeenState>(seenFile()) ?? {};
+  const { fresh, seen } = freshActivities(await unfinished(s, now), state.seen ?? {}, now);
+  const result = { activities: fresh.sort((a, b) => Date.parse(a.bmjssj) - Date.parse(b.bmjssj)).map((p) => ({ id: p.id, name: title(p), status: statusOf(p, now),
+      organizer: p.lxdw?.mc || p.flowStartUser || "", category: category(p), points: points(p), startTime: beijing(p.hdkssj), endTime: beijing(p.hdjssj), ...(p.hddd ? { place: p.hddd } : {}),
+      signupOpens: beijing(p.bmkssj), signupCloses: beijing(p.bmjssj), signupMethod: p.bmfs?.label ?? "", url: pageOf(p) })), count: fresh.length,
+    ...(state.checkedAt ? { lastChecked: beijing(state.checkedAt) } : {}),
+    note: (state.checkedAt ? "上次查看之后新出现的活动" : "第一次查看，给出现在还能报名或还没开始报名的全部活动") + "，报名截止早的在前；只有概要，要看简介、注意事项和联系人用 sztz activity list --keyword 活动名。" };
+  writeJson(seenFile(), { checkedAt: new Date(now).toISOString(), seen });
+  return result;
 }
 
 // ---------- 本人 ----------

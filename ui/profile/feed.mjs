@@ -1,8 +1,9 @@
 /**
- * 校园事务页右边的通知：学校各部门和本人学院新发的通知，加上已添加公众号的新文章，合成一条按时间排的列表。
+ * 校园事务页右边的通知：学校各部门和本人学院新发的通知、已添加公众号的新文章、二课平台上新出的活动，合成一条按时间排的列表。
  * 学校通知用 ZJU Core 的 `notice new` 读（只给上次之后新出现的），读到的攒在这里的缓存里；
  * 页面打开时先拿缓存，再让这里去读新的，这次没读到时原来的留着，只记下原因。
  * 公众号文章由公众号插件自己半小时检查一遍（wechat.mjs），这里只取它已经存下的；用户点刷新时催它马上再看一遍。
+ * 二课活动用 `sztz activity new` 读，也是只给新出现的、攒在缓存里；只留还能报名或还没开始报名的，报名一截止就不再给页面。
  * 条数多了以后，和这位学生关系不大的由 notice-filter.mjs 标出来（屏蔽词，加上模型照个人档案的判断），页面默认收起。
  */
 import fs from 'node:fs'
@@ -22,14 +23,19 @@ const KEEP_DAYS = 45, KEEP = 300
 const ROUNDS = 4
 /** 公众号文章取最近这么多篇。 */
 const ARTICLES = 100
+/** 二课的活动变得慢，读一次又要过 WebVPN：读成功以后这么久之内再进页面不重新读。 */
+const ACTIVITY_FRESH_MS = 30 * 60_000
+/** 二课活动最多留多少个。报名截止的自己会出去，这只是个上限。 */
+const KEEP_ACTIVITIES = 200
 /**
- * 应用自己记一份「看到哪了」，和助手在对话里用 `notice new` 的那份分开：
- * 这里读走的，助手再问「有没有新通知」时还能读到。
+ * 应用自己记一份「看到哪了」，和助手在对话里用 `notice new`、`sztz activity new` 的那份分开：
+ * 这里读走的，助手再问「有没有新通知」「有没有新活动」时还能读到。
  */
 const READER = { ZJU_NOTICE_READER: 'app' }
 
 const NOTICES = { id: 'school', name: '学校通知', plugin: 'campus.notices' }
 const ARTICLE_SOURCE = { id: 'wechat', name: '公众号', plugin: 'campus.wechat' }
+const ACTIVITIES = { id: 'sztz', name: '二课活动', plugin: 'campus.activities' }
 /** 公众号有的号要用户去插件页处理一下才能接着读时，这一栏下面怎么说。 */
 const ATTENTION = { verification_required: '微信读书要先验证一次，有的公众号这次没读到', login_required: '微信读书的登录过期了，有的公众号这次没读到' }
 const text = value => typeof value === 'string' ? value.trim() : ''
@@ -44,6 +50,28 @@ export function fromNotice(entry, foundAt) {
   const title = text(entry?.title), url = text(entry?.url), date = /^\d{4}-\d{2}-\d{2}/.exec(text(entry?.date))?.[0]
   if (!title || !url || !date) return undefined
   return { id: `school:${url}`, kind: 'school', title, from: text(entry.source).split('·')[0] || '学校', at: dayStart(date), dated: false, url, foundAt }
+}
+
+/** core 给的北京时间（2026-10-17 19:00）换成带时区的写法；不是这个样子的返回 undefined。 */
+function beijing(value) {
+  const found = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/.exec(text(value))
+  return found ? new Date(`${found[1]}T${found[2]}:00+08:00`).toISOString() : undefined
+}
+
+/** `sztz activity new` 的结果里的一个活动。opens、closes 是报名的起止；排在哪个时间等给页面的时候再算（surfacedAt）。 */
+export function fromActivity(entry, foundAt) {
+  const title = text(entry?.name), url = text(entry?.url), closes = beijing(entry?.signupCloses)
+  if (!title || !url || !closes || !Number.isInteger(entry.id)) return undefined
+  return { id: `sztz:${entry.id}`, kind: 'sztz', title, from: text(entry.organizer) || '素质拓展平台', dated: true, url, foundAt, opens: beijing(entry.signupOpens) ?? null, closes }
+}
+
+/**
+ * 一个二课活动现在算什么时候出现的：应用第一次读到它的时候；报名是在那之后才开始的，从开始报名起算。
+ * 所以还没开始报名的活动，到开始报名那天会重新排到前面。
+ */
+function surfacedAt(item, now) {
+  const found = Date.parse(item.foundAt), opens = Date.parse(item.opens ?? '')
+  return new Date(opens > found && opens <= now ? opens : found).toISOString()
 }
 
 export class Feed {
@@ -65,12 +93,14 @@ export class Feed {
     this.cache = undefined
   }
 
-  /** 缓存：学校通知攒下的条目，和最近一次读的情况。 */
+  /** 缓存：学校通知攒下的条目和最近一次读的情况；activities 是二课活动的同样几项。 */
   load() {
     if (this.cache) return this.cache
     let saved
     try { saved = JSON.parse(fs.readFileSync(this.file, 'utf8')) } catch { /* 没有缓存或读不了，都当作没有 */ }
-    this.cache = { items: Array.isArray(saved?.items) ? saved.items : [], fetchedAt: saved?.fetchedAt ?? null, triedAt: saved?.triedAt ?? null, error: saved?.error ?? null }
+    const record = from => ({ items: Array.isArray(from?.items) ? from.items : [], fetchedAt: from?.fetchedAt ?? null, triedAt: from?.triedAt ?? null, error: from?.error ?? null })
+    // 加二课以前存下的缓存里没有 activities，当作还没读过。
+    this.cache = { ...record(saved), activities: record(saved?.activities) }
     return this.cache
   }
 
@@ -82,12 +112,12 @@ export class Feed {
     finally { if (fs.existsSync(temp)) fs.unlinkSync(temp) }
   }
 
-  /** 学校通知现在能不能读：off 是插件关了，account 是统一身份认证或校内网站的访问方式还没填好。 */
-  status() {
-    if (this.plugins.disabled().includes(NOTICES.plugin)) return { state: 'off', plugin: NOTICES.plugin }
+  /** 学校通知（或者二课活动）现在能不能读：off 是插件关了，account 是统一身份认证或校内网站的访问方式还没填好。 */
+  status(source = NOTICES) {
+    if (this.plugins.disabled().includes(source.plugin)) return { state: 'off', plugin: source.plugin }
     const accounts = this.account.read().data
     for (const id of ['zju', 'webvpn']) if (!accountReady(accounts, id)) return { state: 'account', plugin: accountPlugin(id) }
-    return { state: 'ready', plugin: NOTICES.plugin }
+    return { state: 'ready', plugin: source.plugin }
   }
 
   /** 公众号插件已经存下的文章；插件关着或还读不了时是空的。error 是有的号要用户去插件页处理时的那句话。 */
@@ -107,38 +137,46 @@ export class Feed {
   /**
    * 页面要的全部内容，只看已经存下的，不联网：items 按时间从新到旧，每条的 hidden 说它该不该收起
    * （'blocked' 标题里有屏蔽词，'irrelevant' 模型判断和这位学生关系不大，null 不收起）；
-   * sources 是两个来源各自的情况：state、最近一次读成功的时间 fetchedAt、最近一次没读到的原因 error。
+   * 二课活动另带 opens、closes（报名的起止），只给报名还没截止的；它的 at 和 foundAt 都是 surfacedAt 算出来的那个时间。
+   * sources 是三个来源各自的情况：state、最近一次读成功的时间 fetchedAt、最近一次没读到的原因 error。
    */
   async snapshot() {
-    const status = this.status(), cache = this.load(), wechat = await this.wechat()
+    const status = this.status(), sztz = this.status(ACTIVITIES), cache = this.load(), wechat = await this.wechat(), now = this.now()
     const school = status.state === 'ready' ? cache.items : []
-    const items = [...school, ...wechat.items].sort(byTime), hidden = this.filter?.hidden(items)
+    const activities = sztz.state !== 'ready' ? [] : cache.activities.items.filter(item => Date.parse(item.closes) > now).map((item) => {
+      const at = surfacedAt(item, now)
+      return { ...item, at, foundAt: at }
+    })
+    const items = [...school, ...wechat.items, ...activities].sort(byTime), hidden = this.filter?.hidden(items)
     return {
       items: items.map(item => ({ ...item, hidden: hidden?.get(item.id) ?? null })),
       sources: [
         { ...NOTICES, state: status.state, plugin: status.plugin, fetchedAt: status.state === 'ready' ? cache.fetchedAt : null, error: status.state === 'ready' ? cache.error : null },
         { ...ARTICLE_SOURCE, state: wechat.state, fetchedAt: null, error: wechat.error },
+        { ...ACTIVITIES, state: sztz.state, plugin: sztz.plugin, fetchedAt: sztz.state === 'ready' ? cache.activities.fetchedAt : null, error: sztz.state === 'ready' ? cache.activities.error : null },
       ],
     }
   }
 
   /**
-   * 去读学校新发的通知，读完返回最新的全部内容。刚读过就不再读（force 为真时照读）；同一时间只读一次。
+   * 去读学校新发的通知和二课新出的活动，读完返回最新的全部内容。刚读过就不再读（force 为真时照读）；同一时间只读一趟。
    * 公众号平时不在这里催，它有自己的定时；用户点的刷新（force）连它一起再看一遍，学校通知读不了时也照样看。
    */
   async refresh({ force = false } = {}) {
     const articles = force && this.refreshArticles && !this.plugins.disabled().includes(ARTICLE_SOURCE.plugin) ? this.refreshArticles().catch(() => {}) : undefined
-    if (this.status().state === 'ready') {
-      if (!this.running) {
-        const { triedAt, error } = this.load()
-        if (force || !triedAt || this.now() - Date.parse(triedAt) >= (error ? RETRY_MS : FRESH_MS)) this.running = this.fetch().finally(() => { this.running = undefined })
-      }
-      await this.running
-    }
+    this.running ??= this.read(force).finally(() => { this.running = undefined })
+    await this.running
     await articles
     // 还没问过模型的（刚读到的、公众号定时检查攒下的）问一遍，问完再给页面；问不成就照原样给。
     if (this.filter) await this.filter.judge((await this.snapshot()).items)
     return this.snapshot()
+  }
+
+  /** 一趟：先学校通知，再二课活动，各自到点了才读。一个读完再读下一个：两条命令都经 WebVPN，会话文件是共用的。 */
+  async read(force) {
+    const due = ({ triedAt, error }, freshMs) => force || !triedAt || this.now() - Date.parse(triedAt) >= (error ? RETRY_MS : freshMs)
+    if (this.status().state === 'ready' && due(this.load(), FRESH_MS)) await this.fetch()
+    if (this.status(ACTIVITIES).state === 'ready' && due(this.load().activities, ACTIVITY_FRESH_MS)) await this.fetchActivities()
   }
 
   async fetch() {
@@ -156,6 +194,21 @@ export class Feed {
     const cache = this.load(), horizon = this.now() - KEEP_DAYS * DAY_MS, merged = new Map(cache.items.map(item => [item.id, item]))
     for (const item of found) if (!merged.has(item.id)) merged.set(item.id, item)
     const items = [...merged.values()].filter(item => Date.parse(item.at) >= horizon).sort(byTime).slice(0, KEEP)
-    this.write({ items, fetchedAt: error ? cache.fetchedAt : triedAt, triedAt, error })
+    this.write({ ...cache, items, fetchedAt: error ? cache.fetchedAt : triedAt, triedAt, error })
+  }
+
+  async fetchActivities() {
+    const triedAt = new Date(this.now()).toISOString()
+    let found = [], error = null
+    try {
+      const data = await this.run(['sztz', 'activity', 'new'], { system: '素质拓展平台', timeoutMs: 120_000, env: READER })
+      if (!Array.isArray(data?.activities)) throw new Error('素质拓展平台给的格式不对。')
+      found = data.activities.flatMap(entry => fromActivity(entry, triedAt) ?? [])
+    } catch (reason) { error = reason instanceof Error ? reason.message : String(reason) }
+    const cache = this.load(), now = this.now(), merged = new Map(cache.activities.items.map(item => [item.id, item]))
+    for (const item of found) if (!merged.has(item.id)) merged.set(item.id, item)
+    // 报名截止的不用再留：页面不给，core 那边也不会再报它是新的。
+    const items = [...merged.values()].filter(item => Date.parse(item.closes) > now).slice(-KEEP_ACTIVITIES)
+    this.write({ ...cache, activities: { items, fetchedAt: error ? cache.activities.fetchedAt : triedAt, triedAt, error } })
   }
 }

@@ -47,6 +47,7 @@ export const STEPS: Readonly<Record<string, string>> = {
 
   'sztz credits': '读取二三四课堂的记点',
   'sztz activity list': '查看还能报名的活动',
+  'sztz activity new': '查看新出的二课活动',
   'sztz activity mine': '查看报名和收藏的活动',
   'sztz activity signup': '报名活动',
   'sztz activity signup --cancel': '取消活动报名',

@@ -89,7 +89,7 @@ export const CAMPUS_PLUGINS = [
     accounts: ['tyys', 'buddy'],
     requires: [],
     systems: [
-      { name: '素质拓展平台', does: '二三四课堂记点、活动列表、报名和收藏' },
+      { name: '素质拓展平台', does: '二三四课堂记点、活动列表、报名和收藏，新活动进通知' },
       { name: '体育场馆预约', does: '空场查询、预约、放号时间' },
     ],
   },

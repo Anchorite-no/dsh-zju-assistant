@@ -1,7 +1,7 @@
 {
   "name": "campus-agent",
   "productName": "CampusAgent",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "校园智能体桌面端：自写 Electron 壳 + 自己的界面包 + 自带的 ZJU / Learning / WeRead core，引擎用 DeepSeek Harness",
   "main": "desktop/main.cjs",

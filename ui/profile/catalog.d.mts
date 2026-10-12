@@ -36,7 +36,7 @@ export interface AppPlugin {
   optIn?: boolean
   /** 这一项管的 ZJU Core 模块。 */
   modules?: readonly string[]
-  /** 不是 ZJU Core 的功能背后是哪一样：公众号的本地采集，或者 Learning Core（learn 技能）。 */
+  /** 不是 ZJU Core 的功能背后是哪一样：公众号的 weread 技能，或者 Learning Core（learn 技能）。 */
   backend?: 'wechat' | 'learn'
   /** 详情页里可以填写的账号。 */
   accounts: readonly AccountId[]

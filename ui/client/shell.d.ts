@@ -22,5 +22,7 @@ interface Window {
     installUpdate: () => Promise<void>
     /** 存下读私有仓库用的 GitHub 令牌（给空的是删掉），随后重新查一次。 */
     saveUpdateToken: (token: string) => Promise<CampusUpdateState | undefined>
+    /** 右边栏现在要 width 这么宽（收起是 0）：窗口跟着加宽或缩回，回的是实际加了多少。instant 是不要动效。 */
+    setSidePane: (width: number, instant?: boolean) => Promise<number>
   }
 }

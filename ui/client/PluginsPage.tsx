@@ -14,6 +14,7 @@ import { accountReady } from '../profile/catalog.mjs'
 import { AccountForm } from './AccountSettings.tsx'
 import { WechatSettings } from './WechatSettings.tsx'
 import { LearnSettings } from './LearnSettings.tsx'
+import { NoticeFilterSettings } from './NoticeFilterSettings.tsx'
 import { errorText, profileApi, type AccountSnapshot } from './api.ts'
 import { BundleArtwork, CampusArtwork, SearchArtwork } from './artwork.tsx'
 import { Alert, Crumb } from './controls.tsx'
@@ -221,8 +222,9 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
                 setData(old => old && { ...old, account })
               }} />
             )}
+            {campus?.id === 'campus.notices' && on && <NoticeFilterSettings />}
             {campus?.id === 'campus.notices' && <LinkRow title="定时检查新通知" action="自动化任务" onClick={() => { open('automation') }} />}
-            {campus?.backend === 'wechat' && <WechatSettings enabled={on} />}
+            {campus?.backend === 'wechat' && on && <WechatSettings />}
             {campus?.backend === 'learn' && on && <LearnSettings />}
             {general?.id === 'web-search' && (
               <section className="campus-section" data-plugin-config>

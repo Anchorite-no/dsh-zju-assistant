@@ -5,6 +5,7 @@
  */
 import { COMMANDS } from './commands.gen.ts'
 import { MODULE_SITES } from './sites.ts'
+import { stepName } from './steps.ts'
 
 /** campus 是校园命令，web 是联网搜索和打开网页，other 是读写文件、跑脚本这些本地操作。 */
 export type ActionKind = 'campus' | 'web' | 'other'
@@ -181,7 +182,7 @@ function campusAction(words: string[], command: string): Action {
   const link = typeof flags.url === 'string' && /^https?:\/\//.test(flags.url) ? flags.url.split('|')[0] : undefined
   const about = values.slice(0, 2).map(value => /^https?:\/\//.test(value) ? hostOf(value) ?? value : value).join(' · ')
   const cancel = flags.cancel === true
-  const label = cancel ? `${entry.label}（取消）` : entry.label
+  const label = stepName(known, cancel, entry.label)
   if (site === undefined) return { kind: 'other', label, ...(about ? { about: shorten(about) } : {}), key: 'other', command }
   return {
     kind: 'campus',

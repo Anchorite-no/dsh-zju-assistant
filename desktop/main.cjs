@@ -2,9 +2,10 @@
  * 最小的自写壳：一个窗口 + 一个引擎子进程。
  * 壳只负责窗口、名字和进程生命周期；界面由引擎的 Web 应用提供，壳直接加载它的地址。
  */
-const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeTheme, safeStorage, session, shell } = require('electron')
+const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeTheme, safeStorage, screen, session, shell } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const { createTray } = require('./tray.cjs')
+const { createPane } = require('./pane.cjs')
 const { createUpdater, githubToken } = require('./update.cjs')
 const { createWereadBridge } = require('./weread.cjs')
 const { createReader } = require('./reader.cjs')
@@ -18,6 +19,8 @@ const path = require('node:path')
 const TITLE = '校园智能体'
 /** 窗口栏高度，和 preload.cjs 里告诉界面的数字一致。 */
 const TITLEBAR_HEIGHT = 40
+/** 窗口宽度的下限。 */
+const MIN_WIDTH = 520
 
 // A separate app data directory allows a full desktop check without touching the user's sessions.
 const customData = process.env.CAMPUS_AGENT_DATA_DIR || app.commandLine.getSwitchValue('campus-data-dir')
@@ -71,7 +74,7 @@ async function main() {
   const window = new BrowserWindow({
     width: 1280,
     height: 820,
-    minWidth: 520,
+    minWidth: MIN_WIDTH,
     minHeight: 600,
     title: TITLE,
     show: false,
@@ -144,6 +147,10 @@ async function main() {
   const fromPage = event => !window.isDestroyed() && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame
   ipcMain.handle('campus:close-to-tray:get', event => fromPage(event) && tray.enabled())
   ipcMain.handle('campus:close-to-tray:set', (event, on) => fromPage(event) ? tray.set(on === true) : false)
+  // 右边栏向右打开（pane.cjs）：页面报来右边栏要多宽，窗口跟着加宽、缩回，回给页面实际加了多少。
+  const pane = createPane({ window, screen, minWidth: MIN_WIDTH })
+  ipcMain.handle('campus:side-pane', (event, width, instant) =>
+    fromPage(event) && typeof width === 'number' && width >= 0 && width <= 4000 ? pane.set(width, instant === true) : 0)
   // 检查更新（update.cjs）。读私有仓库要 GitHub 令牌：设置里填的那个用系统的加密存在数据目录里，没填就问本机的 GitHub CLI。
   const tokenFile = path.join(app.getPath('userData'), 'update-token')
   const savedToken = () => { try { return safeStorage.decryptString(readFileSync(tokenFile)) } catch { return undefined } }
@@ -180,7 +187,11 @@ async function main() {
   window.on('page-title-updated', (event) => { event.preventDefault() })
   window.once('ready-to-show', () => { window.show() })
   try {
-    wereadBridge = await createWereadBridge({ app, BrowserWindow, session, ipcMain, parent: window, root: path.join(__dirname, '..'), keysFile: path.join(keysDir, 'api-keys.local.yaml') })
+    // 微信公众号插件的浏览器由壳提供（weread.cjs）；要在引擎起来之前开好，地址随环境变量交给它。
+    wereadBridge = await createWereadBridge({
+      BrowserWindow, ipcMain, session, parent: window, coreRoot: path.join(__dirname, '..', 'core'),
+      dataDir: path.join(app.getPath('userData'), 'weread'), profileDir: path.join(app.getPath('userData'), 'profile'), keysFile: path.join(keysDir, 'api-keys.local.yaml'),
+    })
     const url = await startHost()
     appOrigin = new URL(url).origin
     console.log(`desktop: host ready at ${appOrigin}`)
@@ -194,7 +205,7 @@ async function main() {
 
 app.on('before-quit', () => {
   quitting = true
-  void wereadBridge?.close()
+  wereadBridge?.close()
   if (host?.connected) host.send({ type: 'shutdown' })
 })
 app.on('window-all-closed', () => { app.quit() })

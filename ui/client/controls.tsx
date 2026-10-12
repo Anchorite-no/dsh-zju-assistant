@@ -131,12 +131,14 @@ export function Select({ id, label, value, options, placeholder = '请选择', a
  * 标签：已选的排在框里，可以逐个去掉；右边的箭头点开是已有的标签，勾选就加上；
  * 也可以直接输入新标签，回车或逗号确认。
  */
-export function TagPicker({ id, label, value, known, disabled = false, onChange }: {
+export function TagPicker({ id, label, value, known, placeholder = '选已有的，或输入新标签后回车', disabled = false, onChange }: {
   id: string
   label: string
   value: readonly string[]
   /** 别的笔记已经用过的标签。 */
   known: readonly string[]
+  /** 框里一个都没有时的提示；不是标签的用法（比如屏蔽词）自己写。 */
+  placeholder?: string
   disabled?: boolean
   onChange: (next: string[]) => void
 }) {
@@ -163,7 +165,7 @@ export function TagPicker({ id, label, value, known, disabled = false, onChange 
           <button type="button" aria-label={`去掉标签 ${name}`} disabled={disabled} onClick={() => { toggle(name) }}>×</button>
         </span>
       ))}
-      <input id={id} type="text" aria-label={label} autoComplete="off" placeholder={value.length ? '' : '选已有的，或输入新标签后回车'}
+      <input id={id} type="text" aria-label={label} autoComplete="off" placeholder={value.length ? '' : placeholder}
         value={text} disabled={disabled} onChange={(event) => { setText(event.target.value) }} onKeyDown={onKeyDown} onBlur={() => { add(text) }} />
       {choices.length > 0 && (
         <Menu

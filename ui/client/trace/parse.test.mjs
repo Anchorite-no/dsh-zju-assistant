@@ -9,7 +9,7 @@ test('校园命令认出网站、动作和针对什么', () => {
   const action = pwsh(`${SKILL} cc98 search --keyword "高数 期末" --limit 20`)
   assert.equal(action.kind, 'campus')
   assert.equal(action.site, 'CC98')
-  assert.equal(action.label, '搜帖子标题')
+  assert.equal(action.label, '按标题搜索帖子')
   assert.equal(action.about, '高数 期末')
   assert.equal(action.key, 'cc98 search')
 })
@@ -17,15 +17,16 @@ test('校园命令认出网站、动作和针对什么', () => {
 test('命令前后有别的东西也认得出：环境变量、管道、重定向', () => {
   const action = pwsh(`$env:ZJU_ALLOW_WRITE=1; ${SKILL} sztz activity signup --name '新生杯 辩论赛' --confirm 2>&1 | Select-Object -First 20`)
   assert.equal(action.site, '素质拓展平台')
-  assert.equal(action.label, '报名一个活动')
+  assert.equal(action.label, '报名活动')
   assert.equal(action.about, '新生杯 辩论赛')
   assert.equal(action.write, true)
-  assert.equal(pwsh(`${SKILL} zdbk timetable 2>$null`).label, '完整课表')
+  assert.equal(pwsh(`${SKILL} zdbk timetable 2>$null`).label, '读取本学期课表')
 })
 
 test('加 --cancel 的是取消，和不加的不合成一站', () => {
   const cancel = pwsh(`${SKILL} sztz activity signup --name 辩论赛 --cancel --confirm`)
-  assert.equal(cancel.label, '报名一个活动（取消）')
+  assert.equal(cancel.label, '取消活动报名')
+  assert.equal(pwsh(`${SKILL} cc98 floor like --floor 3 --cancel`).label, '给楼层点赞或点踩（取消）')
   assert.notEqual(cancel.key, pwsh(`${SKILL} sztz activity signup --name 辩论赛 --confirm`).key)
 })
 
@@ -36,7 +37,7 @@ test('带网址的命令留下网址，针对什么只写主机名', () => {
 })
 
 test('不访问网站的模块、看用法、不认识的命令都算本地操作', () => {
-  assert.deepEqual([pwsh(`${SKILL} doc text --file a.pdf`).kind, pwsh(`${SKILL} doc text --file a.pdf`).label], ['other', 'PDF、Word、PPT、Excel、HTML、文本转文字'])
+  assert.deepEqual([pwsh(`${SKILL} doc text --file a.pdf`).kind, pwsh(`${SKILL} doc text --file a.pdf`).label], ['other', '把文档转成文字'])
   assert.equal(pwsh(`${SKILL} xuezai homework --help`).label, '查看命令用法')
   assert.equal(pwsh(`${SKILL} xuezai nosuch --course 1`).kind, 'other')
 })
@@ -60,7 +61,7 @@ test('引擎自带的工具', () => {
 
 test('脚本路径先存进变量、在循环里调用，也认得出', () => {
   const action = pwsh('$zju = "C:\\skills\\zju\\scripts\\zju.ts"\nforeach ($d in @("2026-10-12","2026-10-13")) { node $zju sztz activity list --date $d 2>$null }')
-  assert.deepEqual([action.kind, action.site, action.label, action.about], ['campus', '素质拓展平台', '活动中心里还没结束的活动', undefined])
+  assert.deepEqual([action.kind, action.site, action.label, action.about], ['campus', '素质拓展平台', '查看还能报名的活动', undefined])
   assert.equal(pwsh('$zju = "C:\\skills\\zju\\scripts\\zju.ts"; Get-Item $zju').kind, 'other')
 })
 

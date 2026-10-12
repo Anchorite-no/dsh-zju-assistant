@@ -5,5 +5,4 @@ refs: {}
 # 将上面的 refs: {} 改为：
 # refs:
 #   DEEPSEEK_API_KEY: '在这里填入实际 Key'
-#   WEREAD_API_KEY: '微信读书官方 Skill 的 API Key'
-#   WEREAD_VISION_API_KEY: '可选：验证码图像识别服务的 API Key'
+#   WEREAD_VISION_API_KEY: '可选：微信公众号插件认验证码时换一家识别服务用的 Key；不填就用上面那个'

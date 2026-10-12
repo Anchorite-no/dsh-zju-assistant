@@ -1,193 +1,370 @@
-/** 微信公众号插件：应用 API、助手工具与生命周期共用这一个服务。 */
+/**
+ * 微信公众号插件在引擎这一侧的全部：插件详情页和「校园事务」的通知要的数据、能做的操作，都从这里走。
+ * 真正干活的是 weread 技能（core/weread，从 WeRead Skill 复制过来单独改的一份）。这里照 core.mjs 跑 ZJU Core 的办法跑它的命令，
+ * 浏览器由壳提供（desktop/weread.cjs）。助手用的是同一个技能、同一份跟踪名单：页面上加的号助手看得到，反过来也一样。
+ *
+ * 这里自己只存两样：
+ *   档案目录的 wechat.json   用户的两个选择：用不用本机微信（local）、要不要自动完成验证（autoVerify）。壳也读它。
+ *   缓存目录的 wechat.json   跟踪的每个号最近的文章，和两个来源上一次读的情况。页面只看它，打开页面不会现去读微信或联网。
+ * 缓存靠定时检查更新，像订阅 RSS：半小时把跟踪的号看一遍（间隔是用户 2026-10-12 定的），新出现的文章进「校园事务」的通知。
+ * 这是这个插件最要紧的用处：公众号发了要报名的活动，不常翻公众号的人也不会错过。
+ * 后台的检查不开窗口。微信读书要验证时，「自动完成验证」开着就由壳在隐藏的窗口里过掉；关着、或者登录过期了，就停下记在缓存里，等用户在页面上点一下再接着读。
+ */
 import fs from 'node:fs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { CORE_ROOT } from './skills.mjs'
 
 export const WECHAT_PLUGIN = 'campus.wechat'
 const OFF = '微信公众号插件已关闭，请先在「插件」页打开。'
-const runtimeError = '未找到可用的 Python 3.14，请安装后重新打开应用。'
+const MINUTE = 60_000
+/** 多久把跟踪的号看一遍。 */
+export const CHECK_MS = 30 * MINUTE
+/** 微信读书说访问太频繁以后，隔多久再去问它。 */
+const LIMITED_MS = 120 * MINUTE
+/** 这两种要用户本人处理，后台不自己再试。 */
+const NEEDS_USER = ['verification_required', 'login_required']
+/** 只说明某一个号读不到的结果；别的失败说明整个来源这次用不了。 */
+const ACCOUNT_ONLY = ['account_not_found', 'remote_rejected', 'invalid_response']
+/** 一个号一次读最近几篇，缓存里最多留几篇。 */
+const RECENT = 20, KEEP = 50
 
-/** 只终止本服务创建的进程树；微信是被只读访问的外部进程，不在这棵树里。 */
-function stop(child) {
-  if (!child.pid || child.exitCode !== null) return
-  if (process.platform === 'win32') {
-    const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' })
-    killer.on('error', () => { child.kill() })
-  } else child.kill()
+const text = value => typeof value === 'string' ? value.trim() : ''
+const byTime = (a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? '')
+
+function readJson(file) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')) } catch { return undefined }
 }
 
-export function execute(executable, args, { signal, timeoutMs = 110_000, env = process.env } = {}) {
+function writeJson(file, value) {
+  const temp = `${file}.${randomUUID()}.tmp`
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  try { fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`); fs.renameSync(temp, file) }
+  finally { if (fs.existsSync(temp)) fs.unlinkSync(temp) }
+}
+
+/**
+ * 跑一条 weread 技能的命令，返回它输出的 JSON：成功是 { ok: true, … }，失败是 { ok: false, status, message }。
+ * interactive 为假表示没有人在场，技能要扫码、要用户自己验证时不开窗口，直接返回 login_required、verification_required。
+ */
+export function runWeread(args, { interactive = false, timeoutMs = 130_000, signal } = {}) {
   return new Promise((resolve, reject) => {
-    if (signal?.aborted) { reject(new Error('读取已停止')); return }
-    const child = spawn(executable, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], env })
-    let output = '', settled = false
-    const finish = (error, value) => {
-      if (settled) return
-      settled = true; clearTimeout(timer); signal?.removeEventListener('abort', abort)
-      if (error) reject(error); else resolve(value)
-    }
-    const abort = () => { stop(child); finish(new Error('读取已停止')) }
-    const timer = setTimeout(() => { stop(child); finish(new Error('公众号读取超时，已有文章保留，请稍后重试。')) }, timeoutMs)
-    signal?.addEventListener('abort', abort, { once: true })
-    child.stdout.setEncoding('utf8').on('data', chunk => {
-      output += chunk
-      if (output.length > 8 * 1024 * 1024) { stop(child); finish(new Error('公众号返回内容过多，请缩小范围。')) }
+    if (signal?.aborted) { reject(new Error('已停止')); return }
+    const child = spawn(process.execPath, [path.join(CORE_ROOT, 'weread', 'scripts', 'weread.ts'), ...args], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', WEREAD_INTERACTIVE: interactive ? '1' : '0' }, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'],
     })
-    child.once('error', () => finish(new Error(runtimeError)))
-    child.once('close', code => finish(null, { code, output }))
+    let output = ''
+    const stop = () => { child.kill(); reject(new Error('已停止')) }
+    const timer = setTimeout(() => { child.kill(); reject(new Error('公众号这一步一直没有做完，稍后再试。')) }, timeoutMs)
+    signal?.addEventListener('abort', stop, { once: true })
+    child.stdout.setEncoding('utf8').on('data', (chunk) => { output += chunk })
+    const done = () => { clearTimeout(timer); signal?.removeEventListener('abort', stop) }
+    child.once('error', (error) => { done(); reject(error) })
+    child.once('close', () => {
+      done()
+      try {
+        const result = JSON.parse(output)
+        if (typeof result?.ok !== 'boolean') throw new Error('not a result')
+        resolve(result)
+      } catch { reject(new Error('公众号功能没有给出结果，重新打开应用后再试。')) }
+    })
   })
 }
 
-export function createWechatRunner({ dataDir, env = process.env, exec = execute } = {}) {
-  let python
-  const resolvePython = async signal => {
-    if (python) return python
-    const candidates = env.CAMPUS_WECHAT_PYTHON ? [[env.CAMPUS_WECHAT_PYTHON, []]] : [
-      ...(env.ProgramFiles && fs.existsSync(path.join(env.ProgramFiles, 'Python314', 'python.exe')) ? [[path.join(env.ProgramFiles, 'Python314', 'python.exe'), []]] : []),
-      ['python', []], ['py', ['-3.14']],
-    ]
-    for (const [command, prefix] of candidates) {
-      try {
-        const check = await exec(command, [...prefix, '-c', 'import sys; from compression import zstd; print(sys.executable); sys.exit(0 if sys.version_info >= (3,14) else 1)'], { signal, timeoutMs: 8_000, env })
-        if (check.code === 0 && check.output.trim()) { python = check.output.trim(); return python }
-      } catch { if (signal?.aborted) throw new Error('读取已停止') }
+export class Wechat {
+  /**
+   * plugins 是插件开关；settingsFile、cacheFile 是上面说的两个文件；run 跑一条技能命令。
+   * env 是引擎进程的环境：助手调用技能时会继承它，「不用本机微信」靠它告诉技能（WEREAD_SOURCE）。
+   */
+  constructor({ plugins, settingsFile, cacheFile, run = runWeread, now = () => Date.now(), env = process.env, schedule = setInterval, cancel = clearInterval }) {
+    Object.assign(this, { plugins, settingsFile, cacheFile, run, now, env, schedule, cancel })
+    // 启动环境里原有的来源设置不归我们管，本机微信开着时照原样留着。
+    this.inherited = env.WEREAD_SOURCE
+    this.queue = Promise.resolve()
+    this.pending = 0
+    this.controllers = new Set()
+    this.activity = ''
+    this.problem = ''
+    this.disposed = false
+    this.applySettings()
+  }
+
+  enabled() { return !this.disposed && !this.plugins.disabled().includes(WECHAT_PLUGIN) }
+  requireEnabled() { if (!this.enabled()) throw new Error(OFF) }
+
+  settings() {
+    const saved = readJson(this.settingsFile) ?? {}
+    return { local: saved.local !== false, autoVerify: saved.autoVerify !== false }
+  }
+
+  applySettings() {
+    if (!this.settings().local) this.env.WEREAD_SOURCE = 'web'
+    else if (this.inherited) this.env.WEREAD_SOURCE = this.inherited
+    else delete this.env.WEREAD_SOURCE
+  }
+
+  cache() {
+    if (this.memory) return this.memory
+    const saved = readJson(this.cacheFile) ?? {}
+    this.memory = {
+      accounts: Array.isArray(saved.accounts) ? saved.accounts : [],
+      // 两个来源上一次读的情况：{ ok, status, message, at }，还没读过是 null。
+      sources: { local: saved.sources?.local ?? null, web: saved.sources?.web ?? null },
+      loggedIn: saved.loggedIn === true,
+      // 上一次检查是什么时候（做没做成都算）。
+      checkedAt: typeof saved.checkedAt === 'string' ? saved.checkedAt : null,
     }
-    throw new Error(runtimeError)
+    return this.memory
   }
-  return async (args, { signal, cached = false } = {}) => {
-    const command = await resolvePython(signal)
-    const childEnv = { ...env }
-    // 插件关闭时仅设置页能读订阅状态，不访问微信或文章内容。
-    if (cached && args[0] === 'list') delete childEnv.CAMPUS_WECHAT_DISABLED
-    const result = await exec(command, [path.join(CORE_ROOT, 'wechat', 'wechat_feed.py'), '--data-dir', dataDir, ...args], { signal, env: childEnv })
-    try {
-      const parsed = JSON.parse(result.output)
-      if (typeof parsed.ok !== 'boolean') throw new Error()
-      return parsed
-    } catch { throw new Error('公众号模块没有返回有效结果，请重新打开应用后再试。') }
-  }
-}
 
-const validBiz = value => typeof value === 'string' && /^[A-Za-z0-9+/]+={0,2}$/.test(value) && /^\d{6,20}$/.test(Buffer.from(value, 'base64').toString('utf8'))
-const resultError = result => result.error?.message || '公众号操作未完成，请稍后重试。'
-
-export class WechatFeeds {
-  constructor({ plugins, dataDir, run = createWechatRunner({ dataDir }), schedule = setInterval, cancel = clearInterval, isSelected = () => true }) {
-    this.plugins = plugins; this.run = run; this.schedule = schedule; this.cancel = cancel
-    this.isSelected = isSelected
-    this.queue = Promise.resolve(); this.controllers = new Set(); this.inflight = new Map()
-    this.last = { accounts: [], runtime: null }; this.connection = null; this.error = null; this.disposed = false
+  write(patch) {
+    this.memory = { ...this.cache(), ...patch }
+    writeJson(this.cacheFile, this.memory)
   }
-  enabled() { return this.isSelected() && !this.plugins.disabled().includes(WECHAT_PLUGIN) }
-  requireEnabled() { if (!this.enabled() || this.disposed) throw new Error(OFF) }
-  async call(args, options = {}) {
-    const controller = new AbortController(); this.controllers.add(controller)
-    try { return await this.run(args, { ...options, signal: controller.signal }) }
+
+  /** 页面要的全部内容，只看已经存下的。activity 是现在正在做的事，problem 是用户上一次操作没成的原因。 */
+  snapshot() {
+    const cache = this.cache(), settings = this.settings()
+    return {
+      enabled: this.enabled(), busy: this.pending > 0, activity: this.activity, problem: this.problem, settings, checkedAt: cache.checkedAt,
+      local: settings.local ? cache.sources.local : null,
+      weread: { loggedIn: cache.loggedIn, state: cache.sources.web },
+      accounts: cache.accounts.map(({ biz, name, source, articles, error }) => ({ biz, name, source, count: articles.length, latest: articles[0] ?? null, error })),
+    }
+  }
+
+  /** 给「校园事务」的通知：跟踪的号已经存下的文章，从新到旧。attention 不为空时有的号要用户去插件页处理一下才能接着读。 */
+  articles({ limit = 100 } = {}) {
+    this.requireEnabled()
+    const { accounts } = this.cache()
+    const waiting = accounts.find(account => NEEDS_USER.includes(account.error?.status))
+    return {
+      articles: accounts.flatMap(account => account.articles.map(article => ({ ...article, from: account.name }))).sort(byTime).slice(0, limit),
+      attention: waiting ? waiting.error.status : '',
+    }
+  }
+
+  async call(args, { interactive = false } = {}) {
+    const controller = new AbortController()
+    this.controllers.add(controller)
+    // 要人操作的（扫码、验证）技能自己最多等五分钟。
+    try { return await this.run(args, { interactive, signal: controller.signal, timeoutMs: interactive ? 320_000 : 130_000 }) }
     finally { this.controllers.delete(controller) }
   }
-  serial(key, operation) {
-    if (this.inflight.has(key)) return this.inflight.get(key)
-    const work = this.queue.then(() => { this.requireEnabled(); return operation() })
+
+  /** 一次只做一件：读本机微信和用浏览器都不能两件事叠着来。activity 是做这件事时页面上显示的状态。 */
+  serial(operation, activity = '') {
+    this.pending++
+    const work = this.queue.then(async () => {
+      this.requireEnabled()
+      this.activity = activity
+      try { return await operation() } finally { this.activity = '' }
+    })
     this.queue = work.catch(() => {})
-    this.inflight.set(key, work)
-    work.finally(() => { this.inflight.delete(key) }).catch(() => {})
-    return work
+    return work.finally(() => { this.pending-- })
   }
-  async snapshot() {
-    const result = await this.call(['list'], { cached: true })
-    if (result.ok) this.last = result
-    else this.error = resultError(result)
-    return { accounts: this.last.accounts, runtime: this.last.runtime, connection: this.connection,
-      enabled: this.enabled(), busy: this.controllers.size > 0, error: this.error, completeAccountFeed: false }
+
+  /** 用户点的、要等一阵的事放到后台做，页面靠 snapshot 的 busy 和 problem 知道做完没有、成没成。 */
+  background(operation, activity) {
+    this.problem = ''
+    this.serial(async () => {
+      try { await operation() } catch (error) { if (this.enabled()) this.problem = error.message }
+    }, activity).catch(() => {})
+    return this.snapshot()
   }
-  async check() {
-    return this.serial('check', async () => {
-      const result = await this.call(['doctor'])
-      this.connection = { running: result.ok, version: result.source?.wechatVersion ?? null, message: result.ok ? '微信已运行' : resultError(result) }
-      return this.snapshot()
-    })
+
+  /** 一个来源这次读成了，或者整个用不了（只是某个号没找到的不算）。 */
+  noteSource(source, result) {
+    if (!result.ok && ACCOUNT_ONLY.includes(result.status)) return
+    const at = new Date(this.now()).toISOString(), { sources } = this.cache()
+    this.write({ sources: { ...sources, [source]: result.ok ? { ok: true, at } : { ok: false, status: result.status, message: result.message, at } } })
   }
-  async discover() {
-    return this.serial('discover', async () => {
-      const result = await this.call(['discover'])
-      if (!result.ok) throw new Error(resultError(result))
-      this.connection = { running: true, version: result.source.wechatVersion, message: '本地读取成功' }
-      return { accounts: result.accounts, checkedAt: result.checkedAt }
-    })
-  }
-  async add(input) {
-    const args = ['add']
-    if (validBiz(input?.biz)) {
-      args.push('--biz', input.biz)
-      if (typeof input.name === 'string' && input.name.trim() && input.name.length <= 200) args.push('--label', input.name.trim())
-    } else if (typeof input?.articleUrl === 'string' && input.articleUrl.length <= 2048) {
-      let url
-      try { url = new URL(input.articleUrl) } catch { throw new Error('请填写微信公众号文章链接') }
-      if (url.protocol !== 'https:' || url.hostname !== 'mp.weixin.qq.com' || url.username || url.password) throw new Error('请填写微信公众号文章链接')
-      args.push('--article-url', url.href)
-    } else throw new Error('请选择一个公众号')
-    return this.serial(`add:${args.join(':')}`, async () => {
-      const added = await this.call(args)
-      if (!added.ok) throw new Error(resultError(added))
-      // 登记已成功，即使微信暂时不可读也保留订阅，并让状态说明原因。
-      await this.synchronize(added.account.biz, false)
-      return this.snapshot()
-    })
-  }
-  async set(input) {
-    if (!validBiz(input?.biz) || typeof input.enabled !== 'boolean') throw new Error('无效的公众号开关')
-    return this.serial(`set:${input.biz}:${input.enabled}`, async () => {
-      const result = await this.call([input.enabled ? 'resume' : 'pause', '--biz', input.biz])
-      if (!result.ok) throw new Error(resultError(result))
-      return this.snapshot()
-    })
-  }
-  async synchronize(biz, due) {
-    this.requireEnabled()
-    const args = ['sync', ...(biz ? ['--biz', biz] : []), ...(due ? ['--due'] : [])]
-    const result = await this.call(args)
-    this.error = result.ok ? null : resultError(result)
-    if (result.source?.wechatVersion) this.connection = { running: true, version: result.source.wechatVersion, message: '本地读取成功' }
-    if (result.error?.code === 'wechat_not_running') this.connection = { running: false, version: this.connection?.version ?? null, message: resultError(result) }
-    return result
-  }
-  async refresh(input = {}) {
-    if (input.biz !== undefined && !validBiz(input.biz)) throw new Error('无效的公众号')
-    return this.serial(`refresh:${input.biz ?? 'all'}`, async () => { await this.synchronize(input.biz, false); return this.snapshot() })
-  }
-  async articles(input = {}) {
-    this.requireEnabled()
-    const status = await this.snapshot()
-    let biz = input.biz
-    if (input.account) {
-      const found = status.accounts.filter(a => a.name === input.account || a.biz === input.account)
-      if (found.length !== 1) throw new Error('没有找到唯一的已添加公众号，请先在插件页选择。')
-      biz = found[0].biz
+
+  /** 跟踪名单以技能那一份为准（助手也可能加了、去掉了号）：照它增减缓存里的号。tracked 是技能刚给的名单，不给就现问。 */
+  async reconcile(tracked) {
+    if (!tracked) {
+      const result = await this.call(['track'])
+      if (!result.ok) throw new Error(result.message)
+      tracked = result.tracked
     }
-    if (biz !== undefined && (!validBiz(biz) || !status.accounts.some(a => a.biz === biz))) throw new Error('这个公众号还没有添加')
-    const limit = Number.isInteger(input.limit) ? Math.min(200, Math.max(1, input.limit)) : 50
-    this.requireEnabled()
-    const result = await this.call(['articles', ...(biz ? ['--biz', biz] : []), '--limit', String(limit)])
-    if (!result.ok) throw new Error(resultError(result))
-    this.requireEnabled()
-    return { ...result, accounts: status.accounts.filter(a => !biz || a.biz === biz), completeAccountFeed: false }
+    const old = new Map(this.cache().accounts.map(account => [account.biz, account]))
+    this.write({ accounts: tracked.map(({ biz, name }) => ({ biz, source: null, articles: [], error: null, ...old.get(biz), name })) })
   }
-  changed() {
-    if (!this.enabled()) { for (const controller of this.controllers) controller.abort(); this.error = null }
-    else void this.tick()
+
+  /** 微信读书有没有登录记录。只看浏览器里存着的，不联网；过没过期要到读的时候才知道。 */
+  async checkLogin() {
+    const result = await this.call(['login', '--check'])
+    if (result.ok) this.write({ loggedIn: result.loggedIn === true })
   }
+
+  /** 微信读书现在不该自己去问：要用户处理的等到用户来，被限频的等过了那一阵。用户在场（interactive）时不等。 */
+  webWaiting(interactive) {
+    const state = this.cache().sources.web
+    if (interactive || !state || state.ok) return false
+    if (NEEDS_USER.includes(state.status)) return true
+    return state.status.endsWith('rate_limited') && this.now() - Date.parse(state.at) < LIMITED_MS
+  }
+
+  /**
+   * 读一遍跟踪的号最近的文章，记进缓存。
+   * 技能自己先看本机微信、本机没有的号再问微信读书，这里只决定这一次许它用哪几个来源。
+   */
+  async read({ interactive }) {
+    const cache = this.cache()
+    if (!cache.accounts.length) return
+    const useLocal = this.settings().local, useWeb = cache.loggedIn && !this.webWaiting(interactive)
+    if (!useLocal && !useWeb) {
+      // 两个来源都没法用：本机微信关着，微信读书又没登录。
+      if (!cache.loggedIn) this.write({ accounts: cache.accounts.map(account => ({ ...account, error: { status: 'no_source', message: '本机微信关着，微信读书也没有登录。' } })) })
+      return
+    }
+    const result = await this.call(['list', '--limit', String(RECENT), ...(useLocal && useWeb ? [] : ['--source', useLocal ? 'local' : 'web'])], { interactive })
+    if (!result.ok) throw new Error(result.message)
+    const at = new Date(this.now()).toISOString(), found = new Map(result.accounts.map(account => [account.biz, account]))
+    // 这一次没问微信读书、而它本来能用时（正等着用户去验证），「本机没有这个号」不算读不到，原来存着的照旧。
+    const complete = useWeb || !cache.loggedIn
+    const accounts = this.cache().accounts.map((old) => {
+      const entry = found.get(old.biz)
+      if (!entry) return old
+      if (entry.error) return complete ? { ...old, error: entry.error } : old
+      // 两个来源给文章编的号不一样；换了来源（或者第一次读到）就整份换掉，现有的都不算新出现的。
+      const same = old.source === entry.source, known = new Map((same ? old.articles : []).map(article => [article.id, article]))
+      const fresh = entry.articles.map(article => ({
+        // 微信读书给的链接是它自己的正文接口，给人看的用原文的短链接。
+        id: article.id, title: article.title, url: article.originalUrl ?? article.url, publishedAt: article.publishedAt ?? null,
+        foundAt: known.has(article.id) ? known.get(article.id).foundAt : same ? at : null,
+      }))
+      const listed = new Set(fresh.map(article => article.id))
+      return { ...old, source: entry.source, error: null, articles: [...fresh, ...(same ? old.articles.filter(article => !listed.has(article.id)) : [])].sort(byTime).slice(0, KEEP) }
+    })
+    const sources = { ...this.cache().sources }
+    for (const source of ['local', 'web']) if (result.sources?.[source]) sources[source] = { ...result.sources[source], at }
+    this.write({ accounts, sources })
+  }
+
+  /** 一次完整的检查：对一遍跟踪名单，看一眼微信读书的登录状态，再读一遍文章。 */
+  async check({ interactive }) {
+    const at = new Date(this.now()).toISOString()
+    try {
+      await this.reconcile()
+      await this.checkLogin()
+      await this.read({ interactive })
+    } finally { this.write({ checkedAt: at }) }
+  }
+
+  /** 详情页打开时：对一遍名单和登录状态（都不联网、不读微信），页面先照缓存画。文章等定时的那一次。 */
+  visit() {
+    if (!this.enabled() || this.pending) return this.snapshot()
+    this.serial(async () => { await this.reconcile(); await this.checkLogin() }).catch(() => {})
+    return this.snapshot()
+  }
+
+  /** 详情页上用户点的「去验证」「再试一次」：马上检查一遍，要用户自己验证就开窗口。 */
+  retry() {
+    this.requireEnabled()
+    return this.background(() => this.check({ interactive: true }), 'checking')
+  }
+
+  /** 「校园事务」页的刷新：马上检查一遍，等它做完；不开窗口。正在检查就等那一次。 */
+  async refresh() {
+    this.requireEnabled()
+    if (this.pending) { await this.queue; return }
+    await this.serial(() => this.check({ interactive: false }), 'checking')
+  }
+
+  /** 找能跟踪的公众号。都不带名称：本机微信给出里面有推送的全部公众号，微信读书给出书架上的，页面自己筛。 */
+  async find(input) {
+    const source = input?.source === 'web' ? 'web' : 'local'
+    if (source === 'local' && !this.settings().local) return { ok: true, source, accounts: [] }
+    return this.serial(async () => {
+      const result = await this.call(['accounts', '--source', source], { interactive: true })
+      this.noteSource(source, result)
+      if (result.ok) return { ok: true, source, accounts: result.accounts }
+      return result.status === 'account_not_found' ? { ok: true, source, accounts: [] } : { ok: false, source, status: result.status, message: result.message }
+    }, 'finding')
+  }
+
+  /** 开始跟踪一个号。它现有的文章随后在后台读，页面先看到它已经在名单里。 */
+  async track(input) {
+    const name = text(input?.name), source = input?.source === 'web' ? 'web' : 'local'
+    if (!name) throw new Error('请选择一个公众号')
+    const snapshot = await this.serial(async () => {
+      const result = await this.call(['track', '--account', name, '--source', source], { interactive: true })
+      if (!result.ok) throw new Error(result.message)
+      await this.reconcile(result.tracked)
+      return this.snapshot()
+    }, 'tracking')
+    this.serial(() => this.read({ interactive: true }), 'checking').catch(() => {})
+    return { ...snapshot, busy: true }
+  }
+
+  async untrack(input) {
+    const biz = text(input?.biz)
+    return this.serial(async () => {
+      const account = this.cache().accounts.find(item => item.biz === biz)
+      if (!account) throw new Error('这个公众号不在跟踪名单里')
+      const result = await this.call(['track', '--account', account.name, '--cancel'])
+      if (!result.ok) throw new Error(result.message)
+      await this.reconcile(result.tracked)
+      return this.snapshot()
+    }, 'tracking')
+  }
+
+  /** 打开扫码窗口登录微信读书。要等用户扫码，所以放到后台；登录好以后把要靠它读的号读一遍。 */
+  login() {
+    this.requireEnabled()
+    return this.background(async () => {
+      const result = await this.call(['login'], { interactive: true })
+      // 用户自己把窗口关了不算出错。
+      if (!result.ok) { if (result.status === 'login_cancelled') return; throw new Error(result.message) }
+      this.write({ loggedIn: true, sources: { ...this.cache().sources, web: null } })
+      await this.check({ interactive: true })
+    }, 'login')
+  }
+
+  async logout() {
+    return this.serial(async () => {
+      const result = await this.call(['logout'])
+      if (!result.ok) throw new Error(result.message)
+      this.write({ loggedIn: false, sources: { ...this.cache().sources, web: null } })
+      return this.snapshot()
+    }, 'logout')
+  }
+
+  /** 改用户的两个选择，改完重新检查一遍：本机微信开了或关了，文章要换个来源读；自动验证打开了，原来等着用户去验证的可以自己过了。 */
+  set(input) {
+    const next = this.settings()
+    for (const key of ['local', 'autoVerify']) if (typeof input?.[key] === 'boolean') next[key] = input[key]
+    writeJson(this.settingsFile, next)
+    this.applySettings()
+    const { sources } = this.cache()
+    if (input?.autoVerify === true && sources.web?.status === 'verification_required') this.write({ sources: { ...sources, web: null } })
+    if (this.enabled() && (typeof input?.local === 'boolean' || input?.autoVerify === true)) this.serial(() => this.check({ interactive: false }), 'checking').catch(() => {})
+    return this.snapshot()
+  }
+
+  /** 到点了就检查一次；正忙着就等下一轮。 */
   async tick() {
-    if (this.disposed || !this.enabled() || this.inflight.size) return
-    try { await this.serial('timer', () => this.synchronize(undefined, true)) }
-    catch (error) { if (!this.disposed && this.enabled()) this.error = error.message }
+    if (!this.enabled() || this.pending) return
+    const { checkedAt } = this.cache()
+    if (checkedAt && this.now() - Date.parse(checkedAt) < CHECK_MS) return
+    await this.serial(() => this.check({ interactive: false }), 'checking').catch(() => {})
   }
+
+  /** 插件的开关变了：关掉时停下正在跑的命令，打开时马上检查一次。 */
+  changed() {
+    if (this.enabled()) void this.tick()
+    else { for (const controller of this.controllers) controller.abort(); this.problem = '' }
+  }
+
   start() {
-    this.timer = this.schedule(() => { void this.tick() }, 60_000)
+    this.timer = this.schedule(() => { void this.tick() }, MINUTE)
     this.timer?.unref?.()
     void this.tick()
     return () => this.dispose()
   }
+
   dispose() {
     this.disposed = true
     if (this.timer !== undefined) this.cancel(this.timer)

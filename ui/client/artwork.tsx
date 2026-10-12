@@ -1,7 +1,7 @@
 /**
  * 插件图标。通用工具直接用 DeepSeek 自己的：网页搜索是引擎的图形，其余三个是各插件包自带的 icon.svg。
  * 校园功能和「课程讲解」没有现成的，照同一种画法画：36×36 画布，图形占中间 20 来个单位，
- * 天蓝到宝蓝的渐变为主，配青、绿、紫，叠在上面的细节用白线。
+ * 天蓝到宝蓝的渐变为主，配青、绿、紫，叠在上面的细节用白线。「微信公众号」整个用绿，一眼认得出是微信（2026-10-11 用户从三个示意里选的）。
  */
 import { useId, useState, type ReactNode } from 'react'
 import { PluginArtworkDefault, PluginArtworkSearch } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -20,12 +20,12 @@ const SHAPES: Record<CampusArt, (paint: Paints) => ReactNode> = {
       <rect x="12.5" y="26.6" width="11" height="2.4" rx="1.2" fill={paint.teal} />
     </>
   ),
+  // 微信的绿色气泡，里面是「订阅」的信号：跟踪公众号的新文章。
   wechat: paint => (
     <>
-      <path d="M8 9h14a5 5 0 0 1 5 5v4a5 5 0 0 1-5 5H15l-5 4v-4H8a5 5 0 0 1-5-5v-4a5 5 0 0 1 5-5Z" transform="translate(3 0) scale(.9)" fill={paint.green} />
-      <path d="M14 15h8M14 19h5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="26" cy="25" r="4.5" fill={paint.blue} />
-      <path d="M24.2 25h3.6M26 23.2v3.6" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M13.5 8h9a6 6 0 0 1 6 6v4.5a6 6 0 0 1-6 6h-4l-3.9 3.2c-.5.4-1.1 0-1.1-.5V24.5a6 6 0 0 1-6-6V14a6 6 0 0 1 6-6Z" fill={paint.green} />
+      <circle cx="13.9" cy="19.6" r="1.5" fill="#fff" />
+      <path d="M13.9 15.4a4.2 4.2 0 0 1 4.2 4.2M13.9 11.6a8 8 0 0 1 8 8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
     </>
   ),
   account: paint => (

@@ -65,12 +65,12 @@ test('independent WeChat switch persists without claiming a ZJU module', t => {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
   const env = {}, store = new ProfileStore(root), switches = new PluginSwitches(store, env)
   switches.set({ id: 'campus.wechat', enabled: false })
-  assert.equal(env.CAMPUS_WECHAT_DISABLED, '1')
+  assert.equal(env.WEREAD_DISABLED, '1')
   assert.equal(env.ZJU_DISABLED_MODULES, undefined)
-  assert.match(switches.promptText(), /微信公众号.*独立采集模块/)
+  assert.match(switches.promptText(), /微信公众号（weread 技能/)
   assert.deepEqual(new PluginSwitches(store, {}).disabled(), ['campus.wechat', 'campus.learn'])
   switches.set({ id: 'campus.wechat', enabled: true })
-  assert.equal(env.CAMPUS_WECHAT_DISABLED, undefined)
+  assert.equal(env.WEREAD_DISABLED, undefined)
 })
 
 test('a plugin that starts closed stays closed until the user opens it, and that choice survives a restart', t => {

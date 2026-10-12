@@ -125,7 +125,9 @@ export const CAMPUS_PLUGINS = [
 
 /**
  * 不是 ZJU Core 的功能，和它分开登记，共用应用的插件开关和详情页。backend 说它背后是哪一样：
- * wechat 是公众号的本地采集；learn 是 Learning Core（core/learn，助手的 learn 技能），关掉以后助手的技能目录里没有它，
+ * wechat 是 weread 技能（core/weread）：半小时把跟踪的公众号看一遍、新文章进通知，助手拿到文章链接能读全文；关掉以后助手的技能目录里没有它，应用也不再定时检查（wechat.mjs）；
+ * 它这里的 systems 列的是能做什么，文章从哪里找在详情页里另有一块（WechatSettings.tsx）。
+ * learn 是 Learning Core（core/learn，助手的 learn 技能），关掉以后助手的技能目录里没有它，
  * 学习页上也不再给「让助手讲这次课」，做好的讲解照常能放。它的可选依赖在详情页里装（learn.mjs）。
  * optIn 的一项默认关着，要用户自己打开（别的都默认开着）：做一份讲解很花时间和模型用量，用户 2026-10-11 定的不替人开。
  */
@@ -135,8 +137,11 @@ export const LOCAL_PLUGINS = [
       { name: '讲解', does: '先把资料学懂，再重新讲一遍，做成带画面和字幕的网页，在「学习」页里播放' },
       { name: '资料', does: '智云一次课的课件、课堂截图和字幕，或者你自己的教材、论文' },
     ] },
-  { id: 'campus.wechat', title: '微信公众号', description: '同步公众号推文与原文链接', art: 'wechat', backend: 'wechat',
-    accounts: [], requires: [], systems: [] },
+  { id: 'campus.wechat', title: '微信公众号', description: '公众号的新文章自动进通知', art: 'wechat', backend: 'wechat',
+    accounts: [], requires: [], systems: [
+      { name: '新文章', does: '每半小时看一遍你跟踪的公众号，新发的进「校园事务」的通知' },
+      { name: '读文章', does: '把公众号文章的链接发给助手，它能读到全文' },
+    ] },
 ]
 export const APP_PLUGINS = [...CAMPUS_PLUGINS, ...LOCAL_PLUGINS]
 

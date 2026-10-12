@@ -1,76 +1,75 @@
-import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
+import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
+import { createInterface } from 'node:readline'
+import test from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { EventEmitter } from 'node:events'
-import bridgeModule from './weread.cjs'
 
-const root = fileURLToPath(new URL('../', import.meta.url))
-const bookId = 'MP_WXS_1234567890'
-async function setup(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'weread-bridge-'))
-  const w = { owner: 'synthetic-owner', calls: [], windows: [], opened: 0, handlers: new Map() }
-  class Window extends EventEmitter {
-    constructor() {
-      super(); w.windows.push(this)
-      this.webContents = { mainFrame: { url: 'https://weread.qq.com/' }, setWindowOpenHandler() {}, on() {}, executeJavaScript: async () => { w.opened++; return { status: 'opened' } } }
-    }
-    isDestroyed() { return !!this.closed }
-    show() {} focus() {} async loadURL() {}
-    close() { this.closed = true; this.emit('closed') }
-  }
-  const bridge = await bridgeModule.createWereadBridge({ root, app: { getPath: () => dir }, BrowserWindow: Window,
-    ipcMain: { handle: (name, fn) => w.handlers.set(name, fn), removeHandler: name => w.handlers.delete(name) },
-    session: { fromPartition: () => ({ cookies: { get: async () => [{ name: 'wr_vid', value: w.owner }, { name: 'wr_skey', value: 'synthetic-cookie' }] }, fetch: async (url, options) => {
-      w.calls.push({ url, options })
-      const body = options.headers['x-wr-ticket'] ? { reviews: [] } : { errCode: -2041 }
-      return new Response(JSON.stringify(body), { status: 200 })
-    } }) } })
-  w.rpc = async (action, input = {}, headers = {}) => (await fetch(bridge.env.CAMPUS_WEREAD_BRIDGE_URL, { method: 'POST', headers: { authorization: `Bearer ${bridge.env.CAMPUS_WEREAD_BRIDGE_TOKEN}`, ...headers }, body: JSON.stringify({ action, input }) })).json()
-  w.proof = taskId => {
-    const sender = w.windows[0].webContents
-    return w.handlers.get('campus:weread-proof')({ sender, senderFrame: sender.mainFrame }, { taskId, ret: 0, ticket: 'synthetic-ticket', randstr: 'synthetic-randstr' })
-  }
-  w.challenge = () => w.rpc('article.list', { account: bookId, limit: 1 })
-  t.after(async () => { await bridge.close(); fs.rmSync(dir, { recursive: true, force: true }) })
-  return w
+const require = createRequire(import.meta.url)
+const { createWereadBridge, visionConfig } = require('./weread.cjs')
+const coreRoot = fileURLToPath(new URL('../core/', import.meta.url))
+
+/** 一个临时的数据目录：里面有档案目录和密钥文件。 */
+function fixture(t) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'campus-weread-'))
+  t.after(() => { fs.rmSync(root, { recursive: true, force: true }) })
+  const profileDir = path.join(root, 'profile'), keysFile = path.join(root, 'api-keys.local.yaml')
+  fs.mkdirSync(profileDir)
+  return { root, profileDir, keysFile, dataDir: path.join(root, 'weread') }
 }
 
-test('bridge rejects unauthenticated and browser-origin requests before touching the session', async t => {
-  const w = await setup(t)
-  assert.equal((await w.rpc('article.list', {}, { authorization: 'wrong' })).status, 'forbidden')
-  assert.equal((await w.rpc('article.list', {}, { origin: 'https://example.com' })).status, 'forbidden')
-  assert.equal(w.calls.length, 0)
+test('识别模型用密钥文件里对话的 Key；开关关着或没有 Key 时不给', (t) => {
+  const { profileDir, keysFile } = fixture(t)
+  const config = (env = {}) => visionConfig({ profileDir, keysFile, env })
+  assert.equal(config(), undefined, '还没有密钥文件')
+  fs.writeFileSync(keysFile, 'version: 1\nrefs:\n  DEEPSEEK_API_KEY: chat-key\n')
+  assert.deepEqual([config().apiKey, config().model, new URL(config().endpoint).hostname], ['chat-key', 'deepseek-flash', 'api.deepseek.com'])
+  assert.deepEqual([config({ WEREAD_VISION_ENDPOINT: 'https://model.example/chat', WEREAD_VISION_MODEL: 'other' }).endpoint, config({ WEREAD_VISION_MODEL: 'other' }).model], ['https://model.example/chat', 'other'])
+  fs.writeFileSync(keysFile, 'version: 1\nrefs:\n  DEEPSEEK_API_KEY: chat-key\n  WEREAD_VISION_API_KEY: vision-key\n')
+  assert.equal(config().apiKey, 'vision-key', '单独给识别用的 Key 优先')
+  fs.writeFileSync(path.join(profileDir, 'wechat.json'), JSON.stringify({ autoVerify: false }))
+  assert.equal(config(), undefined, '「自动完成验证」关着')
 })
 
-test('owned verification resumes exact request once and never returns the proof', async t => {
-  const w = await setup(t), task = await w.challenge()
-  assert.equal(task.status, 'verification_required')
-  await w.rpc('verification.open', { task: task.taskId })
-  await w.rpc('verification.open', { task: task.taskId })
-  assert.equal(w.opened, 1)
-  assert.equal((await w.proof(task.taskId)).ok, true)
-  const result = await w.rpc('verification.status', { task: task.taskId })
-  assert.equal(result.state, 'complete'); assert.equal(result.result.articles.length, 0)
-  assert.equal(w.calls.length, 2)
-  assert.doesNotMatch(JSON.stringify(result), /synthetic-ticket|synthetic-randstr|synthetic-cookie/)
-  assert.equal((await w.proof(task.taskId)).ok, false)
-})
+test('壳把技能的浏览器开在管道上：命令连过来就能用，后台的命令不开窗口，插件关着时一律拒绝', async (t) => {
+  const { profileDir, keysFile, dataDir } = fixture(t)
+  const handlers = new Map()
+  let partition = ''
+  const bridge = await createWereadBridge({
+    coreRoot, dataDir, profileDir, keysFile,
+    // 这里用到的调用都不开窗口。
+    BrowserWindow: class { constructor() { assert.fail('不该开窗口') } },
+    ipcMain: { handle: (name, handler) => handlers.set(name, handler), removeHandler: name => handlers.delete(name) },
+    session: { fromPartition: (name) => { partition = name; return { cookies: { get: async ({ name: wanted }) => wanted === 'wr_vid' ? [{ name: wanted, value: 'vid' }] : [] } } } },
+  })
+  t.after(() => { bridge.close() })
+  assert.equal(bridge.env.WEREAD_DATA_DIR, dataDir)
+  assert.equal(partition, 'persist:campus-weread')
+  assert.deepEqual([...handlers.keys()], ['weread:captcha-result'])
 
-test('account changes fail a verified task before retrying any business request', async t => {
-  const w = await setup(t), task = await w.challenge()
-  await w.rpc('verification.open', { task: task.taskId }); w.owner = 'another-owner'
-  await w.proof(task.taskId)
-  const result = await w.rpc('verification.status', { task: task.taskId })
-  assert.equal(result.state, 'failed'); assert.equal(result.result.status, 'account_changed'); assert.equal(w.calls.length, 1)
-})
+  // 像技能的命令那样连上去：一行一条 JSON，按 id 对回结果。
+  const socket = net.connect(bridge.env.WEREAD_BROWSER_ENDPOINT)
+  await new Promise((resolve, reject) => { socket.once('connect', resolve); socket.once('error', reject) })
+  const waiting = new Map()
+  createInterface({ input: socket }).on('line', (line) => { const message = JSON.parse(line); waiting.get(message.id)?.(message) })
+  let id = 0
+  const ask = (action, input, extra = {}) => new Promise((resolve) => { waiting.set(++id, resolve); socket.write(`${JSON.stringify({ id, action, input, ...extra })}\n`) })
 
-test('cancellation closes the owned window and rejects late proof', async t => {
-  const w = await setup(t), task = await w.challenge()
-  await w.rpc('verification.open', { task: task.taskId })
-  await w.rpc('operation.cancel')
-  assert.equal((await w.rpc('verification.status', { task: task.taskId })).state, 'cancelled')
-  assert.equal(w.windows[0].closed, true); assert.equal((await w.proof(task.taskId)).ok, false); assert.equal(w.calls.length, 1)
+  assert.equal((await ask('cookie', 'wr_vid')).result, 'vid')
+  assert.equal((await ask('captcha', {}, { interactive: false })).error.code, 'verification_required')
+  assert.equal((await ask('login', undefined, { interactive: false })).error.code, 'login_required')
+  assert.equal((await ask('quit')).error.code, 'invalid_action')
+
+  fs.writeFileSync(path.join(profileDir, 'plugins.json'), JSON.stringify({ disabled: ['campus.wechat'] }))
+  assert.equal((await ask('cookie', 'wr_vid')).error.code, 'plugin_disabled')
+  fs.writeFileSync(path.join(profileDir, 'plugins.json'), JSON.stringify({ disabled: [] }))
+  assert.equal((await ask('cookie', 'wr_vid')).result, 'vid', '开关改了马上生效')
+
+  const closed = new Promise((resolve) => { socket.once('close', resolve) })
+  bridge.close()
+  await closed
+  assert.equal(handlers.size, 0)
 })

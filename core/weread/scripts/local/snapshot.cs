@@ -51,7 +51,7 @@ public static class BizSnapshot {
  // Windows paths cannot contain a double quote, so quoting the whole argument is sufficient.
  static string Quote(string path){if(path.IndexOf('"')>=0||path.EndsWith("\\"))throw new Exception("Unsupported path.");return "\""+path+"\"";}
  // Returns the helper's stdout: the JSON it derives from the decrypted image piped to its stdin.
- public static string Inspect(byte[] key,string path,string python,string helper){
+ public static string Inspect(byte[] key,string path,string node,string helper){
   if(Path.GetFileName(path)!="biz_message_0.db")throw new Exception("Only the official-account database is allowed.");
   byte[] db=null,wal=null,plain=null,macKey=null;
   try{
@@ -76,8 +76,9 @@ public static class BizSnapshot {
    // WAL has been merged into a private in-memory image. SQLite deserialize
    // requires rollback-journal header versions; the source files are untouched.
    plain[18]=1;plain[19]=1;
-   var info=new ProcessStartInfo(python){UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true};
-   info.Arguments=Quote(helper);
+   var info=new ProcessStartInfo(node){UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true};
+   // The environment is inherited, so an Electron binary acting as Node (ELECTRON_RUN_AS_NODE) keeps doing so.
+   info.Arguments="--no-warnings "+Quote(helper);
    using(var p=Process.Start(info)){
     var stdout=p.StandardOutput.ReadToEndAsync();var stderr=p.StandardError.ReadToEndAsync();p.StandardInput.BaseStream.Write(plain,0,plain.Length);p.StandardInput.Close();
     if(!p.WaitForExit(30000)){p.Kill();throw new Exception("Local metadata parser timed out.");}if(p.ExitCode!=0)throw new Exception("Local metadata parser failed.");

@@ -162,8 +162,8 @@ export function createZhiyunCommands(open: typeof openZhiyun = openZhiyun): Reco
   sessionCommands(commands, "zhiyun");
   for (const [name, replacement] of Object.entries({ courses: "zhiyun search courses", lessons: "zhiyun search lessons", catalogue: "zhiyun search lessons",
     "video-url": "zhiyun search resources --kind video,audio", materials: "zhiyun search resources --kind ppt,slides", transcript: "zhiyun download --kind subtitles",
-    lecture: "zhiyun check / zhiyun trans audio / zhiyun trans ppt；其余内容交给 AI 按 references/zhiyun-notes-template.md 生成",
-    "lecture-read": "直接读取转写输出文件", prepare: "zhiyun trans audio / zhiyun trans ppt", read: "直接读取转写输出文件", export: "AI 按模板直接生成 Markdown", notes: "AI 按 references/zhiyun-notes-template.md 直接生成 Markdown",
+    lecture: "zhiyun check / zhiyun trans audio；其余内容交给 AI 按 references/zhiyun-notes-template.md 生成",
+    "lecture-read": "直接读取转写输出文件", prepare: "zhiyun trans audio", read: "直接读取转写输出文件", export: "AI 按模板直接生成 Markdown", notes: "AI 按 references/zhiyun-notes-template.md 直接生成 Markdown",
     "asr-check": "zhiyun check --component asr", "media-check": "zhiyun check --component media" })) commands[name] = retired(replacement);
   return commands;
 }

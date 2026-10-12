@@ -30,11 +30,11 @@ Local/Web 只查找公众号及文章链接。多种链接进入同一个浏览�
 | lib/captcha/electron.mjs | 验证码模块：观察官方 SDK、裁题图、输入答案、取回票据 |
 | lib/captcha/recognizer.mjs | 把题目交给识别模型 |
 | lib/config.ts、errors.mjs | .env、数据目录、识别模型配置；统一错误类型 |
-| scripts/local/ | PowerShell 入口、C# 取密钥与解密、Python 解析消息 |
+| scripts/local/ | PowerShell 入口、C# 取密钥与解密、Node 解析消息（`metadata.mjs`） |
 
 ## 本地来源
 
-Node → 系统 PowerShell 5.1 → C#（.NET Framework 4.8）→ Python 3.14。PowerShell 找到唯一的微信进程和公众号消息库；C# 从进程内存取得该库的密钥，逐页校验后在内存里解密并合并 WAL；Python 从标准输入读入解密后的库，解析公众号推送，输出全部公众号及其文章。密钥和明文只在内存和匿名管道里，不落盘。
+Node → 系统 PowerShell 5.1 → C#（.NET Framework 4.8）→ Node（跑技能的同一份，`process.execPath`；2026-10-12 以前这一步是 Python 3.14，输出不变）。PowerShell 找到唯一的微信进程和公众号消息库；C# 从进程内存取得该库的密钥，逐页校验后在内存里解密并合并 WAL；Node 从标准输入读入解密后的库（内置的 `node:sqlite` 载入内存，zstd 解开消息），解析公众号推送，输出全部公众号及其文章。密钥和明文只在内存和匿名管道里，不落盘。
 
 脚本不接收查询参数，一次读出全部，筛选在 Node 里做，所以同一命令里的多次查询共用一次读取。正文不在本地库里，找到链接后交给统一浏览器取文入口。
 

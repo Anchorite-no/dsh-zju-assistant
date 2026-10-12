@@ -15,7 +15,7 @@ npm install
 node scripts/weread.ts --help
 ```
 
-使用 Local 来源时，需要 Windows、保持登录运行的电脑版微信、系统 PowerShell 5.1 和 Python 3.14+。目前已实测微信 4.1.15.13。Web 来源不需要本机微信和 Python，但需要登录微信读书。
+使用 Local 来源时，需要 Windows、保持登录运行的电脑版微信和系统 PowerShell 5.1（解析消息用的是 Node 自己，2026-10-12 起不再需要 Python）。目前已实测微信 4.1.15.13。Web 来源不需要本机微信，但需要登录微信读书。
 
 ```sh
 # 从本机微信查找文章

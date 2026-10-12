@@ -19,7 +19,7 @@ public static class WeixinBizDbProbe {
  public sealed class Result {public bool ProcessReadable,VerifiedDatabaseKey;internal byte[] VerifiedKey;}
  public static void Forget(Result result){if(result.VerifiedKey!=null){Array.Clear(result.VerifiedKey,0,result.VerifiedKey.Length);result.VerifiedKey=null;}}
  static void Confirm(Result result,byte[] key){result.VerifiedDatabaseKey=true;result.VerifiedKey=(byte[])key.Clone();}
- public static string ReadSnapshot(Result result,string path,string python,string helper){if(result.VerifiedKey==null)throw new Exception("No verified runtime key retained.");try{return WeixinResearch.BizSnapshot.Inspect(result.VerifiedKey,path,python,helper);}finally{Forget(result);}}
+ public static string ReadSnapshot(Result result,string path,string node,string helper){if(result.VerifiedKey==null)throw new Exception("No verified runtime key retained.");try{return WeixinResearch.BizSnapshot.Inspect(result.VerifiedKey,path,node,helper);}finally{Forget(result);}}
 
  internal static string Hex(byte[] value){return BitConverter.ToString(value).Replace("-","");}
  internal static byte[] FromHex(string text){

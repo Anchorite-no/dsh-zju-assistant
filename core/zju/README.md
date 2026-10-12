@@ -175,13 +175,11 @@ zju chalaoshi course --name 课程名
 zju cnki search --keyword "图神经网络 综述" --year 2024-2026 --core "北大核心|CSSCI|CSCD" --sort cited
 zju cnki download --title 完整篇名
 
-# 文档：转文字、合成 PDF、找页、取页、取图、渲染
+# 文档：转文字、合成 PDF、找页、取页（看页面长什么样用应用自带的 Office 引擎渲染成图，不在这里）
 zju doc text --url 链接
 zju doc pdf --file "第1页.jpg|第2页.jpg" --out 作业.pdf
 zju doc find --file 课本.pdf --keyword 习题一
 zju doc pages --file 课本.pdf --pages 43-49
-zju doc images --file 文件.pdf --pages 2
-zju doc render --file 文件.pdf --pages 2
 
 # 点名与考勤的只读查询：当前有没有点名、历史记录
 zju xuezai rollcall status
@@ -265,8 +263,7 @@ CLI 将一个结构化 JSON 结果写入 stdout，进度和帮助写入 stderr�
 
 | 功能 | 准备 | 检查 |
 |---|---|---|
-| 智云媒体处理与课件提取（FFmpeg、课件提取的 Python 环境）；音频转写只需模型，第一次用时自动下载 | `zhiyun setup` | `zhiyun check` |
-| 文档转文字与 PDF 处理（Python 包；DOC 等老格式和 Word 转 PDF 另需 LibreOffice） | `doc setup` | `doc check` |
+| 智云媒体处理（FFmpeg，应用自带）；音频转写只需模型，第一次用时自动下载 | `zhiyun setup` | `zhiyun check` |
 | 场馆预约的验证码识别（Python 环境与识别模型） | `tyys venue setup` | `tyys venue check` |
 
 细节见 [智云依赖检查](references/zhiyun.md#依赖检查)、[lib/doc](lib/doc/README.md) 与 [体艺开发参考](lib/tyys/README.md)。

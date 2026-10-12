@@ -29,10 +29,10 @@ lines.push("## 边界与数据衔接", "",
   "- 学在和体艺的 rollcall 只读：学在 status 看当前点名、history 看历史记录，体艺只有 history；不提交签到。",
   "- 学在的课程、作业、文件都按名称定位；下载结果总在 files 列表里。",
   "- zhiyun 支持课程名称；--lesson/--lesson-id/--date/--week-of/--all 互斥。kind 支持 video,audio,ppt,slides,subtitles。视频优先 1080p；仅取音频优先独立音轨或 360p；无独立音轨的混合下载复用视频。",
-  "- zhiyun trans 只处理本地文件；音频用 SenseVoice 在本机 CPU 上转写，模型第一次用时自动下载；ppt 提取已有文字与原图，未启用 OCR。输出交给 AI 按模板直接成稿。",
+  "- zhiyun trans 只处理本地文件；音频用 SenseVoice 在本机 CPU 上转写，模型第一次用时自动下载。输出交给 AI 按模板直接成稿。",
   "- zhiyun download 和 trans 的结果默认放进用户「文档」里的 CampusAgent（课程\\课程名\\第N次 日期、转写\\文件名），不在 data/output。", "",
-  "## 智云本地依赖", "", "```text", "zju zhiyun setup [--component all|media|asr|ppt]", "```", "",
-  "安装、检查和转写均属于 zhiyun。setup 只在缺依赖时使用并复用现有环境：asr 只下载转写模型，media 是 FFmpeg，ppt 是课件提取的 Python 环境。", "");
+  "## 智云本地依赖", "", "```text", "zju zhiyun setup [--component all|media|asr]", "```", "",
+  "安装、检查和转写均属于 zhiyun。setup 只在缺依赖时使用并复用现有环境：asr 只下载转写模型，media 是 FFmpeg。", "");
 const file = path.join(paths.root, "references/commands.md");
 await fs.writeFile(file, lines.join("\n"));
 console.log(JSON.stringify({ file, publicRoutes: rows.length }));

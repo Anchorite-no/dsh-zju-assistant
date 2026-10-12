@@ -1,4 +1,3 @@
-import fs from 'node:fs'
 import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
@@ -16,16 +15,19 @@ const messages: Record<string, string> = {
   multiple_wechat_profiles: '本机有多个微信账号的数据目录，本地来源暂不支持选择账号。',
   wechat_key_unavailable: '没能从微信进程取得消息库密钥：请确认微信已登录；当前微信版本也可能不兼容（已验证 4.1.15.13）。',
   snapshot_failed: '本机微信的消息库没有通过校验或解析失败。',
-  runtime_missing: '本地来源需要 Python 3.14+（含 sqlite3 和 compression.zstd）；可在 .env 用 WEREAD_PYTHON 指定路径。',
+  runtime_missing: '本地来源需要 Node 24 以上（用它内置的 sqlite 和 zstd）。',
   local_reader_failed: '读取本机微信失败。',
 }
 
-/** Node → PowerShell 5.1 → C#（取密钥、解密到内存）→ Python（解析消息），返回全部公众号及其文章。 */
+/** Node → PowerShell 5.1 → C#（取密钥、解密到内存）→ Node（解析消息，用的就是跑这条命令的这一份），返回全部公众号及其文章。 */
 async function readWeChat(): Promise<Account[]> {
   if (process.platform !== 'win32') throw new SkillError('unsupported_platform', '本地来源只支持 Windows 版微信。')
-  const python = process.env.WEREAD_PYTHON || ['C:/Program Files/Python314/python.exe'].find(fs.existsSync) || 'python'
+  // 解析消息那一步由这份 Node 自己来跑（scripts/local/metadata.mjs），要它内置的 sqlite 和 zstd。在这里查，不在 PowerShell 里查：
+  // 应用里的 Node 是个带窗口的程序，Windows PowerShell 不等它、也接不到它的输出。
+  const ready = typeof (await import('node:zlib')).zstdDecompressSync === 'function' && await import('node:sqlite').then(() => true, () => false)
+  if (!ready) throw new SkillError('runtime_missing', messages.runtime_missing)
   // ExecutionPolicy 只作用于这一个进程；Windows 默认不允许 PowerShell 5.1 运行脚本文件。
-  const args = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, '-PythonPath', python]
+  const args = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, '-NodePath', process.execPath]
   const output: string = await promisify(execFile)(powershell, args, { windowsHide: true, timeout: 110000, maxBuffer: 64 * 1024 * 1024 })
     .then(result => result.stdout, error => error.stdout ?? '')
   let result: any

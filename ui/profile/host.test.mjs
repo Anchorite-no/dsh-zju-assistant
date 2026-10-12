@@ -40,7 +40,11 @@ test('model tools, UI route and context share one profile; skills come from the 
   // 页面靠这个指纹判断后台是不是比界面旧。
   assert.equal((await call('stamp')).value, engineStamp())
   assert.match(engineStamp(), /^[0-9a-f]{12}$/)
-  // 公众号：页面点一次检查（在后台做，页面靠 busy 知道做完没有），跟踪的号和它的文章进了缓存。
+  // 公众号默认关着：技能不交给引擎，页面的操作被拒绝；打开以后才有。
+  assert.deepEqual((await provider.list()).map(skill => skill.name), ['zju'])
+  assert.equal((await call('wechat-find', { source: 'local' })).status, 400)
+  await call('plugins-set', { id: 'campus.wechat', enabled: true })
+  // 页面点一次检查（在后台做，页面靠 busy 知道做完没有），跟踪的号和它的文章进了缓存。
   assert.equal((await call('wechat-retry')).value.busy, true)
   let wechat
   do { wechat = (await call('wechat-read')).value } while (wechat.busy)
@@ -113,6 +117,10 @@ test('model tools, UI route and context share one profile; skills come from the 
   assert.deepEqual(assembled.sections.map(section => section.name), ['deployment:persona-prefix', 'campus-agent', 'tool:bash', 'deployment:persona-suffix'])
   assert.match(assembled.sections[0].text, /^你是「校园智能体」里的助手.*\{\{model\}\}/)
   assert.deepEqual(assembled.tools, ['kept'])
+
+  // 看文件的那一段：给出引擎自带的 Office 命令行在哪、怎么渲染成图。
+  const files = contexts.find(context => context.name === 'campus-files')
+  assert.match(files.text(), /doc text[\s\S]*read_image[\s\S]*libreoffice-kit[\\/]lib[\\/]cli\.js" render --input[\s\S]*convert --input/)
 
   // 「课程讲解」默认关着：learn 技能不交给引擎，上下文里不提讲解目录，但说明它关着，依赖也装不了。
   const learning = contexts.find(context => context.name === 'campus-learning')

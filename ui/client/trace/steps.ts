@@ -134,7 +134,6 @@ export const STEPS: Readonly<Record<string, string>> = {
   'zhiyun setup': '准备本地转写组件',
   'zhiyun check': '检查本地转写组件',
   'zhiyun trans audio': '把录音转成文字',
-  'zhiyun trans ppt': '提取课件里的文字和图片',
   'zhiyun session login': '登录智云课堂',
   'zhiyun session status': '检查智云课堂登录状态',
   'zhiyun session logout': '退出智云课堂',
@@ -187,10 +186,6 @@ export const STEPS: Readonly<Record<string, string>> = {
   'doc pdf': '把图片和文档合成 PDF',
   'doc pages': '从 PDF 里取出指定的页',
   'doc find': '在 PDF 里找关键词',
-  'doc images': '取出 PDF 里的图片',
-  'doc render': '把 PDF 页面转成图片',
-  'doc check': '检查文档处理组件',
-  'doc setup': '安装文档处理组件',
 }
 
 /** 这条命令在页面上叫什么；cancel 是带了 --cancel。fallback 是命令说明的第一句，没起名字时用。 */

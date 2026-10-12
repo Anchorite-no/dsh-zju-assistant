@@ -271,6 +271,25 @@ ZJU Core 和原技能其余不一样的地方：
 - 档案目录由桌面端经 `CAMPUS_PROFILE_DIR` 给出，引擎启动的命令会继承它。
 - 定时和文件交付的说明按应用改了（2026-10-11）；原技能在服务器上由 Hermes 调用、结果发到 QQ。`references/schedule.md` 原来写 Hermes 的定时任务、服务器的工作目录、已有的签到任务和同机的服务，现在写引擎的自动化任务：助手用 `schedule_create`、`schedule_list`、`schedule_update`、`schedule_delete` 建和管，任务绑在建它的那个对话上，到点把提示词作为一条消息发回那个对话，应用开着才会发；「自动化任务」关着时没有这四个工具，说明里让助手请用户去插件页打开。`references/tyys.md` 指向它的那一句跟着改了。`SKILL.md`「文件交付」去掉了给 QQ 发附件的 `MEDIA:` 写法：文件就在本机，用下载结果里的原路径，回答里怎么给照 `core/AGENT.md`（给链接）。工具名和到点的行为是对着 `@deepseek-ai/dsh-schedule` 0.2.0-rc.2 的工具定义和说明核的，没有在应用里让助手实际建过一次任务；引擎升级后对着这个包重新核一遍。
 
+## 读文档
+
+2026-10-12 改的。原来读 PDF、Word、PPT、Excel 全靠 `zju doc`，它的取文字、转 PDF、取页、渲染都是 Python 写的，要先跑 `zju doc setup`（`python -m venv` 加联网装包）。应用不带 Python，所以在没有 Python 的电脑上这条路是坏的；开发机的真实数据目录里它也一直是没装好的（`doc check` 返回 `ready: false`），只是之前没人让助手读过文件。现在分成两条路，都不用 Python：
+
+- **要文字**：`zju doc text`。PDF 用 pdf.js 逐页取文字层；Word 让引擎自带的 Office 引擎直接导出纯文本；Excel、PPT 先让它转成 PDF 再逐页取。带着校园登录去下载链接上的附件（教务网会话、校内和 CC98 走 WebVPN）还是它做，这一段没动。
+- **要看页面长什么样**（版面、公式、图表、扫描件、截图做的课件）：不经 `zju doc`，助手直接用引擎自带的 Office 引擎的命令行把页面渲染成 PNG，再用 `read_image` 看。用户的意思是：引擎已经带着 LibreOffice，现在的模型又都能看图，没必要在我们这边再包一层。
+
+`zju doc` 因此从 8 条命令缩到 4 条：`text`、`find`（按关键词找页）、`pdf`（照片、Word、PDF 合成一份，交作业用）、`pages`（取页）。去掉的是 `render`、`images`、`check`、`setup`，没有留别名。代码在 `core/zju/lib/doc/`，细节见那里的 README：
+
+- 新加两个纯 JS 的库，装在 `core/zju/node_modules`：`pdfjs-dist`（取文字，带中文 PDF 要的 cMap）和 `pdf-lib`（合成、取页）。安装时带 `--omit=optional`（`npm install --prefix core/zju --omit=optional`），不要 pdf.js 渲染用的 `@napi-rs/canvas`。打包时排除了它们用不到的部分（`package.json` 的 `build.files`：pdf.js 的 `build`、`web`，pdf-lib 的 `dist`、`es`、`src`、`ts3.4`）。
+- Office 引擎（`@deepseek-ai/libreoffice-kit`）和图片库（`sharp`）是引擎的依赖，已经在安装包里，`core/zju` 按包名直接引用应用根目录 `node_modules` 里的那一份。图片进 PDF 之前用 sharp 按拍摄方向转正。
+- 和原来不一样的地方：Excel 取出来的文字是按打印的页分的，不再一个工作表一页、格子之间也没有竖线；RTF 和 WPS 引擎不认，照实返回 `unsupported`；取 PDF 里嵌入的原图没有对应的做法了，要图就渲染整页。
+
+**把引擎的 Office 命令行交给助手**（`ui/profile/office.mjs`）。引擎自己只拿这个引擎给右边栏的预览用，给模型用的那套 office 技能（`dsh-skill-office`）在我们的组合里没有挂，助手原先不知道有它。现在每次对话的上下文里多一段「看文件」（`campus-files`）：给出命令行的完整路径（随安装位置变，所以不写在 `AGENT.md` 里）和两种用法，`render --input 文件 --output-dir 新文件夹 --pages 1,2,3` 和 `convert --input 文件 --output 结果.pdf`。页码只认逗号分开的写法。它是助手自己起的命令，在沙箱里跑：在隔离的引擎里实测过，默认的「工作区内修改」下渲染 PDF、渲染 Word、Word 转 PDF 都能跑（各一秒上下，输出落在对话文件夹里）；「仅可查看」下写不了输出，报的是引擎标准的沙箱拒绝。所以没有把它列进不进沙箱的名单。
+
+验证：`npm run test:core`（`core/zju/tests/doc.test.ts` 五项：按文件头认格式、页码规则、各种格式取文字、Word 走引擎、合成和取页和找关键词；照片带方向标记时转成竖的这一条是量 PDF 页面大小核的）。命令行上实际跑过四条命令，中文文件名、扩展名不对的文件、带透明底的截图都试了；合成出来的 PDF 用引擎渲染成图看过，照片是正的。pdf.js 在系统的 Node 和应用自己的 Node 上都取得到中文。PPT 用真实的课件试过：一份老的 `.ppt` 取出 14 页文字；一份全是截图的 `.pptx`（134 页）照实返回 `no_text`，用引擎渲染得出图。应用里也走过一遍：只起引擎（隔离的数据目录、真的模型），让助手读那份 `.ppt` 的文字、再看那份截图课件的第 5 页，它依次读了技能说明、跑 `doc text`、用「看文件」里的命令渲染、`read_image` 看图，13 秒答完，内容是对的；同一个引擎里核对了微信公众号默认关（关着时壳拒绝读本机）、打开以后经应用自己的 Node 读到本机的 94 个号。**没验证的**：Excel 走引擎这一条（手头没有样本文件，只有引擎自己声明支持）；`build.files` 里那几条排除（没有打包试过，排错了的话装好的应用里 `doc` 会找不到库）；装好的应用里从 `core/zju` 引用根目录的 Office 引擎和 sharp。
+
+**还剩一处要 Python 的**：体育场馆预约的验证码识别（`zju tyys venue`，`core/zju/scripts/tyys/captcha.py`）用的是一套 Python 的识别模型（ddddocr、PaddleOCR），要 `tyys venue setup` 建环境。这次没有动，等用户定怎么办。除它以外，应用里没有功能需要 Python。
+
 ## 智云的转写和文件落点
 
 2026-10-09 改的，代码在 `core/zju/lib/zhiyun/`：`asr.ts`（转写）、`places.ts`（落点）、`courseware.ts`（课件提取，从原 `asr.ts` 里挪出来，没改）。
@@ -304,7 +323,7 @@ ZJU Core 和原技能其余不一样的地方：
 没做和没验证的：
 
 - FFmpeg 已随应用带上（见下一小节），但没有重新打包，也没有在打开的应用里让助手实际转一次。
-- `zhiyun trans ppt` 仍然要 Python 环境（`setup --component ppt`，需要 uv）。
+- `zhiyun trans ppt`（从课件里提取文字和原图）2026-10-12 删掉了，连同它的 Python 环境：模型能看图，课件用 `doc text` 取文字或把页面渲染成图来读（见「读文档」）。
 - 只测了这一节课、这一台机器；普通笔记本上的速度没测，打包后的应用里没跑过。
 - 学习页当时还是占位，后来做了，见「学习」一节。
 
@@ -548,7 +567,7 @@ profile/
 
 哪一项对应哪些模块写在 `ui/profile/catalog.mjs` 的 `CAMPUS_PLUGINS`。点开关时只有被点的那一个变，页面先按点下去的状态显示，保存失败再退回去。
 
-「课程讲解」（2026-10-11 加的，用户要的：Learning 技能单独做成一个插件，开了以后下面能装依赖）排在校园功能的后面，和微信公众号一样不是 ZJU Core 的功能，登记在 `catalog.mjs` 的 `LOCAL_PLUGINS`（`backend: 'learn'`）。**它默认关着，要用户自己打开**（接入表里的 `optIn`，同一天用户定的；别的插件都默认开着）：做一份讲解很花时间和模型用量，不替人开。为这个，`plugins.json` 里多了一张单子：`disabled` 记默认开着而被关掉的，`enabled` 记默认关着而被打开的；`plugins.mjs` 对外仍然只给一张「现在关着的」，用的地方不用管哪一项默认是什么。加这一项以前存下的 `plugins.json` 照旧能读，升级上来的人「课程讲解」是关着的。关着时：
+「课程讲解」（2026-10-11 加的，用户要的：Learning 技能单独做成一个插件，开了以后下面能装依赖）排在校园功能的后面，和微信公众号一样不是 ZJU Core 的功能，登记在 `catalog.mjs` 的 `LOCAL_PLUGINS`（`backend: 'learn'`）。**它默认关着，要用户自己打开**（接入表里的 `optIn`，同一天用户定的；校园功能都默认开着，微信公众号 2026-10-12 起也改成默认关）：做一份讲解很花时间和模型用量，不替人开。为这个，`plugins.json` 里多了一张单子：`disabled` 记默认开着而被关掉的，`enabled` 记默认关着而被打开的；`plugins.mjs` 对外仍然只给一张「现在关着的」，用的地方不用管哪一项默认是什么。加这一项以前存下的 `plugins.json` 照旧能读，升级上来的人「课程讲解」是关着的。关着时：
 
 - `learn` 技能不再交给引擎（`skills.mjs` 按开关过滤，开关一变就叫引擎重读技能目录），助手的技能目录和输入框的 `/` 菜单里没有它；
 - 模型上下文里说明它关着（用户没打开过也说，这样有人要讲解时助手会请他去插件页打开，不会自己拼一个出来），也不再提讲解目录；
@@ -577,7 +596,7 @@ TeX 的装法：从国内的 CTAN 镜像（浙大、清华、中科大，最后�
 
 账号和密码都在插件详情页里填，每个插件只放自己用的：「校园账号」里是统一认证、WebVPN 和校内网站的访问方式；「课程与作业」里是 PTA 和实验课平台；「活动与场馆」里是校园卡查询密码和场馆同伴的账号；「学习资料」里是超星；「校园社区」里是 CC98。详情页里不放去别的页面的跳转（学院和专业在设置的个人档案里自己填）。密码直接显示在输入框里，默认遮住，点右边的眼睛才显示；清空一项再保存就是删掉它。CC98 可以填好几个账号：默认一个，下面有「添加另一个账号」，点一下多出一组，追加的每组右边有「移除」；第二个起存成 `cc98_username_2` / `cc98_password_2` 这样带序号的键，和 ZJU Core 认的写法一致，最多九个。保存写进 `accounts.json`（`ui/profile/account.mjs`），带版本检查，别处改过要先重新读取；页面上没有的键（第二位场馆同伴，键名带 `_2` 后缀）原样保留。账号只走这一条路：不进个人档案，不进模型上下文，档案工具也读不到。缺了必填账号的插件在列表上带「待填写」「待填账号」的标记。
 
-验证命令：`npm run test:plugins`、`npm run test:profile`、`npm run test:trace`、`npm run typecheck`、`npm run typecheck:core`。
+验证命令：`npm run test:plugins`、`npm run test:profile`、`npm run test:trace`、`npm run test:core`、`npm run test:weread`、`npm run typecheck`、`npm run typecheck:core`。
 
 `ui/profile/store.mjs` 是基础信息、记忆和备忘的存储实现：记忆和备忘各是档案目录里的一个文件夹，读写规则是同一套（文件里的 `Shelf`）。界面走引擎已认证的 `/api/campus/profile`，备忘录的操作名前面带 `memo-`；AI 读写记忆用 `campus_profile_read` 和 `campus_profile_write`，读写备忘用 `campus_note_read` 和 `campus_note_write`。
 
@@ -676,4 +695,11 @@ npm run test:weread
 - 2026-10-11 在隔离的数据目录里真的打开过应用（当时微信开着，微信读书没登录）：壳提供的浏览器这条路是通的（没登录时去微信读书找，技能经壳的管道回的是 `login_required`）；跟踪、「不再跟踪」、通知拿到文章都走通了。那次的测试窗口弹在用户桌面上，打扰到了人。
 - 2026-10-12 改完以后换了个办法看：只起引擎（`desktop/host.mjs`，数据目录是临时的），在浏览器里开它的地址，不开应用的窗口。看了画面的：详情页（字少了以后的样子）、添加弹窗（读到本机微信里的号，筛到一个）、通知里公众号文章的标签（后来改成浅蓝底的那一版也看了）。从页面的 DOM 核对的：跟踪以后那一行写出最新一篇和「每半小时检查一次，上次几点」。这样起的引擎没有壳，微信读书那一边这次没有碰。
 - 没有验证的：真的扫码登录微信读书、真的验证码（隐藏窗口里自动过、弹窗手动过两种）、微信读书书架出现在添加弹窗里、登录过期以后的「重新登录」、半小时的定时在真实的应用里连着跑、打包以后的安装版、深色主题和窄窗口下的样子。
-- 本机微信要 Windows、电脑上有 Python 3.14，这一点和以前一样，应用没有自带。
+- 本机微信要 Windows。原来还要电脑上有 Python 3.14，2026-10-12 去掉了，见下一小节。
+
+### 默认关，读本机不再要 Python（2026-10-12）
+
+- **默认关着**：接入表里标了 `optIn`，和「课程讲解」一样要用户自己打开。壳读开关的地方（`desktop/weread.cjs` 的 `guard`）跟着改成「`plugins.json` 的 `enabled` 里有它才算开」。没有另外照顾升级上来的人（用户定的：现在用的人很少，不做兼容）：原来开着的，升级以后是关的，跟踪名单和登录状态都留着，去插件页再打开一次就回来。
+- **读本机微信那一步的 Python 换成了 Node**。链条原来是 Node → PowerShell 5.1 → C#（取密钥、解密到内存）→ Python 3.14；最后一步只是把解密后的库载进内存里的 SQLite、把 zstd 压着的消息解开、从 XML 里挑出公众号文章，这三样跑技能的 Node 自己都有（`node:sqlite`、`zlib` 里的 zstd，Node 24 起内置，应用的 Node 是 24.18）。`scripts/local/metadata.py` 改写成 `metadata.mjs`（解析 XML 用 `htmlparser2`，实体用 `entities`，都是技能已有的依赖，这次写进了它的 `package.json`），C# 起的程序换成 `process.execPath`。去掉了 `WEREAD_PYTHON` 和详情页上「要先装好 Python 3.14 才能读」那一句。
+- 做的时候碰到一处：Windows PowerShell 5.1 用 `&` 起一个带窗口的程序时不等它、也接不到它的输出，而应用里的 Node 正是这样的程序（Electron）。原来写在 `read-local.ps1` 里的「这个解释器能不能用」的自检因此在应用里永远失败。自检挪进了 `lib/local.ts`（在进程里查），C# 那一步是用管道起它的，没有这个问题。
+- 验证：`npm run test:weread` 46 项通过（`local-runtime.test.ts` 的两项改成了 Node 的）。用一份造出来的消息库（13 个号、98 篇，含表情名、全角、CDATA、坏 XML、各种写法的链接）对照旧的 Python 脚本，输出完全一样。在开发机的真实微信上比过：旧的 Python、系统的 Node、应用自己的 Node 三种跑法，都是 94 个号、3793 篇，指纹相同；技能的 `accounts --source local` 用应用的 Node 走完整入口也通。

@@ -51,7 +51,6 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 | 上课实时转写 | `zhiyun live start`，指定课程加 `--course`；普通前台调用，命令自行启动后台，收到结果后直接按 message 回答 |
 | 刚才老师说了什么 | `zhiyun live text`，默认最近五分钟，时间窗口见 [智云](references/zhiyun.md) |
 | 转写本地录音 | `zhiyun trans audio --file 文件`，模型（第一次用时自动下载）和输出目录自动处理；有官方字幕的课次直接下字幕，不用转写 |
-| 提取课件 | `zhiyun trans ppt --file 文件` |
 | 教师评价 | `chalaoshi teacher --name 姓名`，默认附评论；limit 控制数量 |
 | 在知网找论文、中文文献 | `cnki search --keyword "词一 词二"`，多个主题词同时匹配，篇名不一定含全部词，结果足够就直接回答；指定篇名含词才用 `--title`。按要求加 `--year 2024-2026`、`--type 期刊`（或学位论文、博士、硕士、会议、报纸）、`--core CSSCI`、`--author 姓名`、`--source 来源`、`--sort cited`（或 date、downloads）、`--limit 条数`，见 [知网](references/cnki.md) |
 | 下载知网论文 | `cnki download --title 完整篇名`，返回本地 PDF 路径；已知篇名直接下载，不先 search；同名时按候选加 `--author`。多篇用竖线分隔，30 篇也放进一次调用，命令自行分批串行；按 `message`、`files`、`failed`、`pending` 报告进度 |
@@ -60,10 +59,10 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 | 预约明确的体育场馆 | `tyys venue book --venue 场馆 --sport 运动 --date 日期 --time 19:00 --confirm`；设置 `ZJU_ALLOW_WRITE=1`，自动等待、处理验证码与同伴、确认付款并回查；具体限制见 [体艺](references/tyys.md) |
 | 我的场馆预约、取消预约 | 查看 `tyys venue order list`；已授权取消 `tyys venue order cancel --venue 场馆 --date 日期 --time 时段 --confirm`，同样设置写闸 |
 | 现在有没有点名、以前的点名和缺勤记录 | 学在课程 `xuezai rollcall status`、`xuezai rollcall history`，体育课 `tyys rollcall history`，都可加 `--course 课程名`；只读 |
-| 读 PDF、Word、PPT、Excel（含 doc/ppt/xls）等文件的文字 | `doc text --file 本地文件` 或 `--url 链接`；校内和 CC98 链接、教务网附件自动处理登录。各命令下载到的文件也用它读，不自行安装解析库或写下载脚本 |
+| 读 PDF、Word、PPT、Excel（含 doc/ppt/xls）等文件的文字 | `doc text --file 本地文件` 或 `--url 链接`；校内和 CC98 链接、教务网附件自动处理登录。各命令下载到的文件（课件、通知附件、论文）也用它读，不自行安装解析库或写下载脚本。结果是 `no_text`（扫描件、截图做的课件）时把页面渲染成图来看 |
 | 照片、截图、Word 转成 PDF，或几个文件合成一个 PDF（交作业等） | `doc pdf --file 文件`，多个文件的写法见表后 |
 | 从 PDF 里只取几页（如课本的某章习题） | 先 `doc find --file 课本.pdf --keyword 习题一` 看在哪几页，再 `doc pages --file 课本.pdf --pages 43-49` |
-| PDF 里的图片（字帖、照片）或某页的样子 | 原图用 `doc images --file 文件.pdf`，可加 `--pages 2`，按像素从大到小，底纹水印也会列出，发前看一眼；整页成图用 `doc render --file 文件.pdf --pages 2`。要自己看图时也先渲染再看，不另装库 |
+| 看文件某一页长什么样（版面、公式、图表、扫描件），或要整页的图 | 不在本技能里：用对话开头「看文件」那一段给的渲染命令把页面转成 PNG，再看图。PDF、Word、PPT、Excel 都行，不另装库 |
 | CC98 消息 | `cc98 account notifications`，一次返回回复、@、系统通知的内容和未读私信 |
 | CC98 私信 | `cc98 private-message list`，未读的对话直接带出；回私信用 `cc98 private-message send --user 用户名 --content 文本 --confirm` |
 | CC98 搜索、看帖 | `cc98 search --keyword "说法一、说法二、说法三"`，几种说法一次给完，不要一个词调一次；看帖 `cc98 topic view --id 主题ID`，一次就有主楼全文和热评；多个帖写成 `--id "A|B|C"`，连读多页 `--page 2-5`，只看楼主加 `--lz`，只找提到某些词的楼层加 `--find "词一、词二"`；结果都在 `topics` 列表里；版面直接写名称 `cc98 board topics --name 版面名`，十大 `cc98 hot` |

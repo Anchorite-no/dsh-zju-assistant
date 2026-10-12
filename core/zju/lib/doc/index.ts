@@ -1,17 +1,17 @@
 /**
- * 通用文档转文字：本地文件或链接 → 文字。供所有模块下载到的 PDF、Word、PPT、Excel 等使用。
- * 另有 PDF 处理：图片、Word、PDF 合成一个 PDF，取出指定页，找关键词所在页。
+ * 文档转文字和 PDF 处理：本地文件或链接 → 文字；图片、Word、PDF 合成一个 PDF；取出指定页；找关键词所在页。
+ * 供所有模块下载到的 PDF、Word、PPT、Excel 等使用。
  *
- * Python 依赖（pypdf、openpyxl、xlrd、olefile、Pillow）装在 data/tools/doc/.venv，由 `zju doc setup` 安装；
- * DOC、RTF、ODT、WPS、ODS 需要系统里的 LibreOffice（soffice，只用 Writer 与 Calc）；PPT 用 olefile 直接读。均在本机执行，不走智云远程执行机。
+ * 2026-10-12 起不用 Python：PDF 的文字用 pdf.js 取，合成和取页用 pdf-lib（pdf.ts）；Word、Excel、PPT 先交给应用自带的
+ * Office 引擎转一下再读（office.ts）。原来的 render、images、check、setup 四条命令去掉了：看页面长什么样，
+ * 用那个引擎的命令行把页面渲染成图（助手的说明里写了），不在这里再包一层。RTF、WPS 引擎不认，不再支持。
  * 链接下载：*.zju.edu.cn 与 cc98.org 经 WebVPN，教务网附件使用教务网会话，其余直连。
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
-import { spawn } from "node:child_process";
+import { parse } from "parse5";
 import { paths } from "../core/paths.ts";
-import { env } from "../core/env.ts";
 import { BadResponse, ConfigError, ZjuError } from "../core/errors.ts";
 import { log } from "../core/output.ts";
 import type { HttpResponse } from "../core/http.ts";
@@ -19,70 +19,98 @@ import type { ModuleRequirements } from "../core/module.ts";
 import { openContext } from "../webvpn/transport.ts";
 import { unwrapUrl } from "../webvpn/client.ts";
 import { openZdbk, ZDBK_HOST } from "../zdbk/client.ts";
+import { convertOffice } from "./office.ts";
+import { combinePdf, extractPages, findInPdf, pdfTexts } from "./pdf.ts";
+import { sniff } from "./sniff.ts";
 
-export const PACKAGES = ["pypdf>=5,<7", "openpyxl>=3.1,<4", "xlrd>=2,<3", "olefile>=0.46,<1", "Pillow>=10,<13", "PyMuPDF>=1.24,<2"];
 const INLINE_CHARS = 20_000;
-const LIBREOFFICE_HINT = "Ubuntu：sudo apt install --no-install-recommends libreoffice-writer-nogui libreoffice-calc-nogui；Windows：安装 LibreOffice";
+/** 取出来的文字最多这么多字节，再多多半是读错了。 */
+const MAX_TEXT = 16 * 1024 * 1024;
 const CAMPUS = ["zju.edu.cn", "cc98.org"];
 
 interface Page { page: number; title?: string; text: string }
-interface Extracted { status: "text" | "no_text" | "unsupported" | "error"; format: string; pages: Page[]; reason: string | null; convertedVia?: string }
-
-export function docPython(): string {
-  return env("ZJU_DOC_PYTHON") || path.join(paths.data(), "tools", "doc", ".venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
-}
+interface Extracted { status: "text" | "no_text" | "unsupported" | "error"; format: string; pages: Page[]; reason: string | null; convertedVia?: string; declaredFormat?: string }
 
 async function exists(file: string): Promise<boolean> {
   try { await fs.access(file); return true; } catch { return false; }
 }
 
-function run(executable: string, args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
-    child.stdout.pipe(process.stderr); child.stderr.pipe(process.stderr);
-    child.once("error", reject);
-    child.once("close", code => code === 0 ? resolve() : reject(new ZjuError("BAD_RESPONSE", `${path.basename(executable)} 退出 ${code}`)));
-  });
+const result = (status: Extracted["status"], format: string, pages: Page[] = [], reason: string | null = null): Extracted => ({ status, format, pages, reason });
+
+function guard(pages: Page[]): Page[] {
+  if (pages.reduce((sum, page) => sum + Buffer.byteLength(page.text, "utf8"), 0) > MAX_TEXT) throw new BadResponse("提取的文字超过 16 MiB");
+  return pages;
 }
 
-async function python<T>(args: string[], script = "extract.py"): Promise<T> {
-  const executable = docPython();
-  if (!await exists(executable)) throw new ZjuError("DEPENDENCY_MISSING", "文档解析环境尚未安装", { hint: "zju doc setup" });
-  return new Promise((resolve, reject) => {
-    let stdout = "", stderr = "";
-    const child = spawn(executable, ["-X", "utf8", path.join(paths.root, "scripts", "doc", script), ...args], {
-      cwd: paths.root, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, PYTHONUTF8: "1" },
-    });
-    child.stdout.on("data", (b: Buffer) => {
-      stdout += b.toString("utf8");
-      if (stdout.length > 40 * 1024 * 1024) { child.kill(); reject(new BadResponse("文档提取输出过大")); }
-    });
-    child.stderr.on("data", (b: Buffer) => { stderr = (stderr + b.toString("utf8")).slice(-2000); });
-    child.once("error", reject);
-    child.once("close", code => {
-      try { resolve(JSON.parse(stdout) as T); } catch { reject(new BadResponse("文档提取脚本未返回有效 JSON", { exitCode: code, stderr })); }
-    });
-  });
-}
-
-export async function checkDoc() {
-  const venv = docPython();
-  if (!await exists(venv)) return { ready: false, python: null, hint: "zju doc setup" };
-  const info = await python<Record<string, unknown>>(["--check"]);
-  return { ready: Boolean(info.pdf && info.xlsx && info.xls && info.ppt && info.images && info.render), ...info, pythonPath: venv, ...(info.libreoffice ? {} : { libreofficeHint: LIBREOFFICE_HINT }) };
-}
-
-/** 在 data/tools/doc 建独立环境并安装 Python 依赖；LibreOffice 属系统软件，只检查并给出安装方法 */
-export async function setupDoc() {
-  const executable = docPython();
-  if (!env("ZJU_DOC_PYTHON") && !await exists(executable)) {
-    const venv = path.dirname(path.dirname(executable));
-    await fs.mkdir(path.dirname(venv), { recursive: true });
-    log(`创建文档解析环境：${venv}`);
-    await run(process.platform === "win32" ? "python" : "python3", ["-m", "venv", venv]);
+/** 纯文本：先按 UTF-8，不行按 GB18030，都不行就把认不出的字换掉。 */
+async function readText(file: string): Promise<string> {
+  const data = await fs.readFile(file);
+  if (data.length > MAX_TEXT) throw new BadResponse("文本文件超过 16 MiB");
+  for (const encoding of ["utf-8", "gb18030"]) {
+    try { return new TextDecoder(encoding, { fatal: true }).decode(data); } catch { /* 换下一种 */ }
   }
-  await run(executable, ["-m", "pip", "install", "--disable-pip-version-check", "-q", ...PACKAGES]);
-  return { installed: PACKAGES, ...await checkDoc() };
+  return new TextDecoder("utf-8").decode(data);
+}
+
+const BLOCK = new Set(["p", "div", "br", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6", "section", "article", "table"]);
+interface HtmlNode { nodeName: string; value?: string; childNodes?: HtmlNode[]; content?: HtmlNode }
+
+/** 网页的正文：去掉脚本和样式，块级标签换行，表格的格子用竖线隔开。 */
+function htmlText(source: string): string {
+  const parts: string[] = [];
+  const walk = (node: HtmlNode) => {
+    if (node.nodeName === "script" || node.nodeName === "style") return;
+    if (node.nodeName === "#text") { parts.push(node.value ?? ""); return; }
+    if (BLOCK.has(node.nodeName)) parts.push("\n");
+    for (const child of node.content?.childNodes ?? node.childNodes ?? []) walk(child);
+    if (node.nodeName === "td" || node.nodeName === "th") parts.push(" | ");
+  };
+  walk(parse(source) as unknown as HtmlNode);
+  return parts.join("").split("\n").map(line => line.replace(/[ \t\u3000]+/g, " ").replace(/^[ |]+|[ |]+$/g, "")).filter(Boolean).join("\n");
+}
+
+/** 先让引擎把 Office 文件转成 PDF，再逐页取文字。 */
+async function officePages(file: string, ext: string): Promise<Page[]> {
+  const converted = await convertOffice(file, ext, "pdf");
+  try { return (await pdfTexts(converted.file)).map((text, index) => ({ page: index + 1, text })).filter(page => page.text); }
+  finally { await converted.cleanup(); }
+}
+
+/** 一个文件里的文字，按页给出。 */
+async function extract(file: string): Promise<Extracted> {
+  const declared = path.extname(file).toLowerCase(), { ext, kind } = await sniff(file);
+  const format = ext.slice(1) || "unknown";
+  const done = (extracted: Extracted): Extracted => ext === declared ? extracted : { ...extracted, declaredFormat: declared.slice(1) || "unknown" };
+  if (kind === "text") {
+    const text = await readText(file);
+    return done(text.trim() ? result("text", format, [{ page: 1, text }]) : result("no_text", format, [], "文件为空"));
+  }
+  if (kind === "html") {
+    const text = htmlText(await readText(file));
+    return done(text ? result("text", format, [{ page: 1, text }]) : result("no_text", format, [], "网页没有正文文字"));
+  }
+  if (kind === "pdf") {
+    const pages = guard((await pdfTexts(file)).map((text, index) => ({ page: index + 1, text })).filter(page => page.text));
+    return done(pages.length ? result("text", format, pages) : result("no_text", format, [], "没有可提取的文字，可能是扫描件；要看内容就把页面渲染成图来看"));
+  }
+  if (kind === "writer") {
+    // 文字文档直接让引擎导出纯文本，比从 PDF 里取干净（不按版面断行）。
+    const converted = await convertOffice(file, ext, "txt");
+    try {
+      // 引擎导出的纯文本是回车换行，有的只有回车。
+      const text = (await readText(converted.file)).split(/\r\n?/).join("\n").trim();
+      const extracted = text ? result("text", format, guard([{ page: 1, text }])) : result("no_text", format, [], "文档没有可提取文字，可能只有图片");
+      return done({ ...extracted, convertedVia: "libreoffice" });
+    } finally { await converted.cleanup(); }
+  }
+  if (kind === "calc" || kind === "impress") {
+    const pages = guard(await officePages(file, ext));
+    const empty = kind === "impress" ? "演示文稿没有可提取文字，可能由截图组成；要看内容就把页面渲染成图来看" : "表格里没有文字";
+    return done({ ...(pages.length ? result("text", format, pages) : result("no_text", format, [], empty)), convertedVia: "libreoffice" });
+  }
+  if (kind === "image") return done(result("no_text", format, [], "图片，需要看图"));
+  const legacy = [".rtf", ".wps", ".wpt", ".et", ".dps"].includes(ext);
+  return done(result("unsupported", format, [], legacy ? `${ext} 这种格式读不了，请先在 Word 或 WPS 里另存为 docx / xlsx / pptx` : `暂不支持 ${ext || "无扩展名"} 文件`));
 }
 
 function outputDir(key: string): string {
@@ -100,23 +128,22 @@ export async function extractFile(file: string, source?: string) {
   const absolute = path.resolve(file);
   const stat = await fs.stat(absolute).catch(() => undefined);
   if (!stat?.isFile()) throw new ConfigError(`文件不存在：${absolute}`);
-  const result = await python<Extracted>([absolute]);
+  if (stat.size === 0) throw new BadResponse("文档提取失败：文件为空（0 字节），源文件可能已不存在", { file: absolute });
+  const extracted = await extract(absolute);
   const name = path.basename(absolute);
-  const text = markdown(name, result).trimEnd();
+  const text = markdown(name, extracted).trimEnd();
   const dir = outputDir(source ?? absolute);
   await fs.mkdir(dir, { recursive: true });
   const md = path.join(dir, `${name}.md`);
-  if (result.pages.length) await fs.writeFile(md, text + "\n", "utf8");
-  const chars = result.pages.reduce((sum, p) => sum + p.text.length, 0);
-  const out = {
-    file: absolute, ...(source ? { source } : {}), format: result.format, status: result.status,
-    pageCount: result.pages.length, chars, ...(result.convertedVia ? { convertedVia: result.convertedVia } : {}),
-    ...(result.reason ? { reason: result.reason } : {}),
-    ...(result.pages.length ? { markdown: md, text: text.length > INLINE_CHARS ? text.slice(0, INLINE_CHARS) : text } : {}),
+  if (extracted.pages.length) await fs.writeFile(md, text + "\n", "utf8");
+  const chars = extracted.pages.reduce((sum, p) => sum + p.text.length, 0);
+  return {
+    file: absolute, ...(source ? { source } : {}), format: extracted.format, ...(extracted.declaredFormat ? { declaredFormat: extracted.declaredFormat } : {}), status: extracted.status,
+    pageCount: extracted.pages.length, chars, ...(extracted.convertedVia ? { convertedVia: extracted.convertedVia } : {}),
+    ...(extracted.reason ? { reason: extracted.reason } : {}),
+    ...(extracted.pages.length ? { markdown: md, text: text.length > INLINE_CHARS ? text.slice(0, INLINE_CHARS) : text } : {}),
     ...(text.length > INLINE_CHARS ? { truncated: true, note: `正文较长，这里只给前 ${INLINE_CHARS} 字，全文见 markdown 文件` } : {}),
   };
-  if (result.status === "error") throw new BadResponse(`文档提取失败：${result.reason ?? "未知错误"}`, { file: absolute });
-  return out;
 }
 
 const TYPES: [RegExp, string][] = [
@@ -179,14 +206,6 @@ export async function extractUrl(link: string) {
   return extractFile(file, link);
 }
 
-// PDF 处理：scripts/doc/pdf_tool.py，改自机主的交互式工具 pdf_tool，改为参数调用、输出 JSON。
-
-async function pdfTool<T extends object>(args: string[]): Promise<T> {
-  const r = await python<T & { error?: string; input?: boolean }>(args, "pdf_tool.py");
-  if (r.error) throw r.input ? new ConfigError(r.error) : new BadResponse(`PDF 处理失败：${r.error}`);
-  return r;
-}
-
 async function inputFile(file: string): Promise<string> {
   const absolute = path.resolve(file);
   const stat = await fs.stat(absolute).catch(() => undefined);
@@ -208,13 +227,13 @@ async function outputFile(out: string | undefined, key: string, name: string, in
 
 const stem = (file: string) => path.basename(file, path.extname(file));
 
-/** 图片、Word、PDF 按给出的顺序合成一个 PDF；图片按 EXIF 转正，默认居中放在 A4 页上 */
+/** 图片、Word、PDF 按给出的顺序合成一个 PDF；图片按拍摄方向转正，默认居中放在 A4 页上 */
 export async function toPdf(files: string[], size: string, out?: string) {
   if (!files.length) throw new ConfigError("需要 --file");
   const inputs = await Promise.all(files.map(inputFile));
   const name = inputs.length > 1 ? `${stem(inputs[0]!)}等${inputs.length}个文件.pdf` : `${stem(inputs[0]!)}.pdf`;
   const target = await outputFile(out, JSON.stringify(["pdf", size, ...inputs]), name, inputs);
-  const r = await pdfTool<{ out: string; pages: number; bytes: number; inputs: unknown[] }>(["combine", target, size, ...inputs]);
+  const r = await combinePdf(target, size, inputs);
   return { file: r.out, pages: r.pages, bytes: r.bytes, inputs: r.inputs };
 }
 
@@ -223,7 +242,7 @@ export async function pdfPages(file: string, pages: string, out?: string) {
   const input = await inputFile(file);
   const label = pages.replace(/[^\d,-]/g, "").slice(0, 60);
   const target = await outputFile(out, JSON.stringify(["pages", input, pages]), `${stem(input)}_第${label}页.pdf`, [input]);
-  const r = await pdfTool<{ out: string; pages: number[]; totalPages: number; bytes: number }>(["pages", input, pages, target]);
+  const r = await extractPages(input, pages, target);
   return { file: r.out, pages: r.pages, pageCount: r.pages.length, totalPages: r.totalPages, bytes: r.bytes };
 }
 
@@ -231,25 +250,8 @@ export async function pdfPages(file: string, pages: string, out?: string) {
 export async function pdfFind(file: string, keywords: string[]) {
   if (!keywords.length) throw new ConfigError("需要 --keyword");
   const input = await inputFile(file);
-  const r = await pdfTool<{ totalPages: number; textPages: number; matches: Record<string, { page: number; snippet: string }[]> }>(["find", input, ...keywords]);
+  if ((await sniff(input)).kind !== "pdf") throw new ConfigError(`${path.basename(input)} 不是 PDF 文件`);
+  const r = await findInPdf(input, keywords);
   const matches = Object.fromEntries(Object.entries(r.matches).map(([keyword, hits]) => [keyword, { count: hits.length, hits: hits.slice(0, 50) }]));
-  return { file: input, totalPages: r.totalPages, textPages: r.textPages, matches, ...(r.textPages ? {} : { note: "没有文字层，可能是扫描件；未做 OCR" }) };
-}
-
-/** 取出 PDF 里嵌入的原始图片（字帖、照片、扫描页），按像素从大到小；省略 pages 时取全部页 */
-export async function pdfImages(file: string, pages?: string) {
-  const input = await inputFile(file);
-  const dir = path.join(outputDir(JSON.stringify(["images", input, pages ?? ""])), "images");
-  await fs.mkdir(dir, { recursive: true });
-  const r = await pdfTool<{ outDir: string; totalPages: number; images: unknown[]; skippedSmall: number }>(["images", input, pages ?? "", dir]);
-  return { file: input, ...r, ...(r.images.length ? {} : { note: "没有可取的嵌入图片；页面可能是矢量绘制或文字，用 doc render 渲染整页" }) };
-}
-
-/** 把 PDF 指定页渲染成 PNG（含文字和排版），一次最多 30 页 */
-export async function pdfRender(file: string, pages: string, dpi: number) {
-  const input = await inputFile(file);
-  const dir = path.join(outputDir(JSON.stringify(["render", input, pages, dpi])), "render");
-  await fs.mkdir(dir, { recursive: true });
-  const r = await pdfTool<{ outDir: string; totalPages: number; dpi: number; pages: unknown[] }>(["render", input, pages, String(dpi), dir]);
-  return { file: input, ...r };
+  return { file: input, totalPages: r.totalPages, textPages: r.textPages, matches, ...(r.textPages ? {} : { note: "没有文字层，可能是扫描件；要找内容只能把页面渲染成图来看" }) };
 }

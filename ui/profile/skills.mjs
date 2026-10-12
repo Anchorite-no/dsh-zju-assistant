@@ -5,7 +5,7 @@ import { load } from 'js-yaml'
 
 /** 应用自带的 core，均从应用目录加载。 */
 export const CORE_ROOT = fileURLToPath(new URL('../../core/', import.meta.url))
-const CORES = ['zju', 'learn', 'weread', 'weread-skills']
+const CORES = ['zju', 'learn', 'weread']
 
 /** 应用自带技能的名字；助手学到的技能不能和它们重名。 */
 export function coreSkillNames() {
@@ -15,10 +15,10 @@ export function coreSkillNames() {
 }
 
 /** 每份 core 归哪个可以关掉的插件；不在这里的始终交给引擎（zju 的各个模块由它自己按开关拒绝）。 */
-const CORE_PLUGIN = { learn: 'campus.learn' }
+const CORE_PLUGIN = { learn: 'campus.learn', weread: 'campus.wechat' }
 
 /**
- * 注册校园、学习和微信读书技能，以及助手学到的技能（learned，见 learned.mjs）。
+ * 注册校园、学习和公众号技能，以及助手学到的技能（learned，见 learned.mjs）。
  * plugins 是插件开关：关掉的插件对应的那份 core 不交给引擎，助手的技能目录和输入框的 / 菜单里就没有它。
  * 返回一个函数，开关变了以后叫它，引擎会重新读目录。
  */
@@ -44,7 +44,7 @@ export function installCoreSkills(ctx, learned, plugins) {
       if (!meta?.name || !meta?.description) return []
       return [{ name: meta.name, description: meta.description, path: file, source: 'custom', provider,
         resourceBase: { kind: 'directory', path: directory }, rank: 150, locator: file,
-        invocation: { modelInvocable: true, userInvocable: true }, content: (name === 'weread-skills' ? `应用适配说明（非腾讯原文）：官方 API Key 已由应用凭据文件管理。执行接口时使用 node "${path.join(CORE_ROOT, 'weread', 'official-cli.mjs')}" /接口名 'JSON业务参数'；它会读取凭据、报告版本并检查插件开关。不要要求用户重新提供 Key，不要将 Key 写入命令，不直接改用 curl 或猜测未开放接口。正文、公众号历史列表及添加不在官方开放清单内时，使用应用的 weread Skill。下文是腾讯官方能力说明，参数及字段含义以它为准。\n\n` : '') + raw.slice(match[0].length) }]
+        invocation: { modelInvocable: true, userInvocable: true }, content: raw.slice(match[0].length) }]
     })
     const entries = () => [...coreEntries(), ...learnedEntries()]
     return {

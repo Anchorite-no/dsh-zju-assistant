@@ -1,5 +1,7 @@
 /**
- * 校园事务页右边的通知：学校各部门和本人学院新发的通知，加上已添加公众号的新文章，按时间从新到旧，默认只看一周内的。
+ * 校园事务页右边的通知：学校各部门和本人学院新发的通知，加上跟踪的公众号的新文章，按时间从新到旧，默认只看一周内的。
+ * 公众号的文章是公众号插件半小时检查一遍攒下的，谁发的那一格前面有一枚「公众号」的小标签，和学校的通知分得开。
+ * 和这位学生关系不大的（标题里有屏蔽词，或者模型照个人档案判断的）默认收起，列表下面一行说有几条，点开还在。
  * 列表放在一个定高的框里自己滚动，条数再多页面也不会被拉长。
  * 和左边的作业一样，打开时先照上一次读到的画，后台再去读新的；上次来过之后新出现的，标题前带一个点。
  * 点一条打开原文，右边的图标把它交给助手。数据和缓存在引擎侧的 ui/profile/feed.mjs。
@@ -14,7 +16,11 @@ import { openPlugin } from './PluginsPage.tsx'
 import { DAY, agoText, clock, dateText, midnight, mixed } from './when.ts'
 
 /** dated 为假的只有日期（学校通知），at 是那天零点。foundAt 是应用第一次读到它的时间。 */
-interface Item { id: string, kind: 'school' | 'wechat', title: string, from: string, at: string, dated: boolean, url: string, foundAt: string | null }
+interface Item {
+  id: string, kind: 'school' | 'wechat', title: string, from: string, at: string, dated: boolean, url: string, foundAt: string | null
+  /** 该不该收起：blocked 标题里有屏蔽词，irrelevant 模型判断关系不大，null 不收起。 */
+  hidden: 'blocked' | 'irrelevant' | null
+}
 /** state：ready 能读，account 账号还没填，off 插件关着。plugin 是去插件页的哪一项处理。 */
 interface Source { id: 'school' | 'wechat', name: string, state: 'ready' | 'account' | 'off', plugin: string, fetchedAt: string | null, error: string | null }
 interface Snapshot { items: Item[], sources: Source[] }
@@ -31,7 +37,8 @@ export async function visitFeed(force = false): Promise<void> {
   let snapshot: Snapshot
   try { snapshot = await profileApi<Snapshot>('feed-read') } catch (error) { update({ error: errorText(error) }); return }
   update({ snapshot, error: '' })
-  if (state.busy || !snapshot.sources.some(source => source.id === 'school' && source.state === 'ready')) return
+  // 后台这一趟：学校的通知到点了就读新的，点刷新时连公众号一起催，再把没筛过的筛一遍。两个来源都读不了就不用去。
+  if (state.busy || !snapshot.sources.some(source => source.state === 'ready')) return
   update({ busy: true })
   try { update({ snapshot: await profileApi<Snapshot>('feed-refresh', { force }) }) }
   catch (error) { update({ error: errorText(error) }) }
@@ -71,11 +78,13 @@ function handoffText(item: Item, now: number): string {
 /** 一条通知。整行点开原文，右边「交给助手」的图标保留自己的点击；fresh 的标题前带一个点。 */
 function NoticeRow({ item, now, fresh, onHand }: { item: Item, now: number, fresh: boolean, onHand: () => void }) {
   return (
-    <article className="campus-notice" data-new={fresh ? '' : undefined}>
+    <article className="campus-notice" data-new={fresh ? '' : undefined} data-folded={item.hidden ? '' : undefined}>
       <div className="campus-notice-main">
         <a className="campus-notice-open" href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
         <span className="campus-notice-meta">
-          <span>{item.from}</span>
+          {item.kind === 'wechat'
+            ? <span className="campus-notice-account"><span>公众号</span>{item.from}</span>
+            : <span>{item.from}</span>}
           <time dateTime={item.at}>{whenText(item, now)}</time>
         </span>
       </div>
@@ -91,17 +100,22 @@ export function FeedColumn({ now }: { now: number }) {
   const [seenAt] = useState(() => Date.parse(localStorage.getItem(SEEN_KEY) ?? ''))
   useEffect(() => () => { localStorage.setItem(SEEN_KEY, new Date().toISOString()) }, [])
 
+  // 和这位学生关系不大的默认收起，点列表下面那一行展开。
+  const [unfolded, setUnfolded] = useState(false)
   const items = snapshot?.items
-  const visible = useMemo(() => (items ?? []).filter(item => range === 'all' || now - Date.parse(item.at) <= RECENT_MS), [items, range, now])
+  const inRange = useMemo(() => (items ?? []).filter(item => range === 'all' || now - Date.parse(item.at) <= RECENT_MS), [items, range, now])
+  const folded = inRange.filter(item => item.hidden).length
+  const visible = unfolded ? inRange : inRange.filter(item => !item.hidden)
   const fresh = (item: Item) => Number.isFinite(seenAt) && Date.parse(item.foundAt ?? item.at) > seenAt
   const hand = (item: Item) => { handToAssistant(handoffText(item, now)).catch((reason: unknown) => { update({ error: errorText(reason) }) }) }
 
   const school = snapshot?.sources.find(source => source.id === 'school')
+  const wechat = snapshot?.sources.find(source => source.id === 'wechat')
   const readable = snapshot?.sources.some(source => source.state === 'ready') ?? false
   // 列表空着的时候说清楚是哪一种空：真的没有、还在第一次读、还是根本没法读（下面另有说明）。
   let empty = ''
   if (snapshot && visible.length === 0 && readable) {
-    const earlier = (items?.length ?? 0) - visible.length
+    const earlier = (items ?? []).filter(item => unfolded || !item.hidden).length - visible.length
     if (school?.state === 'ready' && !school.fetchedAt && !school.error) empty = busy ? '第一次读取，要等一会儿。' : ''
     else empty = range === 'all' ? '没有通知。' : earlier > 0 ? `一周内没有新通知，更早的还有 ${earlier} 条。` : '一周内没有新通知。'
   }
@@ -125,6 +139,12 @@ export function FeedColumn({ now }: { now: number }) {
         </div>
       )}
       {empty && <p className="campus-task-empty">{empty}</p>}
+      {folded > 0 && (
+        <p className="campus-note campus-task-note">
+          <span>{unfolded ? `其中 ${folded} 条和你关系不大。` : `另有 ${folded} 条和你关系不大，已收起。`}</span>
+          <button type="button" className="campus-textlink" aria-expanded={unfolded} onClick={() => { setUnfolded(old => !old) }}>{unfolded ? '收起' : '展开'}</button>
+        </p>
+      )}
       {school?.state === 'off' && (
         <p className="campus-note campus-task-note">
           <span>「{pluginTitle(school.plugin)}」在插件页关着，这里不读学校的通知。</span>
@@ -145,6 +165,12 @@ export function FeedColumn({ now }: { now: number }) {
             {school.error.replace(/[。.]$/, '')}。
           </span>
           <button type="button" className="campus-textlink" onClick={() => { void visitFeed(true) }}>再试一次</button>
+        </p>
+      )}
+      {wechat?.state === 'ready' && wechat.error && (
+        <p className="campus-note campus-task-note">
+          <span>{wechat.error}。</span>
+          <button type="button" className="campus-textlink" onClick={() => { openPlugin(wechat.plugin) }}>去处理</button>
         </p>
       )}
     </section>

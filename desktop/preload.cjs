@@ -63,6 +63,8 @@ contextBridge.exposeInMainWorld('campusShell', {
   checkUpdate: () => ipcRenderer.invoke('campus:update:check'),
   installUpdate: () => ipcRenderer.invoke('campus:update:install'),
   saveUpdateToken: token => ipcRenderer.invoke('campus:update:token', String(token ?? '')),
+  // 右边栏向右打开（pane.cjs，ui/client/rightpane.ts）：报右边栏要的宽度，拿回窗口实际加宽了多少。
+  setSidePane: (width, instant) => ipcRenderer.invoke('campus:side-pane', Number(width) || 0, instant === true),
 })
 
 if (process.platform === 'win32') {

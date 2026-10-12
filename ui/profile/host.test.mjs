@@ -27,9 +27,12 @@ test('model tools, UI route and context share one profile; skills come from the 
     skills: { registerProvider: create => { provider = create({ invalidate() { reloads++ }, signal: new AbortController().signal }) } },
     systemPrompt: { context: value => contexts.push(value), section: value => policies.push(value) },
   }
-  installProfile(ctx, { wechatRun: async args => args[0] === 'list' ? { ok: true, accounts: [{ biz: 'MzA3MDk5NDA0NA==', name: '浙大体育与艺术', articleCount: 79 }], runtime: null }
-    : { ok: true, articles: [{ title: '测试推文' }] } })
-  assert.equal(effects.length, 2)
+  // 假的 weread 技能：跟踪着一个号，本机微信里有它的一篇文章，微信读书没登录。
+  const tracked = { biz: 'MzA3MDk5NDA0NA==', name: '浙大体育与艺术' }
+  installProfile(ctx, { wechatRun: async args => args[0] === 'track' ? { ok: true, tracked: [tracked] }
+    : args[0] === 'login' ? { ok: true, loggedIn: false }
+    : { ok: true, sources: { local: { ok: true } }, accounts: [{ ...tracked, source: 'local', articles: [{ id: 'a1', title: '测试推文', url: 'https://mp.weixin.qq.com/s/x', publishedAt: '2026-10-09T09:00:00+08:00' }] }] } })
+  assert.equal(effects.length, 1)
   const call = async (action, input = {}) => {
     const response = await route.fetch(new Request('http://localhost/api/campus/profile', { method: 'POST', body: JSON.stringify({ action, input }) }))
     return { status: response.status, ...(await response.json()) }
@@ -37,13 +40,20 @@ test('model tools, UI route and context share one profile; skills come from the 
   // 页面靠这个指纹判断后台是不是比界面旧。
   assert.equal((await call('stamp')).value, engineStamp())
   assert.match(engineStamp(), /^[0-9a-f]{12}$/)
-  assert.equal((await call('wechat-read')).value.accounts[0].articleCount, 79)
-  const wechatTool = tools.get('campus_wechat_read')
-  assert.equal((await wechatTool.execute({ account: '浙大体育与艺术' })).articles[0].title, '测试推文')
+  // 公众号：页面点一次检查（在后台做，页面靠 busy 知道做完没有），跟踪的号和它的文章进了缓存。
+  assert.equal((await call('wechat-retry')).value.busy, true)
+  let wechat
+  do { wechat = (await call('wechat-read')).value } while (wechat.busy)
+  assert.deepEqual(wechat.accounts.map(item => [item.name, item.source, item.latest.title]), [['浙大体育与艺术', 'local', '测试推文']])
+  // 助手读公众号走 weread 技能，没有另外的工具；插件关着时页面的操作被拒绝，技能也不交给引擎。
+  assert.equal(tools.has('campus_wechat_read'), false)
   await call('plugins-set', { id: 'campus.wechat', enabled: false })
-  await assert.rejects(wechatTool.execute({}), /插件已关闭/)
-  assert.equal((await call('wechat-discover')).status, 400)
+  assert.equal((await call('wechat-find', { source: 'local' })).status, 400)
+  assert.equal(process.env.WEREAD_DISABLED, '1')
+  assert.deepEqual((await provider.list()).map(skill => skill.name), ['zju'])
+  assert.match(contexts[0].text(), /微信公众号（weread 技能，读公众号文章）/)
   await call('plugins-set', { id: 'campus.wechat', enabled: true })
+  assert.equal(process.env.WEREAD_DISABLED, undefined)
   const readTool = tools.get('campus_profile_read'), writeTool = tools.get('campus_profile_write')
   assert.equal((await readTool.execute({}, {})).memory.length, 0)
   const note = await writeTool.execute({ title: 'AVL 树的反馈', body: '还没理解双旋转', tags: ['反馈'], properties: { 来源: '用户本轮说明' } }, {})
@@ -70,10 +80,16 @@ test('model tools, UI route and context share one profile; skills come from the 
   assert.ok((await provider.list()).some(skill => skill.name === 'course-withdrawal'))
   assert.deepEqual((await call('skill-delete', { name: 'course-withdrawal' })).value, { name: 'course-withdrawal' })
 
+  // 通知的筛选：默认带着几个屏蔽词，可以改；这里没有模型服务，问不成就不筛，通知照原样给。
+  assert.deepEqual((await call('notice-filter-read')).value, { blocked: ['劳务派遣', '经费认领', '汇款认领'], byProfile: true })
+  assert.deepEqual((await call('notice-filter-save', { blocked: ['测试'] })).value, { blocked: ['测试'], byProfile: true })
+  assert.equal((await call('feed-refresh', { force: true })).value.items.find(item => item.title === '测试推文').hidden, 'blocked')
+  await call('notice-filter-save', { blocked: [] })
   // 通知列表：没填统一身份认证时不去读学校通知，公众号的文章照样在。
   const feed = (await call('feed-read')).value
   assert.equal(feed.sources.find(source => source.id === 'school').state, 'account')
   assert.equal(feed.sources.find(source => source.id === 'wechat').state, 'ready')
+  assert.deepEqual(feed.items.map(item => [item.title, item.from, item.hidden]), [['测试推文', '浙大体育与艺术', null]])
 
   // 账号页能读写密码，模型看得到的上下文和档案工具里没有它。这里不用统一身份认证的账号：保存它会去教务网读学籍。
   const account = (await call('account-read')).value
@@ -100,7 +116,7 @@ test('model tools, UI route and context share one profile; skills come from the 
 
   // 「课程讲解」默认关着：learn 技能不交给引擎，上下文里不提讲解目录，但说明它关着，依赖也装不了。
   const learning = contexts.find(context => context.name === 'campus-learning')
-  assert.deepEqual((await provider.list()).map(skill => skill.name).sort(), ['weread', 'weread-skills', 'zju'])
+  assert.deepEqual((await provider.list()).map(skill => skill.name).sort(), ['weread', 'zju'])
   assert.equal(learning.text(), '')
   assert.match(contexts[0].text(), /课程讲解（learn 技能，做讲解）/)
   assert.equal((await call('learn-read')).value.enabled, false)
@@ -113,12 +129,14 @@ test('model tools, UI route and context share one profile; skills come from the 
   assert.doesNotMatch(contexts[0].text(), /课程讲解/)
   assert.deepEqual((await call('learn-read')).value.parts.map(part => part.id), ['tex', 'browser'])
   const skills = await provider.list()
-  assert.deepEqual(skills.map(skill => skill.name).sort(), ['learn', 'weread', 'weread-skills', 'zju'])
+  assert.deepEqual(skills.map(skill => skill.name).sort(), ['learn', 'weread', 'zju'])
   for (const skill of skills) assert.ok(path.resolve(skill.path).startsWith(path.resolve(CORE_ROOT)))
   assert.match((await provider.get(skills.find(skill => skill.name === 'learn'))).content, /campus_profile_read/)
   assert.match((await provider.get(skills.find(skill => skill.name === 'zju'))).content, /campus_profile_write/)
+  // weread 技能的说明写的是应用里的用法：名单和插件页是同一份，要用户处理的事请他去插件页。
+  assert.match((await provider.get(skills.find(skill => skill.name === 'weread'))).content, /scripts\/weread\.ts[\s\S]*「插件」页「微信公众号」/)
 
   // 再关上：learn 又没有了。
   await call('plugins-set', { id: 'campus.learn', enabled: false })
-  assert.deepEqual((await provider.list()).map(skill => skill.name).sort(), ['weread', 'weread-skills', 'zju'])
+  assert.deepEqual((await provider.list()).map(skill => skill.name).sort(), ['weread', 'zju'])
 })

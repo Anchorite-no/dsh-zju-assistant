@@ -14,6 +14,7 @@ const split = value => (value ?? '').split(',').map(name => name.trim().toLowerC
 /**
  * 插件页上校园功能的开关。关掉的功能写进 ZJU 技能自带的 ZJU_DISABLED_MODULES，
  * 之后启动的命令会被技能自己拒绝；同时在模型上下文里说明，免得它去试。
+ * 「微信公众号」背后是 weread 技能，它认的是 WEREAD_DISABLED：设了以后它的命令一条都不执行。
  * 存在档案目录的 plugins.json 里，两张单子：disabled 是默认开着、被用户关掉的；enabled 是默认关着、被用户打开的。
  * 对外只给一张「现在关着的」（disabled()），用的地方不用管哪一项默认是什么。
  */
@@ -58,8 +59,8 @@ export class PluginSwitches {
     const modules = [...new Set([...this.inherited, ...this.disabled().flatMap(id => SWITCHABLE[id].modules ?? [])])]
     if (modules.length) this.env.ZJU_DISABLED_MODULES = modules.join(',')
     else delete this.env.ZJU_DISABLED_MODULES
-    if (this.disabled().includes('campus.wechat')) this.env.CAMPUS_WECHAT_DISABLED = '1'
-    else delete this.env.CAMPUS_WECHAT_DISABLED
+    if (this.disabled().includes('campus.wechat')) this.env.WEREAD_DISABLED = '1'
+    else delete this.env.WEREAD_DISABLED
   }
   /** 给模型的一句说明；没有关着的功能时为空。默认关着、用户还没打开的也在里面，所以不说是用户关的。 */
   promptText() {
@@ -67,7 +68,7 @@ export class PluginSwitches {
     if (!disabled.length) return ''
     const names = disabled.map((id) => {
       const plugin = SWITCHABLE[id]
-      return plugin.modules ? `${plugin.title}（zju 的 ${plugin.modules.join('、')}）` : plugin.backend === 'learn' ? `${plugin.title}（learn 技能，做讲解）` : `${plugin.title}（独立采集模块）`
+      return plugin.modules ? `${plugin.title}（zju 的 ${plugin.modules.join('、')}）` : plugin.backend === 'learn' ? `${plugin.title}（learn 技能，做讲解）` : `${plugin.title}（weread 技能，读公众号文章）`
     }).join('；')
     return `这些功能在「插件」页关着：${names}。不要调用对应模块的命令，也不要绕过去自己做；用户需要时，请他到「插件」页打开。`
   }

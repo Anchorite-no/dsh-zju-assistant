@@ -17,24 +17,24 @@ function call(step, command, done, turn = 1) {
   }
 }
 const turn = (number, startSeq, open = false, extra = {}) => ({ turn: number, startSeq, startAt: startSeq * 1000, ...(open ? {} : { endAt: startSeq * 1000 + 60000 }), open, aborted: false, ...extra })
-/** 主线上的本地操作写成「本地×几次」；支线上的站用「→」连，同一个岔口的几条支线用「|」隔开、外面加方括号。 */
+/** 主线上的本地操作写成「本地」；支线上的站用「→」连，同一个岔口的几条支线用「|」隔开、外面加方括号。 */
 const shape = route => route.segments.map((segment) => {
-  if (segment.type === 'local') return `本地×${segment.stop.calls.length}`
-  const branches = segment.branches.map(branch => branch.map(stop => `${stop.site}×${stop.calls.length}`).join(' → '))
+  if (segment.type === 'local') return '本地'
+  const branches = segment.branches.map(branch => branch.map(stop => stop.site).join(' → '))
   return branches.length === 1 ? branches[0] : `[${branches.join(' | ')}]`
 })
 const only = route => route.segments[0].branches[0][0]
 
-test('同一步里做的不同的事从同一个岔口分出去；接着在其中一个网站上做的，接在那条支线下面', () => {
+test('同一步里发出的几次调用从同一个岔口分出去；接着在其中一个网站上做的，接在那条支线下面', () => {
   const [route] = buildRoutes({
     turns: [turn(1, 50)],
     asks: [{ seq: 51, text: '下周有哪些二课活动能报' }],
     calls: [call(1, 'zdbk timetable', true), call(1, 'sztz activity list', true), call(2, 'sztz activity mine', true)],
   })
   assert.equal(route.question, '下周有哪些二课活动能报')
-  assert.deepEqual(shape(route), ['[教务网×1 | 素质拓展平台×1 → 素质拓展平台×1]'])
+  assert.deepEqual(shape(route), ['[教务网 | 素质拓展平台 → 素质拓展平台]'])
   assert.deepEqual(route.sites, ['教务网', '素质拓展平台'])
-  assert.equal(route.queries, 3)
+  assert.equal(route.steps, 3)
   assert.equal(route.ms, 60000)
 })
 
@@ -44,22 +44,30 @@ test('换了一个网站另起一条支线，不和上一条共用岔口', () =>
     asks: [],
     calls: [call(1, 'zdbk timetable', true), call(2, 'sztz activity list', true), call(3, 'zdbk timetable', true)],
   })
-  assert.deepEqual(shape(route), ['教务网×1', '素质拓展平台×1', '教务网×1'])
+  assert.deepEqual(shape(route), ['教务网', '素质拓展平台', '教务网'])
 })
 
-test('同一个网站上的同一种动作合成一站：同一步的几次，和连着的几步；换了动作接在同一条支线上', () => {
+test('一次调用一站，不合并：同一种动作连着做几次，就在那条支线上接几站', () => {
   const [route] = buildRoutes({
     turns: [turn(1, 50)],
     asks: [],
-    calls: [
-      call(1, 'cc98 search --keyword 高数'), call(2, 'cc98 search --keyword 微积分', true), call(2, 'cc98 search --keyword 数分', true),
-      call(3, 'cc98 topic view --id 1', true), call(4, 'cc98 topic view --id 2', true), call(4, 'cc98 topic view --id 3', false),
-    ].map(item => item.done ? item : { ...item, done: { at: item.at + 1000, outcome: { ok: true } } }),
+    calls: [call(1, 'cc98 search --keyword 高数', true), call(2, 'cc98 topic view --id 1', true), call(3, 'cc98 topic view --id 2', true), call(4, 'cc98 topic view --id 3', false)],
   })
-  assert.deepEqual(shape(route), ['CC98×3 → CC98×3'])
-  const view = route.segments[0].branches[0][1]
-  assert.equal(view.failed, 1)
-  assert.equal(view.status, 'done')
+  assert.deepEqual(shape(route), ['CC98 → CC98 → CC98 → CC98'])
+  const branch = route.segments[0].branches[0]
+  assert.deepEqual(branch.map(stop => stop.label), ['按标题搜索帖子', '打开帖子读全文', '打开帖子读全文', '打开帖子读全文'])
+  assert.deepEqual(branch.map(stop => stop.status), ['done', 'done', 'done', 'failed'])
+  assert.equal(route.steps, 4)
+})
+
+test('同一步里同一种动作发了几次，各是一条支线', () => {
+  const [route] = buildRoutes({
+    turns: [turn(1, 50)],
+    asks: [],
+    calls: [call(1, 'chalaoshi course --name 概率论', true), call(2, 'chalaoshi teacher --name 甲', true), call(2, 'chalaoshi teacher --name 乙', true), call(2, 'chalaoshi teacher --name 丙', true)],
+  })
+  assert.deepEqual(shape(route), ['查老师', '[查老师 | 查老师 | 查老师]'])
+  assert.deepEqual(route.segments[1].branches.map(branch => branch[0].call.action.about), ['甲', '乙', '丙'])
 })
 
 test('连着几步都是同样的几件事并排做，各自接在自己那条支线上', () => {
@@ -68,15 +76,14 @@ test('连着几步都是同样的几件事并排做，各自接在自己那条�
     asks: [],
     calls: [
       call(1, 'cc98 topic view --id 1', true), call(1, 'cc98 search --keyword a', true),
-      call(2, 'cc98 topic view --id 2', true), call(2, 'cc98 topic view --id 3', true), call(2, 'cc98 search --keyword b', true),
-      call(3, 'cc98 search --keyword c', true), call(3, 'cc98 topic view --id 4', true),
+      call(2, 'cc98 search --keyword b', true), call(2, 'cc98 topic view --id 2', true),
     ],
   })
-  assert.deepEqual(shape(route), ['[CC98×4 | CC98×3]'])
-  assert.deepEqual(route.segments[0].branches.map(branch => branch[0].label), ['看帖', '搜帖子标题'])
+  assert.deepEqual(shape(route), ['[CC98 → CC98 | CC98 → CC98]'])
+  assert.deepEqual(route.segments[0].branches.map(branch => branch.map(stop => stop.label)), [['打开帖子读全文', '打开帖子读全文'], ['按标题搜索帖子', '按标题搜索帖子']])
 })
 
-test('同一步的两件事接不到两条不同的支线上，就另起一个岔口', () => {
+test('同一步的几次调用接不到几条不同的支线上，就另起一个岔口', () => {
   const [route] = buildRoutes({
     turns: [turn(1, 50)],
     asks: [],
@@ -86,21 +93,21 @@ test('同一步的两件事接不到两条不同的支线上，就另起一个�
       call(3, 'cc98 search --keyword b', true), call(3, 'zdbk timetable', true),
     ],
   })
-  assert.deepEqual(shape(route), ['CC98×1', '[CC98×1 | CC98×1]', '[CC98×1 | 教务网×1]'])
+  assert.deepEqual(shape(route), ['CC98', '[CC98 | CC98]', '[CC98 | 教务网]'])
 })
 
-test('本地操作合成主线上的一站；夹在中间时把前后的支线隔开', () => {
+test('本地操作一次一站排在主线上；夹在中间时把前后的支线隔开', () => {
   const [route] = buildRoutes({
     turns: [turn(1, 50)],
     asks: [],
     calls: [call(1, '@skill', true), call(1, 'zdbk timetable', true), call(2, '@read', true), call(3, '@write', true), call(4, 'zdbk timetable', true)],
   })
-  assert.deepEqual(shape(route), ['本地×1', '教务网×1', '本地×2', '教务网×1'])
+  assert.deepEqual(shape(route), ['本地', '教务网', '本地', '本地', '教务网'])
   assert.deepEqual(route.sites, ['教务网'])
-  assert.equal(route.queries, 2)
+  assert.equal(route.steps, 5)
 })
 
-test('状态：还在跑、全没成功、这一轮结束了却没等到结果', () => {
+test('状态：还在跑、没成功、这一轮结束了却没等到结果', () => {
   const live = buildRoutes({ turns: [turn(1, 50, true)], asks: [], calls: [call(1, 'zdbk grades')] })[0]
   assert.equal(only(live).status, 'running')
   assert.equal(only(live).ms, undefined)
@@ -110,6 +117,7 @@ test('状态：还在跑、全没成功、这一轮结束了却没等到结果',
   assert.equal(cut.aborted, true)
   const failed = buildRoutes({ turns: [turn(1, 50)], asks: [], calls: [call(1, 'zdbk grades', false)] })[0]
   assert.equal(only(failed).status, 'failed')
+  assert.equal(only(failed).ms, 2000)
 })
 
 test('每一轮配自己的提问；没有提问也没有调用的轮不出现；只聊天的轮没有站', () => {
@@ -118,7 +126,7 @@ test('每一轮配自己的提问；没有提问也没有调用的轮不出现�
     asks: [{ seq: 11, text: '第一问' }, { seq: 31, text: '第三问' }],
     calls: [call(1, 'zdbk exams', true, 3), call(1, 'zdbk exams', true, 4)],
   })
-  assert.deepEqual(routes.map(route => [route.turn, route.question, route.segments.length]), [[1, '第一问', 0], [3, '第三问', 1], [4, undefined, 1]])
+  assert.deepEqual(routes.map(route => [route.turn, route.question, route.segments.length, route.steps]), [[1, '第一问', 0, 0], [3, '第三问', 1, 1], [4, undefined, 1, 1]])
 })
 
 test('用时的写法', () => {

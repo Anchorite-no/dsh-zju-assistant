@@ -489,24 +489,86 @@ button[role='switch'][class*='switch' i][aria-checked='true'] > span {
   margin-top: 32px;
 }
 
+/* ── 微信公众号详情 ─────────────────────────────────────
+   来源、跟踪的号、添加时的候选都是同一种行：左边名字在上、一行小字在下，右边一个开关或者按钮。 */
+.campus-wechat-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.campus-wechat-meta {
+  font-size: 12.5px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+  overflow-wrap: anywhere;
+}
+
+/* 要用户留意的那一行（微信没开、登录过期、要验证）。 */
+.campus-wechat-meta[data-tone='warn'] {
+  color: var(--dsw-alias-state-warn-label, var(--dsw-alias-state-warn-primary));
+}
+
+/* 一个号最新的那篇：标题点开是原文，后面跟着哪天发的。 */
+.campus-wechat-latest {
+  align-self: flex-start;
+  max-width: 100%;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.campus-wechat-latest:hover > span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.campus-wechat-latest > time {
+  margin-left: 8px;
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+}
+
+/* 跟踪的号多了在框里滚动（大约五行高），页面不会被拉长。 */
+.campus-wechat-tracked {
+  max-height: 316px;
+  overflow-y: auto;
+}
+
+/* 一行右边不止一样东西时（「已登录」和「退出」）。 */
+.campus-wechat-end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 添加弹窗最上面的输入框，撑满一行。 */
+.campus-wechat-find {
+  display: flex;
+}
+
+.campus-wechat-find > .campus-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 添加弹窗里的候选多了在框里滚动。 */
+.campus-wechat-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
 /* ── 表单 ─────────────────────────────────────────────────
    尺寸照引擎插件设置页的表单（primitives 里的 SettingsForm 和 fields）：标签在上，输入框通栏，
    上下两项之间一根细线；并排的几项放进网格；一组有一个小标题；保存按钮在左下角。 */
-.campus-wechat-heading { flex-wrap: wrap; }
-.campus-wechat-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.campus-wechat-status { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
-.campus-wechat-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.campus-wechat-name { align-self: flex-start; padding: 0; border: 0; background: none; font: inherit; font-size: 13.5px; line-height: 1.6; text-align: left; color: var(--dsw-alias-label-primary); text-decoration: none; overflow-wrap: anywhere; cursor: pointer; }
-.campus-wechat-name:hover { text-decoration: underline; text-underline-offset: 3px; }
-.campus-wechat-name:disabled { cursor: default; color: var(--dsw-alias-label-tertiary); }
-.campus-wechat-meta, .campus-wechat-article > time { font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-tertiary); }
-.campus-wechat-article > time { white-space: nowrap; align-self: flex-start; padding-top: 2px; }
-.campus-wechat-filter { width: 220px; max-width: 100%; }
-.campus-wechat-picker { max-height: 320px; overflow-y: auto; }
-.campus-weread-reader { width: min(680px, calc(100vw - 48px)); }
-.campus-weread-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; font-size: 14px; max-height: 60vh; overflow-y: auto; padding-right: 8px; }
-@media (max-width: 600px) { .campus-wechat-article { align-items: flex-start; flex-direction: column; gap: 4px; } }
-
 .campus-form {
   display: flex;
   flex-direction: column;
@@ -1348,6 +1410,39 @@ html[data-campus-width] [data-width-handle] {
   user-select: all;
 }
 
+/* ── 右边栏向右打开 ───────────────────────────────────────
+   右边栏出现、收起的那一下，窗口的宽度要过一两帧才跟上（rightpane.ts）。这期间把引擎的框架钉住，对话区一个像素都不动；
+   引擎自己那段「让出一列」的过渡也关掉。
+   打开：框架钉成窗口到位以后的宽度，多出来的一截（右边栏）在窗口外面，窗口拉开把它露出来。
+   收起：框架和三列都钉成收起之前的样子，右边栏原样留在它那一列，由窗口的右边一点点盖过去。
+   引擎打开、收起右边栏时会让它从右边滑进来、往右滑出去（它那一列在跟着变宽变窄，两头是配着的）；我们这里列不变、
+   变的是窗口：照它来，打开时露出来的那一截先是空的，收起时右边栏会被挤到对话上面。所以钉着的时候让它待在原地不动，
+   收起放开以后的一小会儿（data-campus-settling）让它直接不见。
+   这几条认的是引擎右边栏里的 data-dockkit-*，引擎升级后对着 dsh-client-ui-sidebar-right 的样式重新核一遍。 */
+[data-campus-pinned] {
+  width: var(--campus-pin) !important;
+  transition: none !important;
+}
+
+[data-campus-pinned='closing'] {
+  grid-template-columns: var(--campus-pin-columns) !important;
+}
+
+[data-campus-pinned] > [data-rightbar-col] :is([data-dockkit-host='dock'], [data-dockkit-empty], [data-dockkit-divider]) {
+  transform: none !important;
+  visibility: visible !important;
+  transition: none !important;
+}
+
+[data-campus-settling] > [data-rightbar-col] :is([data-dockkit-host='dock'], [data-dockkit-empty], [data-dockkit-divider]) {
+  transition: none !important;
+}
+
+html[data-campus-pane],
+html[data-campus-pane] body {
+  overflow-x: clip;
+}
+
 /* ── 执行过程 ─────────────────────────────────────────────
    右边栏里的一张线路图：一根细线是助手自己，每去一个网站从它弯出一条支线；线的左边是网站名，右边是在那里做了什么，行尾是拿到几条。
    只用黑白灰，失败的才是红的；都直接落在底色上，没有表头、标签和色块。
@@ -1462,17 +1557,86 @@ html[data-campus-width] [data-width-handle] {
   stroke: var(--campus-trace-ink);
 }
 
-.campus-trace-row[data-state='running'] .campus-trace-graph circle {
-  animation: campus-trace-pulse 1.4s ease-in-out infinite;
-}
-
 @keyframes campus-trace-pulse {
   50% { opacity: 0.2; }
 }
 
-@media (prefers-reduced-motion: reduce) {
+/* ── 长出来 ──
+   图不是一下子冒出来的：一行接一行往下长（哪一行什么时候出现由 TraceTab.tsx 的 useGrowth 定，隔 --campus-trace-step 一行）。
+   一行出现时，它自己从没有高度长到一行高，把下面的行慢慢推下去；线沿着走向画过去；线画到了，圆点才弹出来；字最后淡进来。
+   线是按同一个速度画的，主线一行正好画一步那么久，所以上一行画到底、下一行正好接上，看着是一根线一直往下长。
+   每段线等多久（--wait）、画多久（--span）都以一步为单位：
+     主线上半段 0 → 0.5，下半段 0.5 → 1；
+     单独一条支线从主线拐出来 0.25 → 1.25；几条支线共用的竖线 0 → 1，从它横着挂到圆圈 0.75 → 1.25，最后一条拐进去 0 → 1.25；
+     圆圈在 1.25 出来；接着往下的一小段 1.42 → 1.83，下一行从上面接过来正好是它的 0.83 → 1.25。
+   这一行早就在了、后来才多出来的线（data-late）不等，马上画。 */
+.campus-trace {
+  --campus-trace-step: 80ms;
+}
+
+@keyframes campus-trace-rise {
+  from { height: 0; }
+  to { height: var(--campus-trace-row); }
+}
+
+@keyframes campus-trace-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes campus-trace-pop {
+  from { transform: scale(0); }
+  60% { transform: scale(1.4); }
+  to { transform: scale(1); }
+}
+
+@keyframes campus-trace-ink {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .campus-trace-row {
+    animation: campus-trace-rise var(--campus-trace-step) linear;
+  }
+
+  .campus-trace-graph path {
+    --wait: 0;
+    --span: 0.5;
+    stroke-dasharray: 1;
+    animation: campus-trace-draw calc(var(--campus-trace-step) * var(--span)) linear backwards;
+    animation-delay: calc(var(--campus-trace-step) * var(--wait));
+  }
+
+  .campus-trace-graph path[data-segment='down'] { --wait: 0.5; }
+  .campus-trace-graph path[data-segment='rail'] { --span: 1; }
+  .campus-trace-graph path[data-segment='railend'] { --span: 1.25; }
+  .campus-trace-graph path[data-segment='hook'] { --wait: 0.75; }
+  .campus-trace-graph path[data-segment='alone'] { --wait: 0.25; --span: 1; }
+  .campus-trace-graph path[data-segment='stop'] { --wait: 0.83; --span: 0.42; }
+  .campus-trace-graph path[data-segment='more'] { --wait: 1.42; --span: 0.42; }
+  .campus-trace-graph path[data-late] { --wait: 0; }
+
+  /* 圆点：主线上的在线画到一半（这一行的正中）时出来，支线上的等线拐到了再出来。 */
+  .campus-trace-graph circle {
+    --wait: 0.5;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: campus-trace-pop 260ms cubic-bezier(0.3, 0.7, 0.4, 1) backwards;
+    animation-delay: calc(var(--campus-trace-step) * var(--wait));
+  }
+
+  .campus-trace-graph circle[data-side] { --wait: 1.25; }
+
+  /* 正在做的那一步一闪一闪；弹出来的那一下排在前面，状态变了它也不会重来。 */
   .campus-trace-row[data-state='running'] .campus-trace-graph circle {
-    animation: none;
+    animation: campus-trace-pop 260ms cubic-bezier(0.3, 0.7, 0.4, 1) backwards, campus-trace-pulse 1.4s ease-in-out infinite;
+    animation-delay: calc(var(--campus-trace-step) * var(--wait)), 0s;
+  }
+
+  .campus-trace-site,
+  .campus-trace-cell {
+    animation: campus-trace-ink 260ms ease-out backwards;
+    animation-delay: var(--campus-trace-step);
   }
 }
 
@@ -2156,6 +2320,35 @@ button[aria-label='工作区“对话”的操作'] {
   font-size: 12.5px;
   line-height: 18px;
   color: var(--dsw-alias-label-tertiary);
+}
+
+/* 公众号的文章：谁发的那一格前面有一枚浅蓝底的小标签写明「公众号」，号名比学校通知的那一格深一档。
+   （先做的是整块绿色的标签，用户 2026-10-12 说太绿；换成灰色小标签以后又说还是要一点颜色，定了浅蓝底。） */
+.campus-notice-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: var(--dsw-alias-label-secondary);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.campus-notice-account > span {
+  flex: none;
+  padding: 0 6px;
+  border-radius: var(--dsw-radius-xs);
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);
+  color: var(--dsw-alias-state-business-primary);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 17px;
+}
+
+/* 收起的那些展开以后：字淡一档，看得出是另一类。 */
+.campus-notice[data-folded] .campus-notice-open {
+  color: var(--dsw-alias-label-tertiary);
+  font-weight: 400;
 }
 
 /* ── 插件页的技能 ───────────────────────────────────────── */

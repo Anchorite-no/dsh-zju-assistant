@@ -15,12 +15,15 @@ import { Learning } from './learning.mjs'
 import { Chaoxing } from './chaoxing.mjs'
 import { Xuezai } from './xuezai.mjs'
 import { engineStamp } from './stamp.mjs'
-import { WechatFeeds } from './wechat.mjs'
-import { WereadFeeds } from './weread.mjs'
+import { Wechat } from './wechat.mjs'
+import { NoticeFilter } from './notice-filter.mjs'
+import { askModel } from './model.mjs'
 import { ChatGpt } from './chatgpt.mjs'
 import { installAgent } from './agent.mjs'
 import { LearnKit } from './learn.mjs'
+import { installPermissions } from './permissions.mjs'
 
+/** wechatRun 只在测试里给：换掉跑 weread 技能命令的那一步。 */
 export function installProfile(ctx, { wechatRun } = {}) {
   // 这个进程启动时引擎侧代码的指纹；页面拿它和自己构建时记的那份比，对不上就提示重新打开应用。
   const stamp = engineStamp()
@@ -31,21 +34,33 @@ export function installProfile(ctx, { wechatRun } = {}) {
   const learned = new LearnedSkills(store.root, coreSkillNames())
   const account = new AccountSettings(store)
   const plugins = new PluginSwitches(store)
-  // 「课程讲解」关着时 learn 技能不交给引擎；开关一变就让引擎重读技能目录。
+  // 「课程讲解」「微信公众号」关着时它们的技能不交给引擎；开关一变就让引擎重读技能目录。
   const reloadSkills = installCoreSkills(ctx, learned, plugins)
   // 「课程讲解」的可选依赖（排公式的 TeX、检查版面的浏览器），装在应用的数据目录里。
   const learnKit = new LearnKit({ dataDir: path.dirname(store.root), plugins })
-  const weread = new WereadFeeds({ plugins, file: path.join(path.dirname(store.root), 'weread', 'feeds.json') })
-  const wechat = new WechatFeeds({ plugins, dataDir: process.env.CAMPUS_WECHAT_DATA_DIR || path.join(path.dirname(store.root), 'wechat-feeds'), isSelected: () => weread.provider() === 'local', ...(wechatRun ? { run: wechatRun } : {}) })
-  ctx.effect(() => wechat.start(), 'campus: public-account polling lifecycle')
-  ctx.effect(() => weread.start(), 'campus: WeRead polling lifecycle')
-  const setPlugin = input => { const value = plugins.set(input); if (input.id === 'campus.wechat') { wechat.changed(); weread.changed() }; if (input.id === 'campus.learn') reloadSkills(); return value }
+  // 「微信公众号」：跟踪的号和它们最近的文章（wechat.mjs），背后是 weread 技能。它的两个选择存在档案目录，壳也要读；文章缓存放在档案目录旁边。
+  const wechat = new Wechat({ plugins, settingsFile: store.file('wechat.json'), cacheFile: path.join(path.dirname(store.root), 'cache', 'wechat.json'), ...(wechatRun ? { run: wechatRun } : {}) })
+  ctx.effect(() => wechat.start(), 'campus: public-account checking lifecycle')
+  // 两个带技能的插件，开关一变就让引擎重读技能目录；公众号的还要停下或者重新开始检查。
+  const setPlugin = (input) => {
+    const value = plugins.set(input)
+    if (input.id === 'campus.wechat') { wechat.changed(); reloadSkills() }
+    if (input.id === 'campus.learn') reloadSkills()
+    return value
+  }
   const fill = new IdentityFill(store, account)
   const chats = new ChatFolders()
+  // 对话里「工作区内修改」能写哪些地方、应用自带的校园命令怎么过沙箱（permissions.mjs）。
+  installPermissions(ctx, { chats })
   // 校园事务页的缓存放在档案目录旁边：它是从各系统读来的，随时可以重读，不算档案。
   const affairs = new Affairs({ file: path.join(path.dirname(store.root), 'cache', 'affairs.json'), account, plugins, downloads: new Downloads() })
+  // 通知太多时把和这位学生关系不大的收起来：屏蔽词，加上模型照个人档案基础信息的判断（notice-filter.mjs）。
+  const noticeFilter = new NoticeFilter({
+    settingsFile: store.file('notices.json'), cacheFile: path.join(path.dirname(store.root), 'cache', 'relevance.json'),
+    identity: () => store.identity().values, ask: input => askModel(ctx, { ...input, reasoningEffort: 'low' }),
+  })
   // 校园事务页右边的通知：学校通知攒在缓存里，公众号文章取公众号插件已经存下的。
-  const feed = new Feed({ file: path.join(path.dirname(store.root), 'cache', 'feed.json'), account, plugins, articles: input => (weread.provider() === 'weread' ? weread : wechat).articles(input) })
+  const feed = new Feed({ filter: noticeFilter, file: path.join(path.dirname(store.root), 'cache', 'feed.json'), account, plugins, articles: input => wechat.articles(input), refreshArticles: () => wechat.refresh() })
   // 学习页：智云的课程和课次（缓存），加上「文档」里课程文件夹和讲解目录现有的东西。
   const learning = new Learning({ file: path.join(path.dirname(store.root), 'cache', 'learning.json'), account, plugins, chats, downloads: new Downloads() })
   // 学习页切到「超星」时的内容：学习通里一门课各节的课件、视频（缓存）和本人的实验课表，下载的文件也放进「文档」的课程文件夹。
@@ -83,6 +98,8 @@ export function installProfile(ctx, { wechatRun } = {}) {
           : action === 'affairs-file-reveal' ? affairs.reveal(input)
           : action === 'feed-read' ? await feed.snapshot()
           : action === 'feed-refresh' ? await feed.refresh(input)
+          : action === 'notice-filter-read' ? noticeFilter.settings()
+          : action === 'notice-filter-save' ? noticeFilter.save(input)
           : action === 'learning-read' ? await learning.snapshot()
           : action === 'learning-refresh' ? await learning.refresh(input)
           : action === 'learning-course' ? await learning.course(input)
@@ -112,25 +129,15 @@ export function installProfile(ctx, { wechatRun } = {}) {
           : action === 'learn-remove' ? learnKit.remove(input)
           : action === 'plugins-read' ? plugins.snapshot()
           : action === 'plugins-set' ? setPlugin(input)
-          : action === 'wechat-read' ? await wechat.snapshot()
-          : action === 'wechat-check' ? await wechat.check()
-          : action === 'wechat-discover' ? await wechat.discover()
-          : action === 'wechat-add' ? await wechat.add(input)
-          : action === 'wechat-set' ? await wechat.set(input)
-          : action === 'wechat-refresh' ? await wechat.refresh(input)
-          : action === 'wechat-articles' ? await wechat.articles(input)
-          : action === 'weread-state' ? weread.snapshot()
-          : action === 'weread-provider' ? (() => { const next = weread.setProvider(input); wechat.changed(); return next })()
-          : action === 'weread-connect' ? await weread.connect()
-          : action === 'weread-check' ? await weread.check()
-          : action === 'weread-discover' ? await weread.discover(input)
-          : action === 'weread-add' ? await weread.add(input)
-          : action === 'weread-set' ? weread.set(input)
-          : action === 'weread-refresh' ? await weread.refresh(input)
-          : action === 'weread-articles' ? weread.articles(input)
-          : action === 'weread-read' ? await weread.read(input)
-          : action === 'weread-verification' ? await weread.verification(input?.action, input)
-          : action === 'weread-recognizer' ? await weread.recognizer(input?.action, input)
+          : action === 'wechat-read' ? wechat.snapshot()
+          : action === 'wechat-visit' ? wechat.visit()
+          : action === 'wechat-retry' ? wechat.retry()
+          : action === 'wechat-find' ? await wechat.find(input)
+          : action === 'wechat-track' ? await wechat.track(input)
+          : action === 'wechat-untrack' ? await wechat.untrack(input)
+          : action === 'wechat-login' ? wechat.login()
+          : action === 'wechat-logout' ? await wechat.logout()
+          : action === 'wechat-set' ? wechat.set(input)
           : action === 'chatgpt-read' ? await chatgpt.snapshot()
           : action === 'chatgpt-login' ? await chatgpt.login(input)
           : action === 'chatgpt-answer' ? await chatgpt.answer(input)
@@ -142,13 +149,6 @@ export function installProfile(ctx, { wechatRun } = {}) {
     },
   })
   const output = { schema: { type: 'json' }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] }
-  ctx.tools.register(defineTool({
-    name: 'campus_wechat_read',
-    description: '读取微信公众号插件中已添加账号的文章，使用用户选择的微信读书或本地微信来源。返回标题、发布时间、原文链接与同步状态，不保证完整历史。refresh 会更新所选来源：微信读书访问在线列表，遇验证暂停；本地微信仅更新已同步推送的快照。不包含正文，微信读书正文可通过 weread Skill 按需读取。插件关闭时不可用。',
-    parameters: { account: { type: 'string', description: '已添加的公众号名称或来源 ID；省略返回所有已添加号' }, limit: { type: 'number', description: '最多返回多少篇，1 到 200，默认 50' }, refresh: { type: 'boolean', description: '读取前更新一次所选来源；仅在需要更新时启用' } },
-    output, execute: async args => { const source = weread.provider() === 'weread' ? weread : wechat; if (args.refresh) { const result = await source.refresh(); if (result?.ok === false) return result }; return source.articles(args) },
-    presentCall: () => ({ card: 'generic', title: '读取公众号文章', kind: 'other' }),
-  }))
   ctx.tools.register(defineTool({
     name: 'campus_profile_read',
     description: '读取个人档案：基础信息，和一条条记忆（你对用户这个人的了解，标题就是主题）。不带参数返回基础信息和记忆目录；query 按标题、标签、属性和正文搜索；title 读一条的全文。修过一门课不代表已经掌握。',

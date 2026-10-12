@@ -15,6 +15,7 @@ import { TrayRow } from './TrayRow.tsx'
 import { UpdateRow } from './UpdateRow.tsx'
 import { ChatGptCard } from './ChatGptCard.tsx'
 import { installContentWidth } from './width.ts'
+import { installRightPane } from './rightpane.ts'
 import { installPluginsPage } from './PluginsPage.tsx'
 import { installFolderlessChats } from './chats.ts'
 import { installHandoff } from './handoff.tsx'
@@ -61,6 +62,9 @@ export function apply(ctx: Context): void {
   ctx.effect(() => installContentWidth(), 'campus-ui: content width')
   ctx.slots.inject('settings.general.item', () =>
     ctx.slots.register({ name: 'settings.general.item', id: 'campus-content-width', order: 11.5 }, WidthRow))
+
+  // 右边栏向右打开：它占多宽，窗口就加宽多少，中间的对话不被挤窄。
+  ctx.effect(() => installRightPane(ctx), 'campus-ui: right pane opens outward')
 
   // 关闭窗口时隐藏到系统托盘：开关存在壳那边，排在性能与用量后面；不在壳里打开（比如浏览器）时没有这一行。
   if (window.campusShell) {

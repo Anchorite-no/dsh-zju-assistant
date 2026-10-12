@@ -1,129 +1,283 @@
-/** 微信公众号详情，复用插件页的分组、列表、表单与控件。 */
+/**
+ * 「微信公众号」详情页里开关下面的部分：文章从哪里找（本机微信、微信读书各一行）、跟踪了哪些号、要不要自动识别验证码。
+ * 页面只照引擎侧存下的画（ui/profile/wechat.mjs 的 snapshot）；要等一阵的事（扫码登录、去验证）在后台做，
+ * 这里隔一会儿问一次做完没有，离开这一页再回来接着显示。
+ * 字要少（用户 2026-10-12 说原来每一行下面都挂着一句灰字，太多）：一行平时只有名字和右边的状态或控件，要用户处理的时候才多一句。
+ * 这里没有文章列表：新文章在「校园事务」的通知里看，每个号下面只写最新的一篇，看得出它在不在更新。
+ */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button, IconPlusOutlineRegular, Modal, Switch, Toast } from '@deepseek-ai/dsh-client-ui-primitives'
 import { errorText, profileApi } from './api.ts'
-import { Alert, Field, Select } from './controls.tsx'
-import { Choice } from './controls.tsx'
-import { WereadSettings } from './WereadSettings.tsx'
+import { Alert } from './controls.tsx'
+import { clock, dateText, midnight } from './when.ts'
 
-interface Account { biz: string, name: string, enabled: boolean, status: string, articleCount: number, lastSuccessfulSyncAt: string | null, message?: string | null }
+/** 一个来源上一次读的情况；ok 为假时 status 是技能给的原因，message 是它的原话。 */
+interface SourceState { ok: boolean, status?: string, message?: string }
+interface Article { id: string, title: string, url: string, publishedAt: string | null }
+interface Account { biz: string, name: string, source: 'local' | 'web' | null, count: number, latest: Article | null, error: { status: string, message: string } | null }
 interface Snapshot {
-  enabled: boolean, accounts: Account[], busy: boolean, error: string | null
-  connection: { running: boolean, version: string | null, message: string } | null
-  runtime: { lastObserved: { source: { wechatVersion: string }, lastAttemptVerified: boolean } | null } | null
+  enabled: boolean
+  /** 后台有事在做；activity 是哪一件：login 等扫码，checking 在读文章。 */
+  busy: boolean
+  activity: string
+  /** 用户上一次点的事没做成的原因。 */
+  problem: string
+  settings: { local: boolean, autoVerify: boolean }
+  /** 上一次检查是什么时候；还没检查过是 null。 */
+  checkedAt: string | null
+  /** 本机微信上一次读的情况；关着或者还没读过时是 null。 */
+  local: SourceState | null
+  weread: { loggedIn: boolean, state: SourceState | null }
+  accounts: Account[]
 }
-interface Found { biz: string, name: string, articleCount: number }
-interface Article { id: string, biz: string, title: string, url: string, publishedAt: string | null }
-const STATUS: Record<string, string> = {
-  pending: '等待首次导入', synced_local_cache: '本地读取成功', waiting_for_local_messages: '等待微信同步图文', wechat_not_running: '等待微信运行',
-  partial_local_read: '读取不完整', wechat_session_or_version_unavailable: '需要检查微信状态', snapshot_verification_failed: '数据校验失败', wechat_account_changed: '微信账号已变化', paused: '已暂停',
-}
-const time = (value: string | null | undefined) => value ? new Date(value).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+/** 添加时的一个候选。本机微信里的带着它最新一篇是什么时候。 */
+interface Candidate { biz: string, name: string, latestAt?: string | null }
+type Found = { ok: true, source: 'local' | 'web', accounts: Candidate[] } | { ok: false, source: 'local' | 'web', status: string, message: string }
 
-function LocalWechatSettings({ enabled }: { enabled: boolean }) {
-  const [data, setData] = useState<Snapshot | null>(null)
-  const [busy, setBusy] = useState(''), [error, setError] = useState(''), [notice, setNotice] = useState('')
-  const [adding, setAdding] = useState(false), [found, setFound] = useState<Found[] | null>(null), [query, setQuery] = useState('')
-  const [withLink, setWithLink] = useState(false), [articleUrl, setArticleUrl] = useState('')
-  const [selected, setSelected] = useState('all'), [articles, setArticles] = useState<Article[]>([])
-  const [articlesLoading, setArticlesLoading] = useState(false), [articleError, setArticleError] = useState(''), [revision, setRevision] = useState(0)
-  const operation = useRef(false), alive = useRef(true)
+/** 上一次读到的状态。再打开这一页时先照它画，不会先空着再跳出来。 */
+let last: Snapshot | null = null
+
+/** 后台有事在做时多久问一次，平时多久问一次。 */
+const BUSY_MS = 1500, IDLE_MS = 30_000
+
+/** 微信读书只是个载体：公众号得先在手机的微信读书 App 里加进书架，网页这边才读得到。 */
+const WEREAD_NEEDS = '公众号要先在手机的微信读书 App 里加进书架'
+/** 本机微信这一边的前提（用户 2026-10-12 要求写明）：电脑上的微信得开着；没开的时候只剩微信读书那一边，要读的号得自己先去那边加好。 */
+const LOCAL_NEEDS = '微信要开着才读得到，没开时只能靠微信读书'
+/** 本机微信读不了时怎么说。没列到的用技能给的原话。 */
+const LOCAL_PROBLEMS: Record<string, string> = {
+  wechat_not_running: '微信没有运行，现在只能靠微信读书',
+  wechat_database_missing: '这台电脑的微信里还没有公众号消息',
+  multiple_wechat_processes: '同时开着好几个微信，只留一个才能读',
+  multiple_wechat_profiles: '这台电脑上登录过好几个微信号，暂时读不了',
+  wechat_key_unavailable: '没读成：先确认微信已经登录；这个版本的微信也可能还不支持',
+  runtime_missing: '要先装好 Python 3.14 才能读',
+  unsupported_platform: '只支持 Windows 版微信',
+}
+const limited = (status: string | undefined) => status?.endsWith('rate_limited') === true
+/** 技能的原话拿来当一行说明用：去掉句尾的句号。 */
+const said = (message: string | undefined) => message?.replace(/[。.]$/, '') || '这次没读成'
+const day = (at: string | null | undefined) => at && Number.isFinite(Date.parse(at)) ? dateText(Date.parse(at), Date.now()) : ''
+/** 上次检查的时间：今天的只写几点，别的带上日期。 */
+function checkedText(at: string): string {
+  const time = Date.parse(at), now = Date.now()
+  return midnight(time) === midnight(now) ? clock(new Date(time)) : `${dateText(time, now)} ${clock(new Date(time))}`
+}
+
+/** 「微信读书」那一行：下面要不要多一句、右边放什么。 */
+function wereadLine({ weread, activity }: Snapshot): { note?: string, warn?: boolean, action: 'login' | 'relogin' | 'verify' | 'retry' | 'logout' | 'waiting' } {
+  if (activity === 'login') return { action: 'waiting' }
+  if (!weread.loggedIn) return { note: WEREAD_NEEDS, action: 'login' }
+  const state = weread.state
+  if (!state || state.ok) return { action: 'logout' }
+  if (state.status === 'login_required') return { note: '登录过期了', warn: true, action: 'relogin' }
+  if (state.status === 'verification_required') return { note: '要先验证一次，才能接着读', warn: true, action: 'verify' }
+  if (limited(state.status)) return { note: '访问太频繁，过一阵会自己再试', warn: true, action: 'logout' }
+  return { note: said(state.message), warn: true, action: 'retry' }
+}
+
+/** 一个号这次没读到时，它那一行怎么说。 */
+function accountProblem(account: Account, { weread }: Snapshot): string {
+  const status = account.error?.status
+  if (status === 'account_not_found') return weread.loggedIn ? '本机微信和微信读书的书架里都没有它' : '本机微信里还没有它的推送'
+  if (status === 'no_source') return '本机微信关着，微信读书也没有登录'
+  if (status === 'verification_required') return '微信读书要先验证一次'
+  if (status === 'login_required') return '微信读书的登录过期了'
+  if (limited(status)) return '微信读书访问太频繁，过一阵会自己再试'
+  return LOCAL_PROBLEMS[status ?? ''] ?? said(account.error?.message)
+}
+
+/**
+ * 添加公众号的弹窗：一打开就列出能跟踪的号，本机微信里有推送的，加上微信读书书架上的；输入名称是在里面筛。
+ * 点「跟踪」以后弹窗不关，可以接着加。微信读书那边搜不了新的号，要加得先去手机 App，最下面有一句说明。
+ */
+function AddDialog({ data, onClose, onChange }: { data: Snapshot, onClose: () => void, onChange: (next: Snapshot) => void }) {
+  const [query, setQuery] = useState('')
+  const [found, setFound] = useState<Partial<Record<'local' | 'web', Found>>>({})
+  /** 还在读哪个来源的名单。 */
+  const [loading, setLoading] = useState<readonly ('local' | 'web')[]>([])
+  /** 正在加的那个号。 */
+  const [adding, setAdding] = useState('')
+  const [error, setError] = useState('')
+  const alive = useRef(true)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
-  const load = useCallback(async () => {
-    try { const next = await profileApi<Snapshot>('wechat-read'); if (alive.current) setData(next) }
-    catch (reason) { if (alive.current) setError(errorText(reason)) }
-  }, [])
-  useEffect(() => { void load(); const timer = setInterval(() => { void load() }, 15_000); return () => { clearInterval(timer) } }, [enabled, load])
-  useEffect(() => { if (!enabled) { setAdding(false); setError(''); setArticles([]) } }, [enabled])
-  const latest = data?.accounts.map(a => `${a.biz}:${a.lastSuccessfulSyncAt}:${a.articleCount}`).join('|') ?? ''
+  const useLocal = data.settings.local, useWeb = data.weread.loggedIn
   useEffect(() => {
-    let active = true
-    if (!enabled || !data?.accounts.length) { setArticles([]); return }
-    setArticlesLoading(true); setArticleError('')
-    profileApi<{ articles: Article[] }>('wechat-articles', { ...(selected === 'all' ? {} : { biz: selected }), limit: 50 })
-      .then(value => { if (active) setArticles(value.articles) })
-      .catch(reason => { if (active) setArticleError(errorText(reason)) })
-      .finally(() => { if (active) setArticlesLoading(false) })
-    return () => { active = false }
-  }, [enabled, selected, latest, revision])
-  async function run(label: string, action: () => Promise<void>) {
-    if (operation.current) return
-    operation.current = true; setBusy(label); setError('')
-    try { await action() } catch (reason) { if (alive.current) setError(errorText(reason)) }
-    finally { operation.current = false; if (alive.current) setBusy('') }
+    const sources = [...(useLocal ? ['local' as const] : []), ...(useWeb ? ['web' as const] : [])]
+    setLoading(sources)
+    for (const source of sources) {
+      profileApi<Found>('wechat-find', { source })
+        .then((result) => { if (alive.current) setFound(old => ({ ...old, [source]: result })) }, (reason: unknown) => { if (alive.current) setError(errorText(reason)) })
+        .finally(() => { if (alive.current) setLoading(old => old.filter(item => item !== source)) })
+    }
+  }, [useLocal, useWeb])
+
+  const tracked = new Set(data.accounts.map(account => account.biz))
+  const needle = query.trim().toLowerCase()
+  // 两边都有的号只列本机的那一条。
+  const seen = new Set<string>()
+  const candidates = (['local', 'web'] as const).flatMap((source) => {
+    const result = found[source]
+    return result?.ok ? result.accounts.filter(candidate => !seen.has(candidate.biz) && !!seen.add(candidate.biz)).map(candidate => ({ ...candidate, source })) : []
+  }).filter(candidate => candidate.name.toLowerCase().includes(needle))
+  const problems = (['local', 'web'] as const).flatMap((source) => {
+    const result = found[source]
+    if (!result || result.ok) return []
+    return [source === 'local' ? `本机微信：${LOCAL_PROBLEMS[result.status] ?? said(result.message)}。` : `微信读书：${result.status === 'login_required' ? '登录过期了，回到上一页重新登录' : said(result.message)}。`]
+  })
+  const track = (candidate: Candidate & { source: 'local' | 'web' }) => {
+    if (adding) return
+    setAdding(candidate.biz); setError('')
+    profileApi<Snapshot>('wechat-track', { name: candidate.name, source: candidate.source })
+      .then((next) => { if (alive.current) onChange(next) }, (reason: unknown) => { if (alive.current) setError(errorText(reason)) })
+      .finally(() => { if (alive.current) setAdding('') })
   }
-  const apply = (next: Snapshot) => { if (alive.current) { setData(next); setRevision(n => n + 1) } }
-  const discover = () => run('discover', async () => {
-    const result = await profileApi<{ accounts: Found[] }>('wechat-discover')
-    if (alive.current) setFound(result.accounts)
-    await load()
-  })
-  const openAdd = () => { setAdding(true); setQuery(''); setWithLink(false); setError(''); if (!found) void discover() }
-  const add = (input: { biz: string, name: string } | { articleUrl: string }) => run('add', async () => {
-    apply(await profileApi<Snapshot>('wechat-add', input))
-    if (alive.current) { setNotice('已添加公众号'); setArticleUrl('') }
-  })
-  const registered = new Set(data?.accounts.map(a => a.biz) ?? [])
-  const matches = found?.filter(a => a.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) ?? []
-  const observed = data?.runtime?.lastObserved, version = data?.connection?.version ?? observed?.source.wechatVersion
-  const connectionText = !enabled ? '插件已关闭' : data?.connection?.message ?? (observed?.lastAttemptVerified ? '本地读取已验证' : '等待检查微信')
-  const blocked = !enabled || !!busy || !!data?.busy, problem = error || data?.error
-  return <>
-    <section className="campus-section" aria-labelledby="wechat-connection">
-      <div className="campus-section-head"><h2 id="wechat-connection" className="campus-section-title">电脑版微信</h2>
-        <Button size="sm" variant="outline" disabled={blocked} onClick={() => { void run('check', async () => { apply(await profileApi<Snapshot>('wechat-check')) }) }}>{busy === 'check' ? '检查中…' : '检查连接'}</Button></div>
-      <div className="campus-wechat-status" role="status"><span>{connectionText}</span>{version && <span>Windows 微信 {version}</span>}</div>
-      <p className="campus-note">保持微信登录并在后台运行。仅同步本机已收到的公众号推文。</p>
-      {enabled && problem && !adding && <Alert>{problem}</Alert>}
-    </section>
-    <section className="campus-section" aria-labelledby="wechat-accounts">
-      <div className="campus-section-head campus-wechat-heading">
-        <div className="campus-group-head"><h2 id="wechat-accounts" className="campus-section-title">已添加的公众号</h2><span className="campus-count">{data?.accounts.length ?? 0}</span></div>
-        <div className="campus-wechat-actions">
-          <Button size="sm" variant="outline" disabled={blocked || !data?.accounts.some(a => a.enabled)} onClick={() => { void run('refresh', async () => { apply(await profileApi<Snapshot>('wechat-refresh')) }) }}>{busy === 'refresh' ? '更新中…' : '立即更新'}</Button>
-          <Button size="sm" variant="outline" icon={<IconPlusOutlineRegular size={14} />} disabled={blocked} onClick={openAdd}>添加公众号</Button>
-        </div>
-      </div>
-      {!data ? <p className="campus-note">正在读取订阅…</p> : !data.accounts.length ? <div className="campus-empty"><p>还没有添加公众号。从微信已同步的列表中选择即可。</p></div> :
-        <ul className="campus-rows">{data.accounts.map(account => <li key={account.biz} className="campus-row">
-          <div className="campus-wechat-main"><button type="button" className="campus-wechat-name" disabled={!enabled} onClick={() => { setSelected(account.biz) }}>{account.name}</button>
-            <span className="campus-wechat-meta">{account.articleCount} 篇 · {STATUS[account.status] ?? account.message ?? '暂时无法读取'}{account.lastSuccessfulSyncAt ? ` · ${time(account.lastSuccessfulSyncAt)} 检查` : ''}</span></div>
-          <Switch label={`同步${account.name}`} checked={account.enabled} disabled={blocked} onChange={value => { void run(account.biz, async () => { apply(await profileApi<Snapshot>('wechat-set', { biz: account.biz, enabled: value })) }) }} />
-        </li>)}</ul>}
-      {!!data?.accounts.length && <p className="campus-note">应用运行时自动检查；暂停公众号后保留已保存的文章。</p>}
-    </section>
-    {enabled && !!data?.accounts.length && <section className="campus-section" aria-labelledby="wechat-articles">
-      <div className="campus-section-head campus-wechat-heading"><h2 id="wechat-articles" className="campus-section-title">最近文章</h2>
-        <div className="campus-wechat-filter"><Select label="筛选公众号" value={selected} onChange={setSelected} options={[{ value: 'all', label: '全部公众号' }, ...data.accounts.map(a => ({ value: a.biz, label: a.name }))]} /></div></div>
-      {articleError && <Alert>{articleError}</Alert>}
-      {articlesLoading && !articles.length ? <p className="campus-note">正在读取文章…</p> : !articles.length ? <p className="campus-note">本机还没有该公众号的图文记录。</p> :
-        <ul className="campus-rows">{articles.map(article => <li key={article.id} className="campus-row campus-wechat-article">
-          <div className="campus-wechat-main"><a className="campus-wechat-name" href={article.url} target="_blank" rel="noreferrer">{article.title || '未命名文章'}</a><span className="campus-wechat-meta">{data.accounts.find(a => a.biz === article.biz)?.name}</span></div>
-          <time dateTime={article.publishedAt ?? undefined}>{time(article.publishedAt) || '发布时间未知'}</time>
-        </li>)}</ul>}
-    </section>}
-    <Modal open={adding} title="添加公众号" closeLabel="关闭" onClose={() => { setAdding(false) }} footer={<Button variant="outline" onClick={() => { setAdding(false) }}>完成</Button>}>
+
+  return (
+    <Modal open title="添加公众号" closeLabel="关闭" onClose={onClose} footer={<Button variant="outline" onClick={onClose}>完成</Button>}>
       <div className="campus-section">
-        <Field id="wechat-account-query" label="搜索本机公众号" aside={<button type="button" className="campus-textlink" disabled={!!busy} onClick={() => { void discover() }}>重新读取</button>}>
-          <input id="wechat-account-query" data-modal-autofocus className="campus-input" placeholder="公众号名称" value={query} onChange={event => { setQuery(event.target.value) }} /></Field>
-        {problem && <Alert>{problem}</Alert>}
-        {busy === 'discover' ? <p className="campus-note" role="status">正在读取微信里的公众号…</p> : <div className="campus-wechat-picker"><ul className="campus-rows">
-          {matches.map(account => <li key={account.biz} className="campus-row"><div className="campus-wechat-main"><span className="campus-row-title">{account.name}</span><span className="campus-wechat-meta">本机 {account.articleCount} 篇</span></div>
-            <Button size="sm" variant="outline" aria-label={registered.has(account.biz) ? `已添加${account.name}` : `添加${account.name}`} disabled={!!busy || registered.has(account.biz)} onClick={() => { void add({ biz: account.biz, name: account.name }) }}>{registered.has(account.biz) ? '已添加' : '添加'}</Button></li>)}
-        </ul>{found && !matches.length && <p className="campus-note">本机列表中没有匹配的公众号。可以先在微信中同步其推送。</p>}</div>}
-        <button type="button" className="campus-textlink" aria-expanded={withLink} onClick={() => { setWithLink(value => !value) }}>通过文章链接添加</button>
-        {withLink && <form onSubmit={event => { event.preventDefault(); void add({ articleUrl }) }}><Field id="wechat-article-url" label="微信公众号文章链接">
-          <input id="wechat-article-url" className="campus-input" type="url" placeholder="https://mp.weixin.qq.com/s/…" value={articleUrl} onChange={event => { setArticleUrl(event.target.value) }} /></Field>
-          <Button type="submit" size="sm" variant="outline" disabled={!!busy || !articleUrl.trim()}>添加</Button></form>}
+        <div className="campus-wechat-find">
+          <input className="campus-input" data-modal-autofocus aria-label="公众号名称" placeholder="公众号名称" autoComplete="off" value={query} onChange={(event) => { setQuery(event.target.value) }} />
+        </div>
+        {error && <Alert>{error}</Alert>}
+        {problems.map(problem => <Alert key={problem} tone="warn">{problem}</Alert>)}
+        <div className="campus-wechat-picker">
+          {candidates.length > 0 && (
+            <ul className="campus-rows">
+              {candidates.map(candidate => (
+                <li key={candidate.biz} className="campus-row">
+                  <div className="campus-wechat-main">
+                    <span className="campus-row-title">{candidate.name}</span>
+                    <span className="campus-wechat-meta">{candidate.source === 'web' ? '微信读书' : day(candidate.latestAt) ? `本机微信 · 最新 ${day(candidate.latestAt)}` : '本机微信'}</span>
+                  </div>
+                  {tracked.has(candidate.biz)
+                    ? <span className="campus-wechat-meta">已跟踪</span>
+                    : <Button size="sm" variant="outline" aria-label={`跟踪${candidate.name}`} disabled={!!adding} onClick={() => { track(candidate) }}>{adding === candidate.biz ? '正在加…' : '跟踪'}</Button>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {loading.length > 0 && <p className="campus-note" role="status">正在看{loading.includes('local') ? '本机微信' : '微信读书的书架'}里有哪些公众号…</p>}
+          {loading.length === 0 && candidates.length === 0 && problems.length === 0 && <p className="campus-note">{needle ? `没有名字带「${query.trim()}」的公众号。` : '还没有能跟踪的公众号。'}</p>}
+        </div>
+        <p className="campus-note">{useWeb ? `找不到的号：${WEREAD_NEEDS}。` : `电脑版微信没收到过推送的号，要登录微信读书；${WEREAD_NEEDS}。`}</p>
       </div>
     </Modal>
-    {notice && <Toast text={notice} onDone={() => { setNotice('') }} />}
-  </>
+  )
 }
 
-export function WechatSettings({ enabled }: { enabled: boolean }) {
-  const [provider,setProvider]=useState<'local'|'weread'|null>(null), [error,setError]=useState(''), [saving,setSaving]=useState(false)
-  useEffect(()=>{profileApi<{provider:'local'|'weread'}>('weread-state').then(value=>setProvider(value.provider)).catch(reason=>setError(errorText(reason)))},[])
-  return <><Field label="采集来源"><Choice label="公众号采集来源" value={provider??''} disabled={!enabled||saving||!provider} options={[{value:'weread',label:'微信读书'},{value:'local',label:'本地微信'}]} onChange={value=>{if(!value)return;setSaving(true);profileApi<{provider:'local'|'weread'}>('weread-provider',{provider:value}).then(next=>{setProvider(next.provider);setError('')}).catch(reason=>setError(errorText(reason))).finally(()=>setSaving(false))}} /></Field>
-    {error&&<Alert>{error}</Alert>}{provider==='weread'?<WereadSettings enabled={enabled}/>:provider==='local'?<LocalWechatSettings enabled={enabled}/>:null}</>
+export function WechatSettings() {
+  const [data, setData] = useState<Snapshot | null>(last)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [adding, setAdding] = useState(false)
+  const alive = useRef(true)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  const apply = useCallback((next: Snapshot) => { last = next; if (alive.current) { setData(next); setError('') } }, [])
+  const ask = useCallback((action: string, input?: unknown) => profileApi<Snapshot>(action, input).then(apply, (reason: unknown) => { if (alive.current) setError(errorText(reason)) }), [apply])
+  useEffect(() => {
+    void ask('wechat-visit')
+    // 扫完码、或者在别处改了名单以后回到窗口，这里跟着变。
+    const visit = () => { void ask('wechat-visit') }
+    window.addEventListener('focus', visit)
+    return () => { window.removeEventListener('focus', visit) }
+  }, [ask])
+  const busy = data?.busy ?? false
+  useEffect(() => {
+    const timer = window.setInterval(() => { void ask('wechat-read') }, busy ? BUSY_MS : IDLE_MS)
+    return () => { window.clearInterval(timer) }
+  }, [busy, ask])
+
+  if (!data) return error ? <Alert>{error}</Alert> : null
+  const localState = data.settings.local ? data.local : null
+  const localProblem = localState && !localState.ok ? LOCAL_PROBLEMS[localState.status ?? ''] ?? said(localState.message) : ''
+  const weread = wereadLine(data)
+  const reading = busy && data.activity === 'checking'
+  const untrack = (account: Account) => {
+    profileApi<Snapshot>('wechat-untrack', { biz: account.biz }).then(
+      (next) => { apply(next); if (alive.current) setNotice(`不再跟踪「${account.name}」`) },
+      (reason: unknown) => { if (alive.current) setError(errorText(reason)) },
+    )
+  }
+  const wereadEnd = {
+    login: <Button size="sm" variant="outline" onClick={() => { void ask('wechat-login') }}>扫码登录</Button>,
+    relogin: <Button size="sm" variant="outline" onClick={() => { void ask('wechat-login') }}>重新登录</Button>,
+    verify: <Button size="sm" variant="outline" disabled={reading} onClick={() => { void ask('wechat-retry') }}>{reading ? '正在读…' : '去验证'}</Button>,
+    retry: <Button size="sm" variant="outline" disabled={reading} onClick={() => { void ask('wechat-retry') }}>{reading ? '正在读…' : '再试一次'}</Button>,
+    logout: <><span className="campus-wechat-meta">已登录</span><button type="button" className="campus-textlink" onClick={() => { void ask('wechat-logout') }}>退出</button></>,
+    waiting: <span className="campus-wechat-meta" role="status">在弹出的窗口里扫码…</span>,
+  }[weread.action]
+
+  return (
+    <>
+      {(error || data.problem) && <Alert>{error || data.problem}</Alert>}
+      <section className="campus-section" aria-labelledby="wechat-sources">
+        <h2 id="wechat-sources" className="campus-section-title">从哪里找文章</h2>
+        <ul className="campus-rows">
+          <li className="campus-row" data-wechat-source="local">
+            <div className="campus-wechat-main">
+              <span className="campus-row-title">本机微信</span>
+              {localProblem
+                ? <span className="campus-wechat-meta" data-tone="warn">{localProblem}</span>
+                : data.settings.local && <span className="campus-wechat-meta">{LOCAL_NEEDS}</span>}
+            </div>
+            <Switch label="用本机微信找文章" checked={data.settings.local} onChange={(value) => { void ask('wechat-set', { local: value }) }} />
+          </li>
+          <li className="campus-row" data-wechat-source="weread">
+            <div className="campus-wechat-main">
+              <span className="campus-row-title">微信读书</span>
+              {weread.note && <span className="campus-wechat-meta" data-tone={weread.warn ? 'warn' : undefined}>{weread.note}</span>}
+            </div>
+            <span className="campus-wechat-end">{wereadEnd}</span>
+          </li>
+        </ul>
+      </section>
+
+      <section className="campus-section" aria-labelledby="wechat-tracked">
+        <div className="campus-section-head">
+          <div className="campus-titleline">
+            <h2 id="wechat-tracked" className="campus-section-title">跟踪的公众号</h2>
+            <span className="campus-count">{data.accounts.length}</span>
+          </div>
+          <Button size="sm" variant="outline" icon={<IconPlusOutlineRegular size={14} />} onClick={() => { setAdding(true) }}>添加</Button>
+        </div>
+        {data.accounts.length === 0
+          ? <p className="campus-note">还没有跟踪公众号。</p>
+          : (
+            <>
+              {/* 号多了在这个框里滚动，页面不跟着变长。 */}
+              <ul className="campus-rows campus-wechat-tracked">
+                {data.accounts.map(account => (
+                  <li key={account.biz} className="campus-row" data-wechat-account={account.biz}>
+                    <div className="campus-wechat-main">
+                      <span className="campus-row-title">{account.name}</span>
+                      {account.latest && (
+                        <a className="campus-wechat-latest" href={account.latest.url} target="_blank" rel="noreferrer">
+                          <span>{account.latest.title || '没有标题的文章'}</span>
+                          {day(account.latest.publishedAt) && <time dateTime={account.latest.publishedAt ?? undefined}>{day(account.latest.publishedAt)}</time>}
+                        </a>
+                      )}
+                      {!account.latest && !account.error && <span className="campus-wechat-meta">{busy ? '正在读它的文章…' : '还没有读到它的文章'}</span>}
+                      {account.error && <span className="campus-wechat-meta" data-tone="warn">{accountProblem(account, data)}</span>}
+                    </div>
+                    <button type="button" className="campus-textlink" data-danger aria-label={`不再跟踪${account.name}`} onClick={() => { untrack(account) }}>不再跟踪</button>
+                  </li>
+                ))}
+              </ul>
+              {data.checkedAt && <p className="campus-note">每半小时检查一次，上次 {checkedText(data.checkedAt)}</p>}
+            </>
+          )}
+      </section>
+
+      <section className="campus-section" aria-label="验证码">
+        <div className="campus-linkrow">
+          <span>自动识别验证码</span>
+          <Switch label="自动识别验证码" checked={data.settings.autoVerify} onChange={(value) => { void ask('wechat-set', { autoVerify: value }) }} />
+        </div>
+      </section>
+
+      {adding && <AddDialog data={data} onClose={() => { setAdding(false) }} onChange={apply} />}
+      {notice && <Toast text={notice} onDone={() => { setNotice('') }} />}
+    </>
+  )
 }

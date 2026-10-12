@@ -1,4 +1,4 @@
-/** 插件页列出的两组插件。校园功能和独立采集模块共用接入表，引擎侧用的是同一份。 */
+/** 插件页列出的两组插件。校园功能（连同公众号、课程讲解这两项）用接入表，引擎侧用的是同一份。 */
 export { APP_PLUGINS, type AppPlugin } from '../profile/catalog.mjs'
 
 export interface GeneralPlugin {

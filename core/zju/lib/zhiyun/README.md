@@ -3,9 +3,9 @@
 使用说明统一见 [智云](../../references/zhiyun.md)，参数见 [命令总表](../../references/commands.md#zhiyun)。本文只说明内部组件与 API。
 
 - selection.ts / acquire.ts 处理查询选择、下载和缓存；公开课件 kind=ppt，兼容旧清单的 courseware。
-- local.ts 的 localTranscribe / transcribeCourseware 输出 Markdown、原始 JSON 和原图；local-cli.ts 定义 check/trans 参数。
+- local.ts 的 localTranscribe 输出 Markdown 和原始 JSON；local-cli.ts 定义 check/trans 参数。
 - asr.ts 是转写：SenseVoiceSmall 的 ONNX int8 权重，经 sherpa-onnx-node 在 CPU 上跑，没有 Python。运行库和模型都借应用里「语音输入」的那一份（`@deepseek-ai/dsh-experimental-speech-to-text-sensevoice`）：运行库从它的依赖里取，模型放在 `<DSH_HOME>/speech-to-text/sensevoice/models`，清单读它的 `runtime/assets.json`，缺了由这里下载并校验。断句后把相邻片段并成不超过 15 秒的一块再识别，两头留 0.3 秒；这组设置和它的实测依据写在 asr.ts 的 `RECIPE` 上，改了要把 version 加一。引擎升级后核对三样：包名、`runtime/assets.json` 的结构、模型目录的布局。
-- courseware.ts 是课件提取，仍然调 scripts/zhiyun/extract.py，Python 环境在 `data/tools/zhiyun-ppt`。
+- 课件提取（`trans ppt`、courseware.ts、scripts/zhiyun/extract.py 和它的 Python 环境）2026-10-12 删掉了：模型能看图，课件用 `doc text` 取文字或把页面渲染成图来读。
 - places.ts 定默认落点：下载在 `<文档>\CampusAgent\课程\课程名\第N次 日期`（一次课一个文件夹，各带 download.json），转写在课次文件夹或 `<文档>\CampusAgent\转写`。`CAMPUS_CHATS_DIR` 把 `<文档>\CampusAgent` 整个换掉。指定 `--out-dir` 或作为远程执行机运行时仍是原来的布局。
 - 旧 prepare/read/notes 组合与渲染库已移除。cache.ts 保留下载与转写所需的哈希/内容核验；已有旧 JSON 和 Markdown 仍可直接读取。
 
@@ -30,7 +30,7 @@ try {
 - `Transfer` 统一限制所有文件/分片的活跃请求，流式 I/O 不占用整文件内存。它也记着下载进度（2026-10-10 加的，给应用的学习页用）：环境变量 `ZJU_PROGRESS=1` 时每 200 毫秒往 stderr 写一行 `[zju:progress] {"bytes":已收到的字节数,"total":总字节数}`（`core/output.ts` 的 `progress`），不设时一行也不写，助手直接跑命令时不受影响。总量：一个文件就是它的大小；一批差不多大的文件事先用 `plan(个数)` 报一声（`hls.ts` 报分片数，`acquire.ts` 报课件和课堂截图的个数），没开始的按已经开始的那些的平均大小估，所以分片的回放总量是估的、会小幅变。续传时已有的块算作已经收到；一段没下成要重试时，算进去的字节会退回去。只用本机的测试服务核对过，没有对着真实的大文件和 HLS 回放看过。
 - `downloadFile` 提供 Range 分块、失败重试、断点续传、独占锁、完整文件原子发布，不覆盖成品。锁文件（`<目标>.lock`）里记着持有它的进程号：下载被杀掉后留下的锁，下一次运行发现持有者已不在就接管，不需要人工删除；没有进程号的旧锁仍按占用处理。超星、学在模块的下载也用它。续传默认按地址认同一个文件；地址里的签名会变时用 `source` 给一个稳定的标识（学在）。
 - `hls.ts` 并发下载完整 HLS 回放的分片、初始化段和 AES-128 密钥；FFmpeg 只读本地清单。
-- `media.ts` 使用本模块 ffmpeg.ts；课件提取的 Python 脚本在 scripts/zhiyun。安装统一通过 zhiyun setup，普通视频和课件下载不依赖 FFmpeg。
+- `media.ts` 使用本模块 ffmpeg.ts。安装统一通过 zhiyun setup，普通视频和课件下载不依赖 FFmpeg。
 
 清晰度策略由 quality.ts 统一处理：下载视频优先 1080p，音频转写优先独立音轨或 360p 视频；无独立音轨的混合下载复用 1080p。播放器 playurl 由 playbackAssets 补充，实际选择在下载预览中可见，不能把数字档位等同于分辨率。
 

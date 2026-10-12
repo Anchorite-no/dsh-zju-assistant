@@ -36,6 +36,8 @@ test('识别模型用密钥文件里对话的 Key；开关关着或没有 Key �
 
 test('壳把技能的浏览器开在管道上：命令连过来就能用，后台的命令不开窗口，插件关着时一律拒绝', async (t) => {
   const { profileDir, keysFile, dataDir } = fixture(t)
+  // 插件默认关着，先当用户打开过。
+  fs.writeFileSync(path.join(profileDir, 'plugins.json'), JSON.stringify({ disabled: [], enabled: ['campus.wechat'] }))
   const handlers = new Map()
   let partition = ''
   const bridge = await createWereadBridge({
@@ -63,9 +65,12 @@ test('壳把技能的浏览器开在管道上：命令连过来就能用，后�
   assert.equal((await ask('login', undefined, { interactive: false })).error.code, 'login_required')
   assert.equal((await ask('quit')).error.code, 'invalid_action')
 
-  fs.writeFileSync(path.join(profileDir, 'plugins.json'), JSON.stringify({ disabled: ['campus.wechat'] }))
+  // 插件默认关着：enabled 里没有它，或者这个文件还没有，都是关。
+  fs.writeFileSync(path.join(profileDir, 'plugins.json'), JSON.stringify({ disabled: [], enabled: [] }))
   assert.equal((await ask('cookie', 'wr_vid')).error.code, 'plugin_disabled')
-  fs.writeFileSync(path.join(profileDir, 'plugins.json'), JSON.stringify({ disabled: [] }))
+  fs.rmSync(path.join(profileDir, 'plugins.json'))
+  assert.equal((await ask('cookie', 'wr_vid')).error.code, 'plugin_disabled')
+  fs.writeFileSync(path.join(profileDir, 'plugins.json'), JSON.stringify({ disabled: [], enabled: ['campus.wechat'] }))
   assert.equal((await ask('cookie', 'wr_vid')).result, 'vid', '开关改了马上生效')
 
   const closed = new Promise((resolve) => { socket.once('close', resolve) })

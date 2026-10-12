@@ -4,7 +4,7 @@
 
 Node.js 24+。首次在 Skill 目录执行 `npm install`，安装固定版本的 Electron 44.0.0；Skill 用自己的浏览器，不依赖系统浏览器或其他应用。被应用托管时浏览器由应用提供（`WEREAD_BROWSER_ENDPOINT`），可以用 `npm install --omit=optional` 不装 Electron。
 
-本地来源只支持 Windows：用系统自带的 PowerShell 5.1 和 Python 3.14+（需要 sqlite3 与 compression.zstd）读取运行中的电脑版微信，已验证微信 4.1.15.13。Web 来源不需要微信和 Python。
+本地来源只支持 Windows：用系统自带的 PowerShell 5.1 读取运行中的电脑版微信，解析消息用的是跑这个技能的 Node 自己（内置的 sqlite 和 zstd，Node 24 起有），不用另外装东西。已验证微信 4.1.15.13。Web 来源不需要微信。
 
 ## 配置
 
@@ -14,7 +14,6 @@ Node.js 24+。首次在 Skill 目录执行 `npm install`，安装固定版本的
 |---|---|
 | `WEREAD_SOURCE` | 固定默认查找来源为 local 或 web；命令行 `--source` 优先，两者都不设时先 local 后 web |
 | `WEREAD_ENV_FILE` | 指定环境配置文件；不设时读取 Skill 根目录的 `.env` |
-| `WEREAD_PYTHON` | Python 可执行文件路径；不设时找 `C:/Program Files/Python314/python.exe`，再找 PATH 里的 python |
 | `WEREAD_DATA_DIR` | 数据目录，默认 `%APPDATA%/weread-skill` |
 | `WEREAD_BROWSER_ENDPOINT` | 宿主应用提供的浏览器管道。设了就连它，不启动自带的 Electron；登录状态、窗口和识别模型都由宿主管 |
 | `WEREAD_DISABLED` | 设为 1 时一条命令都不执行，返回 `plugin_disabled`。给宿主应用关掉这项功能用 |

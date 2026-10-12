@@ -777,7 +777,7 @@ export function checkImages(files: string[]): { path: string; bytes: number; ext
     const fd = fs.openSync(absolute, "r");
     try { fs.readSync(fd, head, 0, 12, 0); } finally { fs.closeSync(fd); }
     const kind = IMAGE_TYPES.find((t) => t.match(head));
-    if (!kind) throw new ConfigError(`不是可上传的图片（支持 JPG、PNG、GIF、WebP、BMP）：${absolute}`, "HEIC 等格式先转成 JPG；PDF 页面用 doc render 转成图片");
+    if (!kind) throw new ConfigError(`不是可上传的图片（支持 JPG、PNG、GIF、WebP、BMP）：${absolute}`, "HEIC 等格式先转成 JPG；PDF 的某一页先渲染成图片");
     return { path: absolute, bytes: stat.size, ext: kind.ext, type: kind.type };
   });
 }

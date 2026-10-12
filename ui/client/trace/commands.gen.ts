@@ -113,7 +113,6 @@ export const COMMANDS: Readonly<Record<string, { readonly label: string, readonl
   "zhiyun setup": { label: "准备智云本地依赖" },
   "zhiyun check": { label: "检查本地组件" },
   "zhiyun trans audio": { label: "本地音视频 → 带时间的 Markdown 粗稿、TXT 和原始 JSON" },
-  "zhiyun trans ppt": { label: "课件文字/原图提取与去重" },
   "zhiyun session login": { label: "建立或复用学校认证" },
   "zhiyun session status": { label: "查看本地会话" },
   "zhiyun session logout": { label: "清除本地智云会话" },
@@ -161,8 +160,4 @@ export const COMMANDS: Readonly<Record<string, { readonly label: string, readonl
   "doc pdf": { label: "把图片、Word、PDF 按顺序合成一个 PDF" },
   "doc pages": { label: "从 PDF 取出指定页另存为新 PDF" },
   "doc find": { label: "找关键词在 PDF 的哪几页" },
-  "doc images": { label: "取出 PDF 里嵌入的原始图片" },
-  "doc render": { label: "把 PDF 指定页渲染成 PNG" },
-  "doc check": { label: "检查文档处理依赖" },
-  "doc setup": { label: "把文档处理的 Python 依赖装到 data/tools/doc" },
 }

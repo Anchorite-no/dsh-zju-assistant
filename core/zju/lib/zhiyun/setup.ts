@@ -6,33 +6,21 @@ import { paths } from "../core/paths.ts";
 import { ConfigError, ZjuError } from "../core/errors.ts";
 import { env } from "../core/env.ts";
 import { prepareAsr } from "./asr.ts";
-import { checkCourseware, pythonPath } from "./courseware.ts";
 import { checkFfmpeg } from "./ffmpeg.ts";
 
-export type SetupComponent = "all" | "media" | "asr" | "ppt";
+export type SetupComponent = "all" | "media" | "asr";
 export interface SetupOptions { component?: SetupComponent }
 
 async function run(executable: string, args: string[]): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(executable, args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
     child.stdout.pipe(process.stderr); child.stderr.pipe(process.stderr);
-    child.once("error", (error: NodeJS.ErrnoException) => reject(error.code === "ENOENT" ? new ConfigError(`缺少命令 ${executable}`, "课件提取的 Python 环境需要 uv") : error));
+    child.once("error", (error: NodeJS.ErrnoException) => reject(error.code === "ENOENT" ? new ConfigError(`缺少命令 ${executable}`) : error));
     child.once("close", code => code === 0 ? resolve() : reject(new ConfigError(`${executable} 退出 ${code}`)));
   });
 }
 function missing(error: unknown): boolean {
   return error instanceof ZjuError && error.code === "DEPENDENCY_MISSING";
-}
-async function ensurePython(): Promise<string> {
-  const python = pythonPath();
-  const managed = path.join(paths.data(), "tools", "zhiyun-ppt", ".venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
-  if (path.resolve(python) !== path.resolve(managed)) throw new ConfigError("setup 不修改自备 Python 环境", "修复自备环境，或取消 ZJU_PPT_PYTHON 覆盖后再运行 setup");
-  try { await fs.access(python); }
-  catch { await run("uv", ["venv", "--python", "3.12", path.dirname(path.dirname(python))]); }
-  return python;
-}
-async function installPackages(python: string, packages: string[]): Promise<void> {
-  await run("uv", ["pip", "install", "--python", python, ...packages, "--link-mode", "copy"]);
 }
 async function setupMedia() {
   try { return { component: "media", reused: true, ...await checkFfmpeg() }; }
@@ -55,21 +43,11 @@ async function setupAsr() {
   const { downloaded, ...info } = await prepareAsr();
   return { component: "asr", reused: !downloaded.length, ...info, ...(downloaded.length ? { downloaded } : {}) };
 }
-async function setupPpt() {
-  try {
-    const info = await checkCourseware() as { pdfTextAvailable?: boolean; visualDedupAvailable?: boolean };
-    if (info.pdfTextAvailable && info.visualDedupAvailable) return { component: "ppt", reused: true, ...info };
-  } catch (error) { if (!missing(error)) throw error; }
-  const python = await ensurePython();
-  await installPackages(python, ["pypdf>=5,<7", "pillow>=11,<13"]);
-  return { component: "ppt", reused: false, ...await checkCourseware() as Record<string, unknown> };
-}
 export async function setupLocal(opts: SetupOptions = {}) {
   const component = opts.component ?? "all";
-  if (!["all", "media", "asr", "ppt"].includes(component)) throw new ConfigError("component 必须为 all/media/asr/ppt");
+  if (!["all", "media", "asr"].includes(component)) throw new ConfigError("component 必须为 all/media/asr");
   const results: Record<string, unknown>[] = [];
   if (component === "all" || component === "media") results.push(await setupMedia());
   if (component === "all" || component === "asr") results.push(await setupAsr());
-  if (component === "all" || component === "ppt") results.push(await setupPpt());
   return { component, results };
 }

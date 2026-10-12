@@ -51,7 +51,6 @@ const LOCAL_PROBLEMS: Record<string, string> = {
   multiple_wechat_processes: '同时开着好几个微信，只留一个才能读',
   multiple_wechat_profiles: '这台电脑上登录过好几个微信号，暂时读不了',
   wechat_key_unavailable: '没读成：先确认微信已经登录；这个版本的微信也可能还不支持',
-  runtime_missing: '要先装好 Python 3.14 才能读',
   unsupported_platform: '只支持 Windows 版微信',
 }
 const limited = (status: string | undefined) => status?.endsWith('rate_limited') === true

@@ -1,6 +1,6 @@
 # 智云课堂
 
-查询用 `zhiyun search`，下载用 `zhiyun download`，音频转写和课件提取用 `zhiyun trans audio/ppt`。业务命令自动处理认证，`zhiyun session` 仅用于会话排障。完整参数见各命令的 `--help` 或 [命令总表](commands.md#zhiyun)。
+查询用 `zhiyun search`，下载用 `zhiyun download`，本地录音转写用 `zhiyun trans audio`。业务命令自动处理认证，`zhiyun session` 仅用于会话排障。完整参数见各命令的 `--help` 或 [命令总表](commands.md#zhiyun)。
 
 ## 查询与下载
 
@@ -9,7 +9,7 @@ zhiyun
 ├─ search    courses · lessons · resources · subtitles   找课、看课次与资源、搜字幕
 ├─ download                                              下载回放、音频、课件、截图、字幕
 ├─ live      start · status · stop · text                上课时的实时字幕
-├─ trans     audio · ppt                                 本地录音转写、课件提取
+├─ trans     audio                                       本地录音转写
 ├─ setup · check                                         本地依赖
 └─ session                                               排障用
 ```
@@ -34,28 +34,25 @@ zhiyun
 
 这些命令与其他智云命令一样统一远程执行。文字内嵌在结果中，file/directory 是执行机上的持续采集文件，status/text 不把整个增长目录复制回调用端。
 
-## 转写与课件提取
+## 转写
 
 ```powershell
 node scripts/zju.ts zhiyun trans audio --file 录音.m4a
-node scripts/zju.ts zhiyun trans ppt --file 课件.pptx
 ```
 
 **音频**：接受 FFmpeg 可读取的本地音视频（下载的回放也行），转成 16 kHz 单声道后转写。模型是 SenseVoice，在本机 CPU 上跑，不需要 Python 和显卡；模型约 240 MB，第一次转写时自动下载，与应用的「语音输入」共用同一份。一节 90 分钟的课转写要几分钟。返回的 `markdown` 指向带时间的 `transcript.md`（约 15 秒一段），`text/segments/raw/metadata` 保留文字与原始结果。同一个文件再转一次直接复用；人工改过的 Markdown 不覆盖。
 
 结果默认放进用户的「文档」：课次文件夹里的文件（如 `…\第3次 2026-10-08\video.mp4`）转出来放在那次课的 `转写\文件名\` 下，别处的文件放在 `文档\CampusAgent\转写\文件名\`；指定位置加 `--out-dir`。有官方字幕的课次直接 `download --kind subtitles`，不用转写；转写留给没有字幕的课次和自己录的音。专业词三种来源都会错（「摊还」常写成「瘫痪」），对照课件校正。
 
-**课件**：接受 PPTX、PDF、DOCX、UTF-8 文本和常见图片，提取已有文字与原图，返回 `markdown/json/status/pageCount/imageCount`。`no_text` 表示需要看图或原件；`unsupported` 表示格式或依赖限制。当前没有 OCR。PPTX 按实际页序导出内嵌位图，位图可能只是页面局部，不能当作完整幻灯片渲染。
+课件不用另外提取：下载下来的课件要文字用 `doc text --file 文件`，要看版面、公式和图就把页面渲染成图自己看（见技能说明里读文档的那几行）。
 
-完全重复图片只存一份，保留每页引用；近似图以 `similarTo` 标记并保留双方原图，不自动合并页面。`imageCount` 是图片引用数，`uniqueImageCount` 是实际文件数。缺少 Pillow 时仅按字节去重，`visualDedup=false`；扫描 PDF 保留原件链接。源文件、提取脚本和输出均未变时复用缓存，人工修改的 Markdown 不覆盖。
-
-整理课堂笔记时，读取转写、课件和原图，按 [笔记模板](zhiyun-notes-template.md) 直接成稿。核对作业、日期、公式和老师更正，保留原始粗稿；用户已有改稿时另存版本。已有转写和提取结果直接读取，无需重复处理。
+整理课堂笔记时，读取转写和课件，按 [笔记模板](zhiyun-notes-template.md) 直接成稿。核对作业、日期、公式和老师更正，保留原始粗稿；用户已有改稿时另存版本。已有转写结果直接读取，无需重复处理。
 
 ## 依赖检查
 
 转写没有可选的引擎、设备或批量参数，也不用先安装：`trans audio` 自己检查模型，缺了就下载。只有音频要先转格式，所以需要 FFmpeg。
 
-缺少组件或排障时使用 `zhiyun check --component asr|media|ppt`，按结果调用 `zhiyun setup --component 同名组件`。asr 是转写模型（`setup` 只下载模型，下载源先回应的优先，校验通过才启用）；media 是 FFmpeg；ppt 是课件提取用的 Python 环境（需要 uv）。检查、转写和课件提取不需要校园登录。
+缺少组件或排障时使用 `zhiyun check --component asr|media`，按结果调用 `zhiyun setup --component 同名组件`。asr 是转写模型（`setup` 只下载模型，下载源先回应的优先，校验通过才启用）；media 是 FFmpeg（应用自带）。检查、转写和课件提取不需要校园登录。
 
 ## 可选远程执行
 

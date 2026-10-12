@@ -17,6 +17,8 @@
   "dependencies": {
     "decimal.js": "10.6.0",
     "parse5": "8.0.1",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.4.299",
     "pngjs": "7.0.0"
   },
   "devDependencies": {

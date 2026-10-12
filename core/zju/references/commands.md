@@ -1,6 +1,6 @@
 # 当前命令总表
 
-生成日期：2026-10-11。共 165 条公开命令路径、17 个模块。
+生成日期：2026-10-12。共 160 条公开命令路径、17 个模块。
 
 入口为 `node scripts/zju.ts <module> <command> [参数]`。默认帮助逐级展示；`--help --all` 展开当前范围全部公开命令。参数类型与帮助来自实际注册定义，本生成器不执行登录或业务。
 
@@ -20,11 +20,11 @@
 | [tyys](#tyys) | 11 | 体育课考勤记录与体育场馆预约 |
 | [pta](#pta) | 14 | PTA 独立登录、作业进度、小题保存与提交 |
 | [chaoxing](#chaoxing) | 9 | 超星学习通的课程、课件与视频下载 |
-| [zhiyun](#zhiyun) | 16 | 课堂资源查询、下载、实时字幕与本地转写 |
+| [zhiyun](#zhiyun) | 15 | 课堂资源查询、下载、实时字幕与本地转写 |
 | [cc98](#cc98) | 32 | 论坛查询、个人中心与互动发布 |
 | [chalaoshi](#chalaoshi) | 3 | 教师评价与课程绩点 |
 | [cnki](#cnki) | 5 | 中国知网文献检索、筛选与全文 PDF 下载 |
-| [doc](#doc) | 8 | PDF、Word、PPT、Excel 等文件或链接转文字；图片与 Word 转 PDF、合并、取页、找页、取图、渲染 |
+| [doc](#doc) | 4 | PDF、Word、PPT、Excel 等文件或链接转文字；图片与 Word 转 PDF、合并、取页、找页、取图、渲染 |
 
 ## profile
 
@@ -961,31 +961,23 @@ zju zhiyun live text [--course VALUE] [--at VALUE] [--before N] [--after N] 返�
 ### zhiyun setup
 
 ```text
-zju zhiyun setup [--component all|media|asr|ppt] 准备智云本地依赖；已有的复用，缺的才装。转写只需下载模型，不装 Python
+zju zhiyun setup [--component all|media|asr] 准备智云本地依赖；已有的复用，缺的才装。转写只需下载模型，不装 Python
 ```
 
-`--component`：all / media / asr / ppt，默认 all。
+`--component`：all / media / asr，默认 all。
 
 ### zhiyun check
 
 ```text
-zju zhiyun check [--component asr|media|ppt] 检查本地组件
+zju zhiyun check [--component asr|media] 检查本地组件
 ```
 
-`--component`：asr / media / ppt，默认 asr。
+`--component`：asr / media，默认 asr。
 
 ### zhiyun trans audio
 
 ```text
 zju zhiyun trans audio --file VALUE [--out-dir VALUE] 本地音视频 → 带时间的 Markdown 粗稿、TXT 和原始 JSON；第一次用会自动下载转写模型
-```
-
-`--file`：文本/路径，必填；`--out-dir`：文本/路径。
-
-### zhiyun trans ppt
-
-```text
-zju zhiyun trans ppt --file VALUE [--out-dir VALUE] 课件文字/原图提取与去重，近似图标记供 AI 核对；不做 OCR
 ```
 
 `--file`：文本/路径，必填；`--out-dir`：文本/路径。
@@ -1353,7 +1345,7 @@ PDF、Word、PPT、Excel 等文件或链接转文字；图片与 Word 转 PDF、
 ### doc text
 
 ```text
-zju doc text [--file VALUE] [--url VALUE] PDF、Word、PPT、Excel（含 doc/ppt/xls 老格式）、HTML、文本转文字；给本地文件或链接，校内与 CC98 链接自动经 WebVPN，教务网附件自动登录。全文另存 Markdown
+zju doc text [--file VALUE] [--url VALUE] PDF、Word、PPT、Excel（含 doc/ppt/xls 老格式）、HTML、文本转文字；给本地文件或链接，校内与 CC98 链接自动经 WebVPN，教务网附件自动登录。全文另存 Markdown；扫描件和图片没有文字，要把页面渲染成图来看
 ```
 
 `--file`：文本/路径；`--url`：文本/路径。
@@ -1382,38 +1374,6 @@ zju doc find --file VALUE --keyword VALUE 找关键词在 PDF 的哪几页，返
 
 `--file`：文本/路径，必填；`--keyword`：文本/路径，必填。
 
-### doc images
-
-```text
-zju doc images --file VALUE [--pages VALUE] 取出 PDF 里嵌入的原始图片（字帖、照片、扫描页），不经渲染、分辨率最高，按像素从大到小；一页常有底纹、水印等多张，发之前看一眼确认
-```
-
-`--file`：文本/路径，必填；`--pages`：文本/路径。
-
-### doc render
-
-```text
-zju doc render --file VALUE --pages VALUE [--dpi N] 把 PDF 指定页渲染成 PNG（含文字和排版），用于看这页长什么样或发整页图；一次最多 30 页
-```
-
-`--file`：文本/路径，必填；`--pages`：文本/路径，必填；`--dpi`：整数，默认 150，最小 50，最大 300。
-
-### doc check
-
-```text
-zju doc check  检查文档处理依赖（Python 包与 LibreOffice）
-```
-
-无参数。
-
-### doc setup
-
-```text
-zju doc setup  把文档处理的 Python 依赖装到 data/tools/doc；LibreOffice 需按提示用系统包管理器安装
-```
-
-无参数。
-
 ## 边界与数据衔接
 
 - 业务自动认证；session 仅作维护。网络和 URL 工具均在 webvpn。
@@ -1422,13 +1382,13 @@ zju doc setup  把文档处理的 Python 依赖装到 data/tools/doc；LibreOffi
 - 学在和体艺的 rollcall 只读：学在 status 看当前点名、history 看历史记录，体艺只有 history；不提交签到。
 - 学在的课程、作业、文件都按名称定位；下载结果总在 files 列表里。
 - zhiyun 支持课程名称；--lesson/--lesson-id/--date/--week-of/--all 互斥。kind 支持 video,audio,ppt,slides,subtitles。视频优先 1080p；仅取音频优先独立音轨或 360p；无独立音轨的混合下载复用视频。
-- zhiyun trans 只处理本地文件；音频用 SenseVoice 在本机 CPU 上转写，模型第一次用时自动下载；ppt 提取已有文字与原图，未启用 OCR。输出交给 AI 按模板直接成稿。
+- zhiyun trans 只处理本地文件；音频用 SenseVoice 在本机 CPU 上转写，模型第一次用时自动下载。输出交给 AI 按模板直接成稿。
 - zhiyun download 和 trans 的结果默认放进用户「文档」里的 CampusAgent（课程\课程名\第N次 日期、转写\文件名），不在 data/output。
 
 ## 智云本地依赖
 
 ```text
-zju zhiyun setup [--component all|media|asr|ppt]
+zju zhiyun setup [--component all|media|asr]
 ```
 
-安装、检查和转写均属于 zhiyun。setup 只在缺依赖时使用并复用现有环境：asr 只下载转写模型，media 是 FFmpeg，ppt 是课件提取的 Python 环境。
+安装、检查和转写均属于 zhiyun。setup 只在缺依赖时使用并复用现有环境：asr 只下载转写模型，media 是 FFmpeg。

@@ -22,6 +22,7 @@ import { ChatGpt } from './chatgpt.mjs'
 import { installAgent } from './agent.mjs'
 import { LearnKit } from './learn.mjs'
 import { installPermissions } from './permissions.mjs'
+import { officeText } from './office.mjs'
 
 /** wechatRun 只在测试里给：换掉跑 weread 技能命令的那一步。 */
 export function installProfile(ctx, { wechatRun } = {}) {
@@ -212,6 +213,8 @@ export function installProfile(ctx, { wechatRun } = {}) {
       return switches ? `${profile}\n${switches}` : profile
     } catch { return '个人档案暂时读取失败，请通过 campus_profile_read 检查，不要猜测个人信息。' }
   } })
+  // 看文件长什么样：引擎自带的 Office 引擎怎么用（office.mjs）。要文字的那一半在 zju 技能的 doc text 里。
+  ctx.systemPrompt.context({ name: 'campus-files', order: 27, text: () => officeText() })
   ctx.systemPrompt.context({ name: 'campus-learning', order: 26,
     // 「课程讲解」关着时不提讲解目录：没有 learn 技能，说了反而会让它自己去拼一个讲解出来。
     text: () => !learnKit.enabled() ? '' : filmRoot ? `讲解目录（learn 技能里写的 <讲解目录>，讲解的工作目录和成品都放在这里）：${filmRoot}` : '讲解目录的位置还没有读到；做讲解前先问用户放在哪。' })

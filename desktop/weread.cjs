@@ -46,9 +46,10 @@ async function createWereadBridge({ BrowserWindow, ipcMain, session, parent, cor
     session: session.fromPartition('persist:campus-weread'),
     // 用应用自己的模型配置，不管命令那边带了什么：Key 不用进命令的环境。
     vision: () => visionConfig({ profileDir, keysFile }),
-    // 插件在「插件」页关着时什么都不做。开关每次现读，改了马上生效。
+    // 插件在「插件」页关着时什么都不做。它默认关着：plugins.json 的 enabled 里有它才算开（ui/profile/plugins.mjs）。
+    // 开关每次现读，改了马上生效。
     guard: () => {
-      if (readJson(path.join(profileDir, 'plugins.json'))?.disabled?.includes(PLUGIN)) throw Object.assign(new Error('微信公众号插件已关闭，请先在「插件」页打开。'), { code: 'plugin_disabled' })
+      if (!readJson(path.join(profileDir, 'plugins.json'))?.enabled?.includes(PLUGIN)) throw Object.assign(new Error('微信公众号插件已关闭，请先在「插件」页打开。'), { code: 'plugin_disabled' })
     },
   })
   const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\campus-weread-${randomUUID()}` : path.join(os.tmpdir(), `campus-weread-${randomUUID()}.sock`)

@@ -26,21 +26,22 @@ import { officeText } from './office.mjs'
 import { startModelBridge } from './vision.mjs'
 import { FlowNotes, isFlowGroup } from './flow-notes.mjs'
 import { Review } from './review.mjs'
+import { Alerts, articlesAlert } from './alerts.mjs'
 
-/** wechatRun 只在测试里给：换掉跑 weread 技能命令的那一步。 */
-export function installProfile(ctx, { wechatRun } = {}) {
+/** wechatRun、alertSend 只在测试里给：换掉跑 weread 技能命令的那一步，和把提醒交给壳的那一步。 */
+export function installProfile(ctx, { wechatRun, alertSend } = {}) {
   // 这个进程启动时引擎侧代码的指纹；页面拿它和自己构建时记的那份比，对不上就提示重新打开应用。
   const stamp = engineStamp()
   // 助手的底层说明（core/AGENT.md），顶掉引擎给编程助手写的那几段。记忆、备忘录、技能各在什么时候写也在那一篇里。
   installAgent(ctx)
   const store = new ProfileStore()
-  // 助手学到的技能存在档案目录里，和应用自带的技能一起交给引擎。
-  const learned = new LearnedSkills(store.root, coreSkillNames())
+  // 应用自带的工作流（core/zju/flows/，每个也是一个自带的技能），和它们的补充：照工作流办事时学到、正文里没有的那一条，存在档案目录，接在正文后面。
+  const flowNotes = new FlowNotes({ file: store.file('flow-notes.json'), flowsDir: path.join(CORE_ROOT, 'zju', 'flows') })
+  // 助手学到的技能存在档案目录里，和应用自带的技能一起交给引擎；不能和自带的重名。
+  const learned = new LearnedSkills(store.root, [...coreSkillNames(), ...flowNotes.flows().map(flow => flow.name)])
   const account = new AccountSettings(store)
   const plugins = new PluginSwitches(store)
   // 「课程讲解」「微信公众号」关着时它们的技能不交给引擎；开关一变就让引擎重读技能目录。
-  // 工作流的补充：照 zju 的工作流办事时学到、正文里没有的那一条，存在档案目录，拼在 zju 技能正文的末尾。
-  const flowNotes = new FlowNotes({ file: store.file('flow-notes.json'), flowsDir: path.join(CORE_ROOT, 'zju', 'flows') })
   const reloadSkills = installCoreSkills(ctx, learned, plugins, flowNotes)
   // 对话后复盘：聊完过一阵回看一遍，把该留的整理进记忆和工作流的补充（review.mjs）。对话里的助手不再顺手记记忆。
   const review = new Review({
@@ -53,7 +54,12 @@ export function installProfile(ctx, { wechatRun } = {}) {
   // 「课程讲解」的可选依赖（排公式的 TeX、检查版面的浏览器），装在应用的数据目录里。
   const learnKit = new LearnKit({ dataDir: path.dirname(store.root), plugins })
   // 「微信公众号」：跟踪的号和它们最近的文章（wechat.mjs），背后是 weread 技能。它的两个选择存在档案目录，壳也要读；文章缓存放在档案目录旁边。
-  const wechat = new Wechat({ plugins, settingsFile: store.file('wechat.json'), cacheFile: path.join(path.dirname(store.root), 'cache', 'wechat.json'), ...(wechatRun ? { run: wechatRun } : {}) })
+  // 给壳的提醒（alerts.mjs）：托盘图标闪起来，鼠标放上去看得到是什么。现在有两个来处：公众号有新文章，和助手用 campus_notify 提醒的事。
+  const alerts = new Alerts(alertSend ? { send: alertSend } : {})
+  const wechat = new Wechat({
+    plugins, settingsFile: store.file('wechat.json'), cacheFile: path.join(path.dirname(store.root), 'cache', 'wechat.json'), ...(wechatRun ? { run: wechatRun } : {}),
+    onNew: (articles) => { const alert = articlesAlert(articles); if (alert) alerts.push(alert) },
+  })
   ctx.effect(() => wechat.start(), 'campus: public-account checking lifecycle')
   // 校园命令要模型看图时（场馆预约认验证码）从这条管道来问，用的是用户现在选的那个模型（vision.mjs）。
   ctx.effect(() => startModelBridge(ctx), 'campus: model bridge for campus commands')
@@ -137,7 +143,7 @@ export function installProfile(ctx, { wechatRun } = {}) {
           : action === 'xuezai-download' ? await xuezai.download(input)
           : action === 'xuezai-downloading' ? xuezai.downloading(input)
           : action === 'xuezai-reveal' ? await xuezai.reveal(input)
-          // 插件页「技能」一组：助手存下的技能，和有补充的工作流（各算一项）。
+          // 插件页「技能」一组：应用自带的工作流（各算一项，带着使用中补进来的几条），和助手存下的技能。
           : action === 'skills-list' ? [...flowNotes.groups().map(({ body: _body, ...group }) => group), ...learned.list().map(({ body: _body, path: _path, ...skill }) => skill)]
           : action === 'skill-read' ? (isFlowGroup(input?.name) ? flowNotes.group(input) : learned.read(input))
           : action === 'skill-delete' ? (isFlowGroup(input?.name) ? flowNotes.removeGroup(input) : learned.remove(input))
@@ -225,6 +231,17 @@ export function installProfile(ctx, { wechatRun } = {}) {
     },
     output, execute: async args => { const { body: _body, path: _path, ...saved } = learned.save(args); return saved },
     presentCall: () => ({ card: 'generic', title: '保存技能', kind: 'other' }),
+  }))
+  ctx.tools.register(defineTool({
+    name: 'campus_notify',
+    description: '在系统托盘上提醒用户一句话：图标会闪，鼠标放上去看得到这句话，点了回到这个对话。只在用户多半没在看这个对话时用：定时任务到点查到了要告诉他的东西（新的私信、有了余量、成绩出了）、到点的提醒、等了很久的事做完了。没查到新东西不提醒；用户正在和你一来一回地对话时也不用，直接回答。提醒只是叫他来看，完整的内容照常写在回答里。',
+    parameters: {
+      title: { type: 'string', required: true, description: '谁的消息，几个字，如 CC98 新消息、成绩出了、该出门了' },
+      text: { type: 'string', description: '一句话说清是什么，如「老王回复了你：周六打球吗」；八十个字以内，不放密码、成绩单全文这类不该露在屏幕角上的内容' },
+    },
+    // 点了回到叫它的那个对话。
+    output, execute: async (args, exec) => alerts.push({ title: args.title, text: args.text, sessionId: exec?.agent?.session?.id }),
+    presentCall: () => ({ card: 'generic', title: '提醒用户', kind: 'other' }),
   }))
   ctx.systemPrompt.context({ name: 'campus-profile', order: 25, text: () => {
     try {

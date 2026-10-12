@@ -54,6 +54,9 @@ ipcRenderer.on('campus:back', () => { window.dispatchEvent(new Event('campus:bac
 // 检查更新的状态变了（开始下载、下到百分之几、下好了）：壳喊一声，页面听到后自己来读（ui/client/UpdateRow.tsx）。
 ipcRenderer.on('campus:update', () => { window.dispatchEvent(new Event('campus:update')) })
 
+// 托盘上点了一条消息：壳喊一声，页面听到后来取要打开哪里（ui/client/alerts.ts）。
+ipcRenderer.on('campus:open', () => { window.dispatchEvent(new Event('campus:open')) })
+
 // 存在壳这边的两样设置，页面经这些函数读和改：
 // 「关闭窗口时隐藏到系统托盘」的开关（tray.cjs，ui/client/TrayRow.tsx），和检查更新（update.cjs，ui/client/UpdateRow.tsx）。
 contextBridge.exposeInMainWorld('campusShell', {
@@ -65,6 +68,8 @@ contextBridge.exposeInMainWorld('campusShell', {
   saveUpdateToken: token => ipcRenderer.invoke('campus:update:token', String(token ?? '')),
   // 右边栏向右打开（pane.cjs，ui/client/rightpane.ts）：报右边栏要的宽度，拿回窗口实际加宽了多少。
   setSidePane: (width, instant) => ipcRenderer.invoke('campus:side-pane', Number(width) || 0, instant === true),
+  // 托盘上点的那条消息要打开哪里（tray.cjs）：一个对话或侧栏上的一页，取一次就没了。
+  takeOpen: () => ipcRenderer.invoke('campus:open:take'),
 })
 
 if (process.platform === 'win32') {

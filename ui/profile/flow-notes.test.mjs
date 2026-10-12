@@ -11,7 +11,9 @@ function fixture(t) {
   const flowsDir = path.join(root, 'flows')
   fs.mkdirSync(flowsDir)
   fs.writeFileSync(path.join(flowsDir, 'README.md'), '# 工作流\n')
-  fs.writeFileSync(path.join(flowsDir, 'course-selection.md'), '# 本科选课工作流\n\n## 1. 开始前\n\n先读当期选课通知，确认轮次和时间窗。\n')
+  fs.writeFileSync(path.join(flowsDir, 'course-selection.md'), '---\ntitle: 本科选课\ndescription: 一个学期的选课怎么走。用户说选课、退课时用。\n---\n# 本科选课工作流\n\n## 1. 开始前\n\n先读当期[选课通知](../references/notice.md#list)，确认轮次和时间窗。\n')
+  // 没写「什么时候用」的：只是 zju 里的一篇文档，不单独当技能列出来。
+  fs.writeFileSync(path.join(flowsDir, 'plain.md'), '# 没有属性区的工作流\n\n照着做。\n')
   let changed = 0
   const notes = new FlowNotes({ file: path.join(root, 'profile', 'flow-notes.json'), flowsDir })
   notes.onChange = () => { changed++ }
@@ -20,8 +22,20 @@ function fixture(t) {
 
 test('工作流的补充：存在档案目录，拼成给 zju 技能用的一段，能删', t => {
   const { notes, changed } = fixture(t)
-  assert.deepEqual(notes.flows().map(flow => [flow.name, flow.title]), [['course-selection', '本科选课工作流']])
+  // 属性区里是给人看的名字和什么时候用；正文和它的指纹都不含属性区，光改属性区不会让已有的补充变成待核对。
+  assert.deepEqual(notes.flows().map(flow => [flow.name, flow.title, flow.label, flow.description]), [
+    ['course-selection', '本科选课工作流', '本科选课', '一个学期的选课怎么走。用户说选课、退课时用。'],
+    ['plain', '没有属性区的工作流', '没有属性区的工作流', ''],
+  ])
+  assert.ok(notes.flows()[0].text.startsWith('# 本科选课工作流\n'))
   assert.equal(notes.section(), '')
+  // 还没有补充时：插件页「技能」一组里，写了什么时候用的工作流各算一项自带的技能，正文是工作流的全文（大标题页面上另有）。
+  assert.deepEqual(notes.groups().map(({ updatedAt: _at, ...group }) => group), [{
+    name: 'flow:course-selection', title: '本科选课', description: '一个学期的选课怎么走。用户说选课、退课时用。', builtin: true, notes: 0,
+    body: '## 1. 开始前\n\n先读当期选课通知，确认轮次和时间窗。\n',
+  }])
+  assert.equal(notes.notesSection('course-selection'), '')
+  assert.throws(() => notes.removeGroup({ name: 'flow:course-selection' }), /应用自带的技能，没有可以删的补充/)
   const note = notes.add({ flow: 'course-selection', text: '实验课的教学班在单独的页面里选，\n自主选课里搜不到。', source: '用户说', session: 's1' })
   assert.equal(note.text, '实验课的教学班在单独的页面里选， 自主选课里搜不到。')
   notes.add({ flow: 'course-selection', text: '跨校区的课要留出四十分钟的路程。', source: 'https://example.edu/notice/1' })
@@ -29,10 +43,16 @@ test('工作流的补充：存在档案目录，拼成给 zju 技能用的一段
   assert.deepEqual(notes.list().map(item => [item.flowTitle, item.stale]), [['本科选课工作流', false], ['本科选课工作流', false]])
   const section = notes.section()
   assert.match(section, /## 工作流的补充[\s\S]*### 本科选课工作流（flows\/course-selection\.md）\n- 实验课的教学班在单独的页面里选， 自主选课里搜不到。（用户说）\n- 跨校区的课要留出四十分钟的路程。（来源：https:\/\/example\.edu\/notice\/1）/)
-  // 插件页「技能」一组里，有补充的工作流算一项，正文是它的那几条。
-  assert.deepEqual(notes.groups().map(group => [group.name, group.title, group.body]), [['flow:course-selection', '本科选课工作流的补充', '- 实验课的教学班在单独的页面里选， 自主选课里搜不到。（用户说）\n- 跨校区的课要留出四十分钟的路程。（来源：https://example.edu/notice/1）\n']])
-  assert.match(notes.group({ name: 'flow:course-selection' }).description, /补进来的 2 条/)
+  // 有了补充：接在正文后面的一节里，早的在前；页面上和单独加载这个工作流时看到的是同一节。
+  const added = '\n\n## 使用中补充的\n\n下面几条是使用中补进来的，一并照做；正文已经写了的，以正文为准：\n\n- 实验课的教学班在单独的页面里选， 自主选课里搜不到。（用户说）\n- 跨校区的课要留出四十分钟的路程。（来源：https://example.edu/notice/1）\n'
+  assert.equal(notes.notesSection('course-selection'), added)
+  assert.deepEqual(notes.groups().map(group => [group.name, group.title, group.notes, group.body]), [['flow:course-selection', '本科选课', 2, `## 1. 开始前\n\n先读当期选课通知，确认轮次和时间窗。${added}`]])
   assert.throws(() => notes.group({ name: 'flow:nope' }), /没有这个技能/)
+  // 没写什么时候用的工作流，有了补充才列出来，好让人看得到、删得掉。
+  const plain = notes.add({ flow: 'plain', text: '这一条补在没有属性区的工作流上。' })
+  assert.deepEqual(notes.groups().map(group => [group.name, group.description]).at(-1), ['flow:plain', '照这个工作流办事时补进来的 1 条。'])
+  notes.remove({ id: plain.id })
+  assert.equal(notes.groups().length, 1)
   assert.deepEqual(notes.remove({ id: note.id }), { id: note.id })
   assert.equal(notes.list().length, 1)
   assert.throws(() => notes.remove({ id: note.id }), /没有这条补充/)

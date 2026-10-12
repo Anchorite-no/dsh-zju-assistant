@@ -27,9 +27,13 @@ test('model tools, UI route and context share one profile; skills come from the 
     skills: { registerProvider: create => { provider = create({ invalidate() { reloads++ }, signal: new AbortController().signal }) } },
     systemPrompt: { context: value => contexts.push(value), section: value => policies.push(value) },
   }
+  // 应用自带的工作流（core/zju/flows/）：每个也是一个技能，名字是文件名。
+  const FLOWS = ['course-selection', 'course-teachers', 'daily-brief', 'exam-prep', 'homework-submit', 'lesson-summary']
+  // 交给壳的提醒记在这里（真的是经进程之间的通道发给壳，托盘图标闪）。
+  const alerts = []
   // 假的 weread 技能：跟踪着一个号，本机微信里有它的一篇文章，微信读书没登录。
   const tracked = { biz: 'MzA3MDk5NDA0NA==', name: '浙大体育与艺术' }
-  installProfile(ctx, { wechatRun: async args => args[0] === 'track' ? { ok: true, tracked: [tracked] }
+  installProfile(ctx, { alertSend: (message) => { alerts.push(message); return true }, wechatRun: async args => args[0] === 'track' ? { ok: true, tracked: [tracked] }
     : args[0] === 'login' ? { ok: true, loggedIn: false }
     : { ok: true, sources: { local: { ok: true } }, accounts: [{ ...tracked, source: 'local', articles: [{ id: 'a1', title: '测试推文', url: 'https://mp.weixin.qq.com/s/x', publishedAt: '2026-10-09T09:00:00+08:00' }] }] } })
   // 三样有始有终的：公众号的定时检查、对话后的复盘、校园命令问模型用的管道。
@@ -42,7 +46,7 @@ test('model tools, UI route and context share one profile; skills come from the 
   assert.equal((await call('stamp')).value, engineStamp())
   assert.match(engineStamp(), /^[0-9a-f]{12}$/)
   // 公众号默认关着：技能不交给引擎，页面的操作被拒绝；打开以后才有。
-  assert.deepEqual((await provider.list()).map(skill => skill.name), ['zju'])
+  assert.deepEqual((await provider.list()).map(skill => skill.name), ['zju', ...FLOWS])
   assert.equal((await call('wechat-find', { source: 'local' })).status, 400)
   await call('plugins-set', { id: 'campus.wechat', enabled: true })
   // 页面点一次检查（在后台做，页面靠 busy 知道做完没有），跟踪的号和它的文章进了缓存。
@@ -55,7 +59,7 @@ test('model tools, UI route and context share one profile; skills come from the 
   await call('plugins-set', { id: 'campus.wechat', enabled: false })
   assert.equal((await call('wechat-find', { source: 'local' })).status, 400)
   assert.equal(process.env.WEREAD_DISABLED, '1')
-  assert.deepEqual((await provider.list()).map(skill => skill.name), ['zju'])
+  assert.deepEqual((await provider.list()).map(skill => skill.name), ['zju', ...FLOWS])
   assert.match(contexts[0].text(), /微信公众号（weread 技能，读公众号文章）/)
   await call('plugins-set', { id: 'campus.wechat', enabled: true })
   assert.equal(process.env.WEREAD_DISABLED, undefined)
@@ -77,10 +81,24 @@ test('model tools, UI route and context share one profile; skills come from the 
   assert.ok(!(await call('snapshot')).value.memory.some(item => item.title === memo.title))
   assert.doesNotMatch(contexts[0].text(), /辅导员/)
 
+  // 助手提醒用户：交给壳一条消息（托盘图标闪），带着叫它的那个对话，点托盘时回到那里。没有标题的不发。
+  const notified = await tools.get('campus_notify').execute({ title: 'CC98 新消息', text: '老王回复了你' }, { agent: { session: { id: 'ses_42' } } })
+  assert.deepEqual(notified, { title: 'CC98 新消息', text: '老王回复了你', sessionId: 'ses_42', sent: true })
+  assert.deepEqual(alerts.at(-1), { type: 'alert', alert: { title: 'CC98 新消息', text: '老王回复了你', sessionId: 'ses_42' } })
+  await assert.rejects(() => tools.get('campus_notify').execute({ title: '  ', text: '标题是空的' }, {}), /提醒要有标题/)
+  assert.match(tools.get('campus_notify').description, /没查到新东西不提醒/)
+
   // 助手存下的技能在插件页列得出来，引擎的技能目录里也有；只有页面能删。
   const saved = await tools.get('campus_skill_save').execute({ name: 'course-withdrawal', title: '退课怎么办', description: '问退课时用', body: '先查通知。' }, {})
   assert.equal('body' in saved, false)
-  assert.deepEqual((await call('skills-list')).value.map(item => [item.name, item.title]), [['course-withdrawal', '退课怎么办']])
+  // 插件页「技能」一组：自带的工作流在前（带 builtin），学到的在后。
+  const listed = (await call('skills-list')).value
+  assert.deepEqual(listed.filter(item => item.builtin).map(item => item.name), FLOWS.map(name => `flow:${name}`))
+  assert.ok(listed.filter(item => item.builtin).every(item => item.title && item.description && item.notes === 0 && !('body' in item)))
+  assert.deepEqual(listed.filter(item => !item.builtin).map(item => [item.name, item.title]), [['course-withdrawal', '退课怎么办']])
+  // 自带的不能删，学到的技能也不能起和它们一样的名字。
+  assert.equal((await call('skill-delete', { name: 'flow:course-selection' })).status, 400)
+  await assert.rejects(() => tools.get('campus_skill_save').execute({ name: 'exam-prep', title: '考前', description: '考前用', body: '看书。' }, {}), /应用自带的技能/)
   assert.equal((await call('skill-read', { name: 'course-withdrawal' })).value.body, '先查通知。\n')
   assert.ok((await provider.list()).some(skill => skill.name === 'course-withdrawal'))
   assert.deepEqual((await call('skill-delete', { name: 'course-withdrawal' })).value, { name: 'course-withdrawal' })
@@ -92,9 +110,16 @@ test('model tools, UI route and context share one profile; skills come from the 
   fs.writeFileSync(path.join(root, 'profile', 'flow-notes.json'), JSON.stringify({ notes: [{ id: 'n1', flow: 'course-selection', text: '实验课的教学班在单独的页面里选。', source: '用户说', addedAt: '2026-10-12T00:00:00Z', flowHash: 'old' }] }))
   assert.match(await zju(), /## 工作流的补充[\s\S]*### 本科选课工作流（flows\/course-selection\.md）：工作流在这些补充之后更新过，先对照正文\n- 实验课的教学班在单独的页面里选。（用户说）\n$/)
   assert.deepEqual((await call('flow-notes-list')).value.map(note => [note.id, note.flowTitle, note.stale]), [['n1', '本科选课工作流', true]])
-  // 插件页「技能」一组里它算一项，点开是那几条。
-  assert.deepEqual((await call('skills-list')).value.map(item => [item.name, item.title]), [['flow:course-selection', '本科选课工作流的补充']])
-  assert.equal((await call('skill-read', { name: 'flow:course-selection' })).value.body, '- 实验课的教学班在单独的页面里选。（用户说）\n')
+  // 插件页「技能」一组里，这个工作流那一项记着有一条补充；点开是工作流的全文，补充接在后面。单独加载这个工作流时也带着。
+  assert.deepEqual((await call('skills-list')).value.filter(item => item.notes).map(item => [item.name, item.title, item.notes]), [['flow:course-selection', '本科选课', 1]])
+  const tail = /## 1\. 开始前[\s\S]*## 使用中补充的\n\n下面几条是使用中补进来的，工作流在这之后更新过，先对照正文：\n\n- 实验课的教学班在单独的页面里选。（用户说）\n$/
+  assert.match((await call('skill-read', { name: 'flow:course-selection' })).value.body, tail)
+  const flow = (await provider.list()).find(skill => skill.name === 'course-selection')
+  assert.match(flow.description, /^本科选课：/)
+  assert.match(flow.content, /^这是 zju 技能里的一个工作流/)
+  assert.match(flow.content, tail)
+  // 每个自带的工作流都写了什么时候用，正文里的命令是 core 里真有的（见 catalog.test.mjs 对命令的核对）。
+  for (const name of FLOWS) assert.ok((await provider.list()).find(skill => skill.name === name).description.length > 20, name)
   const reloaded = reloads
   assert.deepEqual((await call('flow-note-delete', { id: 'n1' })).value, { id: 'n1' })
   assert.equal(reloads, reloaded + 1)
@@ -146,7 +171,7 @@ test('model tools, UI route and context share one profile; skills come from the 
 
   // 「课程讲解」默认关着：learn 技能不交给引擎，上下文里不提讲解目录，但说明它关着，依赖也装不了。
   const learning = contexts.find(context => context.name === 'campus-learning')
-  assert.deepEqual((await provider.list()).map(skill => skill.name).sort(), ['weread', 'zju'])
+  assert.deepEqual((await provider.list()).map(skill => skill.name).sort(), [...FLOWS, 'weread', 'zju'].sort())
   assert.equal(learning.text(), '')
   assert.match(contexts[0].text(), /课程讲解（learn 技能，做讲解）/)
   assert.equal((await call('learn-read')).value.enabled, false)
@@ -159,7 +184,7 @@ test('model tools, UI route and context share one profile; skills come from the 
   assert.doesNotMatch(contexts[0].text(), /课程讲解/)
   assert.deepEqual((await call('learn-read')).value.parts.map(part => part.id), ['tex', 'browser'])
   const skills = await provider.list()
-  assert.deepEqual(skills.map(skill => skill.name).sort(), ['learn', 'weread', 'zju'])
+  assert.deepEqual(skills.map(skill => skill.name).sort(), [...FLOWS, 'learn', 'weread', 'zju'].sort())
   for (const skill of skills) assert.ok(path.resolve(skill.path).startsWith(path.resolve(CORE_ROOT)))
   assert.match((await provider.get(skills.find(skill => skill.name === 'learn'))).content, /campus_profile_read/)
   assert.match((await provider.get(skills.find(skill => skill.name === 'zju'))).content, /campus_profile_write/)
@@ -168,5 +193,5 @@ test('model tools, UI route and context share one profile; skills come from the 
 
   // 再关上：learn 又没有了。
   await call('plugins-set', { id: 'campus.learn', enabled: false })
-  assert.deepEqual((await provider.list()).map(skill => skill.name).sort(), ['weread', 'zju'])
+  assert.deepEqual((await provider.list()).map(skill => skill.name).sort(), [...FLOWS, 'weread', 'zju'].sort())
 })

@@ -31,10 +31,10 @@ export function handToAssistant(text: string, { send = false }: { send?: boolean
  * 列表里每一行右边的「交给助手」：只画一个图标，鼠标放上去或键盘聚焦时显示这四个字。
  * 行里地方窄，带字的按钮会把卡片撑高；详情页右上角的那个仍然带字。
  */
-export function HandIconButton({ onClick }: { onClick: () => void }) {
+export function HandIconButton({ onClick, disabled = false }: { onClick: () => void, disabled?: boolean }) {
   return (
     <Tooltip label="交给助手" side="top" portal>
-      <Button className="campus-hand" size="sm" variant="outline" aria-label="交给助手" icon={<IconNewChatOutlineRegular size={14} />} onClick={onClick} />
+      <Button className="campus-hand" size="sm" variant="outline" aria-label="交给助手" disabled={disabled} icon={<IconNewChatOutlineRegular size={14} />} onClick={onClick} />
     </Tooltip>
   )
 }

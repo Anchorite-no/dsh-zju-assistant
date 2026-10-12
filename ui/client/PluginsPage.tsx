@@ -1,7 +1,7 @@
 /**
  * 插件页。结构照引擎自带的插件页：列表里一行一个插件（图标、名字、一句话、右边的开关），
  * 点进去是详情页。校园功能的开关存在档案服务里，通用工具的开关还是引擎的。
- * 第三组「技能」是助手学到的做法，没有开关，点进去看全文、可以删（Skills.tsx）。
+ * 第三组「技能」是应用自带的工作流和助手学到的做法，没有开关，点进去看全文；学到的可以删（Skills.tsx）。
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
@@ -19,7 +19,9 @@ import { errorText, profileApi, type AccountSnapshot } from './api.ts'
 import { BundleArtwork, CampusArtwork, SearchArtwork } from './artwork.tsx'
 import { Alert, Crumb } from './controls.tsx'
 import { APP_PLUGINS, GENERAL_PLUGINS, type AppPlugin, type GeneralPlugin } from './pluginCatalog.ts'
-import { SkillArtwork, SkillDetail, skillId, skillName, useSkills } from './Skills.tsx'
+import { BuiltinTag, SkillArtwork, SkillDetail, skillId, skillName, useSkills } from './Skills.tsx'
+import { AUTOMATION_EXAMPLES } from './automations.ts'
+import { HandIconButton, handToAssistant } from './handoff.tsx'
 
 type Slots = 'plugins.item' | 'plugins.bundle.config' | 'plugins.bundle.activation' | 'plugins.row.config' | 'plugins.detail.actions' | 'plugins.detail.badge' | 'plugins.detail.section'
 
@@ -232,6 +234,23 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
               </section>
             )}
             {general?.id === 'automation' && <LinkRow title="任务列表" action="打开任务页" disabled={!on} onClick={() => { props.openPanel('schedules') }} />}
+            {/* 几个现成的例子：点右边的图标开一个新对话，话先放进输入框，改好再发，任务由助手在那个对话里建。 */}
+            {general?.id === 'automation' && (
+              <section className="campus-section" aria-label="示例">
+                <h2 className="campus-section-title">示例</h2>
+                <dl className="campus-systems campus-parts">
+                  {AUTOMATION_EXAMPLES.map(example => (
+                    <div key={example.title} data-automation-example={example.title}>
+                      <dt>{example.title}</dt>
+                      <dd>{example.when}，{example.does}</dd>
+                      <span className="campus-parts-end">
+                        <HandIconButton disabled={!on} onClick={() => { handToAssistant(example.ask).catch((err: unknown) => { setError(errorText(err)) }) }} />
+                      </span>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
             {general?.id === 'auto-review' && <p className="campus-text">打开后，在对话的权限选项里选「自动审查」。</p>}
             {general?.id === 'voice' && on && (
               <section className="campus-section" data-plugin-config>
@@ -280,7 +299,7 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
               <ul className="campus-plugin-list" data-columns={columns}>
                 {skills.map(item => (
                   <PluginRow key={item.name} id={skillId(item.name)} icon={<SkillArtwork />} title={item.title} description={item.description}
-                    off={false} end={arrow} onOpen={() => { open(skillId(item.name)) }} />
+                    off={false} tags={item.builtin ? <BuiltinTag /> : null} end={arrow} onOpen={() => { open(skillId(item.name)) }} />
                 ))}
               </ul>
             )}

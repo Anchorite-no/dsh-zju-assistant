@@ -17,10 +17,13 @@ export function coreSkillNames() {
 /** 每份 core 归哪个可以关掉的插件；不在这里的始终交给引擎（zju 的各个模块由它自己按开关拒绝）。 */
 const CORE_PLUGIN = { learn: 'campus.learn', weread: 'campus.wechat' }
 
+/** 工作流单独当技能加载时，正文前面的一句：它的命令是 zju 的，没加载 zju 就不知道怎么执行。 */
+const FLOW_LEAD = '这是 zju 技能里的一个工作流，写的是几步连起来怎么走。里面的命令（`zdbk …`、`xuezai …`、`cc98 …` 这样的）都由 zju 技能执行：还没加载 zju 的先加载它，照它开头写的办法运行命令，再按下面的顺序走。'
+
 /**
- * 注册校园、学习和公众号技能，以及助手学到的技能（learned，见 learned.mjs）。
+ * 注册校园、学习和公众号技能，应用自带的工作流（core/zju/flows/，每个也是一个技能），以及助手学到的技能（learned，见 learned.mjs）。
  * plugins 是插件开关：关掉的插件对应的那份 core 不交给引擎，助手的技能目录和输入框的 / 菜单里就没有它。
- * flowNotes 是工作流的补充（flow-notes.mjs）：拼在 zju 正文的末尾，助手加载 zju 时一起看到。
+ * flowNotes 管工作流和它们的补充（flow-notes.mjs）：补充拼在 zju 正文的末尾，也接在各个工作流自己的正文后面，从哪边加载都看得到。
  * 返回一个函数，开关变了以后叫它，引擎会重新读目录。
  */
 export function installCoreSkills(ctx, learned, plugins, flowNotes) {
@@ -31,7 +34,14 @@ export function installCoreSkills(ctx, learned, plugins, flowNotes) {
     reload = () => { control.invalidate() }
     if (learned) learned.onChange = reload
     if (flowNotes) flowNotes.onChange = reload
-    const learnedEntries = () => (learned?.list() ?? []).map(skill => ({
+    // 工作流：名字是文件名，说明是「给人看的名字：什么时候用」。它里面的链接是相对它自己那个文件夹写的。没写什么时候用的不单独列。
+    const flowEntries = () => (flowNotes?.flows() ?? []).filter(flow => flow.description).map(flow => ({
+      name: flow.name, description: `${flow.label}：${flow.description}`, path: flow.file, source: 'custom', provider,
+      resourceBase: { kind: 'directory', path: path.dirname(flow.file) }, rank: 145, locator: flow.file,
+      invocation: { modelInvocable: true, userInvocable: true }, content: `${`${FLOW_LEAD}\n\n${flow.text}${flowNotes.notesSection(flow.name)}`.trimEnd()}\n`,
+    }))
+    // 和工作流重名的不交给引擎（存的时候就不让重名，这里挡的是早先存下的）。
+    const learnedEntries = () => (learned?.list() ?? []).filter(skill => !flowEntries().some(flow => flow.name === skill.name)).map(skill => ({
       name: skill.name, description: `${skill.title}：${skill.description}`, path: skill.path, source: 'custom', provider,
       resourceBase: { kind: 'directory', path: learned.dir }, rank: 140, locator: skill.path,
       invocation: { modelInvocable: true, userInvocable: true }, content: skill.body,
@@ -48,7 +58,7 @@ export function installCoreSkills(ctx, learned, plugins, flowNotes) {
         resourceBase: { kind: 'directory', path: directory }, rank: 150, locator: file,
         invocation: { modelInvocable: true, userInvocable: true }, content: raw.slice(match[0].length) + (name === 'zju' ? flowNotes?.section() ?? '' : '') }]
     })
-    const entries = () => [...coreEntries(), ...learnedEntries()]
+    const entries = () => [...coreEntries(), ...flowEntries(), ...learnedEntries()]
     return {
       name: provider,
       list: async () => entries(),

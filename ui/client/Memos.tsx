@@ -21,8 +21,11 @@ export interface NoticeMemos { titleOf: (url: string) => string, add: (id: strin
 /** 上一次读到的。再打开这一页时先照它画，不会先空着再跳出来。 */
 let last: Listed | null = null
 
-/** 加进来的通知在正文里带着原文链接，写法和引擎侧 notice-memo.mjs 的 linkOf 一样：括号换掉了。 */
-const linkMark = (url: string) => `](${url.replace(/\(/g, '%28').replace(/\)/g, '%29')})`
+/**
+ * 加进来的通知在正文里带着原文链接，写法和引擎侧 notice-memo.mjs 的 memoMark 一样：括号换掉了。
+ * 没有网页链接的（聊天、邮件、CC98）带的是一行看不见的编号。
+ */
+const linkMark = (url: string) => /^https?:\/\//i.test(url) ? `](${url.replace(/\(/g, '%28').replace(/\)/g, '%29')})` : `<!-- notice:${url} -->`
 
 /**
  * 校园事务页用的几样：list 是左栏里的那一块；opened 是点开一条或在编辑时的整页内容（还在列表上时是 null）；

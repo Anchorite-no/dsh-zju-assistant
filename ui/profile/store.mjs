@@ -6,6 +6,7 @@ import { load, dump, JSON_SCHEMA } from 'js-yaml'
 import { IDENTITY_FIELDS } from './catalog.mjs'
 
 const IDENTITY_KEYS = IDENTITY_FIELDS.map(field => field.key)
+export const IDENTITY_DOCUMENT = '00-个人资料.md'
 /** 已归档的放在各自文件夹下面的这个子文件夹里。 */
 const ARCHIVE = '归档'
 /**
@@ -287,7 +288,7 @@ class Shelf {
 }
 
 /**
- * 档案目录的存储：基础信息一份 JSON，记忆和备忘各一个文件夹（见 Shelf）。
+ * 档案目录的存储：基础信息以 Markdown 为准，JSON 仅供现有校园命令读取；记忆和备忘各一个文件夹。
  * 页面、模型工具和命令行用的是同一份。
  */
 export class ProfileStore {
@@ -296,6 +297,13 @@ export class ProfileStore {
     fs.mkdirSync(this.root, { recursive: true })
     this.memory = new Shelf(this, SHELVES.memory)
     this.memos = new Shelf(this, SHELVES.memo)
+    this.locked(() => {
+      if (fs.existsSync(this.file(IDENTITY_DOCUMENT))) return
+      const previous = json(this.file('identity.json'), { values: {}, source: '本人填写' })
+      const meta = Object.fromEntries(IDENTITY_FIELDS.map(field => [field.label, previous.values?.[field.key] || '']))
+      meta.来源 = previous.source || '本人填写'
+      atomic(this.file(IDENTITY_DOCUMENT), compose(meta, '# 个人资料\n\n开头的属性可直接编辑，也可在应用的个人档案设置中修改。正文可以补充个人说明。\n\n- [课程档案](01-课程.md)\n- [平台入口](02-平台入口.md)\n- [事项档案](03-事项.md)\n\n## 个人说明\n'))
+    })
   }
   file(name) { return path.join(this.root, name) }
   locked(fn) {
@@ -325,9 +333,16 @@ export class ProfileStore {
   }
 
   identity() {
-    const local = json(this.file('identity.json'), { values: {}, updatedAt: '', source: '本人填写' })
-    const values = Object.fromEntries(IDENTITY_KEYS.map(key => [key, local.values?.[key] || '']))
-    return { values, source: local.source, updatedAt: local.updatedAt, revision: hash(JSON.stringify(values)) }
+    const file = this.file(IDENTITY_DOCUMENT), raw = read(file), parsed = parseNote(raw)
+    const values = Object.fromEntries(IDENTITY_FIELDS.map(field => [field.key, text(String(parsed.meta[field.label] ?? ''), 150).trim()]))
+    const source = typeof parsed.meta.来源 === 'string' ? parsed.meta.来源 : '本人填写'
+    const updatedAt = fs.statSync(file).mtime.toISOString()
+    // 旧命令只读这个投影；每次读取 Markdown 后按需重建，绝不反向覆盖 Markdown。
+    const projection = { values, updatedAt, source }
+    let previous
+    try { previous = json(this.file('identity.json'), null) } catch { previous = null }
+    if (JSON.stringify(previous) !== JSON.stringify(projection)) atomic(this.file('identity.json'), JSON.stringify(projection, null, 2))
+    return { ...projection, body: parsed.body, revision: hash(raw) }
   }
   /** source 记这次的内容从哪来：页面上手填的是「本人填写」，自动填的写具体来源。 */
   saveIdentity(input, actor = 'human', source = '本人填写') {
@@ -338,8 +353,9 @@ export class ProfileStore {
       if (!object(input.values) || Object.keys(input.values).some(key => !IDENTITY_KEYS.includes(key))) throw new Error('无效的基础信息字段')
       const values = { ...before.values }
       for (const [key, value] of Object.entries(input.values)) values[key] = text(value, 150).trim()
-      // ZJU core 从这份文件读学院、专业、年级和培养层次。
-      atomic(this.file('identity.json'), JSON.stringify({ values, updatedAt: now(), source }, null, 2))
+      const document = parseNote(read(this.file(IDENTITY_DOCUMENT))), meta = { ...document.meta, 来源: source }
+      for (const field of IDENTITY_FIELDS) meta[field.label] = values[field.key]
+      atomic(this.file(IDENTITY_DOCUMENT), compose(meta, document.body))
       return this.identity()
     })
   }

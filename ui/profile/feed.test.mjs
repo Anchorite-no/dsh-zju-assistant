@@ -212,3 +212,74 @@ test('格式不对的条目不要', () => {
   assert.deepEqual(fromActivity({ id: 1, name: ' 甲 ', signupCloses: '2026-10-20 00:00', url: 'https://x' }, 'now'),
     { id: 'sztz:1', kind: 'sztz', title: '甲', from: '素质拓展平台', dated: true, url: 'https://x', foundAt: 'now', opens: null, closes: '2026-10-19T16:00:00.000Z' })
 })
+
+test('指定聊天进入通知，原样模式不交给通知相关性模型，刷新同时检查聊天',async t=>{
+ const {feed}=fixture(t);let refreshed=0;const item={id:'chat:one',kind:'chat',title:'班级通知',from:'年级群',at:'2026-10-09T11:00:00+08:00',body:'原文',url:''};
+ feed.chatWatches=[{platform:'wechat',notices:()=>[item],enabled:()=>true,refresh:async()=>{refreshed++},snapshot:()=>({enabled:true,checkedAt:null,error:null,tracks:[]})}]
+ feed.filter={hidden:items=>{assert.ok(items.every(i=>i.kind!=='chat'));return new Map()},judge:async items=>{assert.ok(items.every(i=>i.kind!=='chat'))}}
+ const result=await feed.refresh({force:true});assert.equal(result.items[0].body,'原文');assert.equal(refreshed,1);assert.ok(result.sources.some(s=>s.id==='wechat-chat'&&s.kind==='chat'))
+})
+
+test('两个页签按来源和聊天类型分：群聊、学校通知、公众号、二课在校园通知；私聊、邮箱、CC98 在个人消息，个人消息不过「关系不大」的筛', async (t) => {
+  const asked = []
+  const { feed } = fixture(t, {
+    run: () => ({ notices: [notice('第三轮选课通知', '2026-10-08')] }),
+    filter: { hidden: (items) => { asked.push(...items.map(item => item.kind)); return new Map(items.map(item => [item.id, 'irrelevant'])) }, judge: async (items) => { asked.push(...items.map(item => item.kind)) } },
+  })
+  const chat = (id, chatKind) => ({ id: `chat:wechat:${id}`, kind: 'chat', platform: 'wechat', chatKind, title: id, from: id, at: '2026-10-09T10:00:00+08:00', url: '', body: id })
+  feed.chatWatches = [{ platform: 'wechat', notices: () => [chat('年级群', 'group'), chat('辅导员', 'personal'), chat('说不清', null)], enabled: () => true, refresh: async () => {}, snapshot: () => ({ enabled: true, checkedAt: null, error: null, tracks: [] }) }]
+  const personal = (id, kind) => ({ items: [{ id, kind, title: id, from: '老师', at: '2026-10-09T09:00:00+08:00', url: '' }], source: { id: kind, kind, name: kind, plugin: 'x', state: 'ready', fetchedAt: null, error: null } })
+  let mailRefreshed = 0, cc98Refreshed = 0
+  feed.mail = { snapshot: () => personal('mail:1', 'mail'), refresh: async () => { mailRefreshed++ } }
+  feed.cc98 = { snapshot: () => personal('cc98:alice:reply:1', 'cc98'), refresh: async () => { cc98Refreshed++ } }
+  const result = await feed.refresh()
+  const view = Object.fromEntries(result.items.map(item => [item.title, [item.view, item.hidden]]))
+  assert.deepEqual(view['年级群'], ['campus', null])
+  assert.deepEqual(view['说不清'], ['campus', null])
+  assert.deepEqual(view['辅导员'], ['personal', null])
+  assert.deepEqual(view['mail:1'], ['personal', null])
+  assert.deepEqual(view['cc98:alice:reply:1'], ['personal', null])
+  // 只有学校通知交给了筛；被判成关系不大的照样收起。
+  assert.deepEqual(view['第三轮选课通知'], ['campus', 'irrelevant'])
+  assert.ok(asked.every(kind => kind === 'school'))
+  assert.deepEqual([mailRefreshed, cc98Refreshed], [1, 1])
+  assert.deepEqual(result.sources.filter(source => source.views?.includes('personal')).map(source => source.id).sort(), ['cc98', 'mail', 'wechat-chat'])
+})
+
+test('一个来源出错不抹掉别的：CC98 读不了、邮箱抛错，学校通知照样读、照样给', async (t) => {
+  const { feed, state } = fixture(t, { run: () => ({ notices: [notice('四六级报名', '2026-10-09')] }) })
+  feed.mail = { snapshot: () => ({ items: [], source: { id: 'mail', kind: 'mail', name: '邮箱', plugin: 'campus.mail', state: 'ready', fetchedAt: null, error: '连接浙大邮箱超时' } }), refresh: async () => { throw new Error('boom') } }
+  feed.cc98 = { snapshot: () => ({ items: [], source: { id: 'cc98', kind: 'cc98', name: 'CC98', plugin: 'campus.community', state: 'ready', fetchedAt: null, error: null } }), refresh: async () => { throw new Error('boom') } }
+  const result = await feed.refresh()
+  assert.deepEqual(result.items.map(item => item.title), ['四六级报名'])
+  assert.equal(state.calls.length, 1)
+  assert.equal(result.sources.find(source => source.id === 'mail').error, '连接浙大邮箱超时')
+})
+
+test('后台每分钟看一眼邮箱和 CC98：CC98 排在页面那一趟 WebVPN 的后面，不和学校通知同时读；邮箱出错不耽误 CC98', async (t) => {
+  const order = []
+  let release
+  const gate = new Promise((resolve) => { release = resolve })
+  const { feed } = fixture(t, { run: async () => { order.push('notice new 开始'); await gate; order.push('notice new 结束'); return { notices: [] } } })
+  const source = (id, plugin) => ({ items: [], source: { id, kind: id, name: id, plugin, state: 'ready', fetchedAt: null, error: null } })
+  feed.mail = { snapshot: () => source('mail', 'campus.mail'), refresh: async () => {}, check: async () => { order.push('邮箱'); throw new Error('连接浙大邮箱超时') } }
+  feed.cc98 = { snapshot: () => source('cc98', 'campus.community'), refresh: async () => { order.push('CC98 页面那一趟') }, check: async () => { order.push('CC98 后台') } }
+  const page = feed.refresh()
+  await new Promise(resolve => setImmediate(resolve))
+  const background = feed.tick()
+  // 正在看的那一次没完，再叫一次不重复去读。
+  await feed.tick()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(order, ['notice new 开始', '邮箱'])
+  release()
+  await Promise.all([page, background])
+  assert.deepEqual(order, ['notice new 开始', '邮箱', 'notice new 结束', 'CC98 页面那一趟', 'CC98 后台'])
+  // start 定一个每分钟的钟，交回来的函数把它停掉。
+  const timers = []
+  feed.schedule = (fn, ms) => { timers.push(ms); return { ms, unref() {} } }
+  feed.cancel = timer => { timers.push(`停 ${timer.ms}`) }
+  const stop = feed.start()
+  await new Promise(resolve => setImmediate(resolve))
+  stop()
+  assert.deepEqual(timers, [60_000, '停 60000'])
+})

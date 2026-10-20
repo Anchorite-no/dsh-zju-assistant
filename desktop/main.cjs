@@ -2,9 +2,10 @@
  * 最小的自写壳：一个窗口 + 一个引擎子进程。
  * 壳只负责窗口、名字和进程生命周期；界面由引擎的 Web 应用提供，壳直接加载它的地址。
  */
-const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, nativeTheme, safeStorage, session, shell } = require('electron')
+const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, nativeTheme, safeStorage, screen, session, shell } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const { createTray } = require('./tray.cjs')
+const { windowSize } = require('./size.cjs')
 const { createUpdater, githubToken } = require('./update.cjs')
 const { createWereadBridge } = require('./weread.cjs')
 const { createReader } = require('./reader.cjs')
@@ -83,9 +84,11 @@ async function main() {
   const dark = nativeTheme.shouldUseDarkColors
   // 界面样式到位前先用引擎侧栏的默认底色，避免闪白。
   const fill = dark ? '#1b1b1c' : '#f9fafb'
+  // 一开始就开宽一点（size.cjs）：右边栏展开时是从对话区里让出一列，窗口不跟着变宽。按鼠标所在的那块屏幕算。
+  const { width, height } = windowSize(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea, { width: MIN_WIDTH, height: 600 })
   const window = new BrowserWindow({
-    width: 1280,
-    height: 820,
+    width,
+    height,
     minWidth: MIN_WIDTH,
     minHeight: 600,
     title: TITLE,

@@ -17,6 +17,11 @@ interface Window {
   campusShell?: {
     closeToTray: () => Promise<boolean>
     setCloseToTray: (on: boolean) => Promise<boolean>
+    /** 新消息时弹不弹 Windows 的系统通知。 */
+    notify: () => Promise<boolean>
+    setNotify: (on: boolean) => Promise<boolean>
+    /** Windows 的通知是不是被用户在系统设置里关掉了（关着时应用弹不出来）。 */
+    notifyBlocked: () => Promise<boolean>
     update: () => Promise<CampusUpdateState | undefined>
     checkUpdate: () => Promise<CampusUpdateState | undefined>
     installUpdate: () => Promise<void>

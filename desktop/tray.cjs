@@ -1,9 +1,13 @@
 /**
- * 点主窗口的关闭按钮时去哪：直接退出，还是隐藏到系统托盘。开关在 设置 → 通用设置 里，默认关（直接退出）。
+ * 点主窗口的关闭按钮时去哪：直接退出，还是隐藏到系统托盘。开关在 设置 → 通用设置 里，默认开（2026-10-21 起；原来默认关，
+ * 可聊天监控、邮箱和 CC98 的后台检查、定时任务都要应用开着才跑，一关窗口就全停了）。只有用户明确关过（文件里写着 false）才是关。
+ * 第一次关窗口藏进托盘时，弹一条系统通知说应用还在后台、怎么退出，只弹这一次。
  * 关窗口这件事发生在壳里，所以选择由壳自己存：应用数据目录下的 shell.json。
  * 托盘图标只在开关打开时才有；点它把主窗口叫回来，右键菜单里可以退出。
  *
- * 有新消息时图标会闪（做法照 QQ：图标和一张空白的图来回换）。消息从引擎那边来（公众号有新文章、
+ * 新消息另外弹一条 Windows 的系统通知（右下角那种），点了打开它说的地方；开关「新消息时弹出系统通知」也在通用设置里，默认开。
+ *
+ * 有新消息时图标会闪（做法照 QQ：图标和一张空白的图来回换）。消息从引擎那边来（公众号有新文章，监控的聊天、邮箱、CC98 有新消息，
  * 助手用 campus_notify 提醒的事），壳只管攒着、闪、给人看：鼠标放上去的提示里是最近几条，
  * 右键菜单最上面一条一行，点图标或点其中一条就打开它说的那个地方，同时不再闪。
  */
@@ -17,10 +21,17 @@ const KEEP = 20, TIP_LINES = 3, MENU_LINES = 5
 const TIP_MAX = 127
 const LIMIT = { title: 30, text: 80 }
 
-/** 存着的选择。文件不在、读不出来、写的不是 true，都按关算。 */
-function readCloseToTray(file) {
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')).closeToTray === true } catch { return false }
+/** 存着的几样选择。文件不在、读不出来时都按默认：藏进托盘、弹系统通知、还没提示过；只有明确写着 false 的才算关。 */
+function readShell(file) {
+  let value
+  try { value = JSON.parse(fs.readFileSync(file, 'utf8')) } catch {}
+  if (!value || typeof value !== 'object') value = {}
+  return { closeToTray: value.closeToTray !== false, notify: value.notify !== false, hinted: value.hinted === true }
 }
+const readCloseToTray = file => readShell(file).closeToTray
+
+/** 第一次藏进托盘时的那条说明。 */
+const HINT = { title: '还在后台运行', text: '新消息会在这里提醒你。要退出，右键托盘图标选「退出」；不想这样，可以在 设置 → 通用设置 里关掉。' }
 
 const clip = (value, limit) => {
   const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
@@ -48,11 +59,16 @@ const line = alert => alert.text ? `${alert.title}：${alert.text}` : alert.titl
 /**
  * file 是存选择的文件，icon 是托盘上的图标，blank 是闪的时候换上去的那张空白的图，
  * show 把主窗口叫回来，quit 真正退出应用，open(alert) 打开一条消息说的那个地方（主窗口由它自己叫回来）。
- * 返回 { enabled(), set(on), alert(input), clear(), pending(), dispose() }。
+ * Notification 是 Electron 的系统通知（测试里换成假的）；不给、或者系统不支持时不弹。
+ * 返回 { enabled(), set(on), notifying(), setNotify(on), hidden(), alert(input), clear(), pending(), dispose() }。
  */
-function createTray({ Tray, Menu, file, title, icon, blank, show, quit, open = show }) {
-  let on = readCloseToTray(file)
+function createTray({ Tray, Menu, Notification, file, title, icon, blank, show, quit, open = show }) {
+  let { closeToTray: on, notify, hinted } = readShell(file)
   let tray
+  /** 弹出去还没被点、也没关掉的系统通知：留着引用，不然被回收以后点了没反应。 */
+  const toasts = new Set()
+  /** 弹过一条，被 Windows 的通知设置拦下了。 */
+  let blocked = false
   /** 还没看的消息，新的在前。 */
   let alerts = []
   let timer, dark = false
@@ -90,6 +106,22 @@ function createTray({ Tray, Menu, file, title, icon, blank, show, quit, open = s
     paint()
     if (alert) open(alert); else show()
   }
+  function save() { fs.writeFileSync(file, JSON.stringify({ closeToTray: on, notify, hinted }) + '\n') }
+  /** 弹一条系统通知；给了 alert 的，点它就打开那个地方。 */
+  function toast(message, alert) {
+    if (!Notification || (typeof Notification.isSupported === 'function' && !Notification.isSupported())) return false
+    try {
+      const item = new Notification({ title: message.title, body: message.text || '', ...(icon ? { icon } : {}) })
+      toasts.add(item)
+      const done = () => { toasts.delete(item) }
+      item.on('click', () => { done(); if (alert) take(alert); else show() })
+      item.on('close', done)
+      // Windows 的通知被用户关掉时会走到这里（「Settings prevent the notification type from being delivered」）：记下来，设置页照实说。
+      item.on('failed', (_event, error) => { done(); if (/settings prevent|disabled/i.test(String(error))) blocked = true })
+      item.show()
+      return true
+    } catch { return false }
+  }
   function sync() {
     if (on && !tray) {
       tray = new Tray(icon)
@@ -106,17 +138,33 @@ function createTray({ Tray, Menu, file, title, icon, blank, show, quit, open = s
     enabled: () => on,
     set(value) {
       on = value === true
-      fs.writeFileSync(file, JSON.stringify({ closeToTray: on }) + '\n')
+      save()
       sync()
       return on
     },
-    /** 来了一条新消息。托盘开着就开始闪；返回收下的那一条，认不出来的返回 undefined。 */
+    notifying: () => notify,
+    /** 弹过的通知有没有被 Windows 的通知设置拦下。 */
+    blocked: () => blocked,
+    setNotify(value) {
+      notify = value === true
+      save()
+      return notify
+    },
+    /** 主窗口刚藏进托盘。第一次时弹一条说明：应用还在后台，怎么退出。 */
+    hidden() {
+      if (hinted) return
+      hinted = true
+      save()
+      toast(HINT)
+    },
+    /** 来了一条新消息。托盘开着就开始闪，系统通知开着就弹一条；返回收下的那一条，认不出来的返回 undefined。 */
     alert(input) {
       const alert = cleanAlert(input)
       if (!alert) return undefined
       // 同一个地方、同一个标题的只留最新一条：半小时查一次的任务不会把菜单占满。
       alerts = [alert, ...alerts.filter(old => !(old.title === alert.title && old.sessionId === alert.sessionId && old.panel === alert.panel))].slice(0, KEEP)
       paint()
+      if (notify) toast(alert, alert)
       return alert
     },
     /** 人回到主窗口了：消息算看过，不再闪。 */
@@ -126,8 +174,13 @@ function createTray({ Tray, Menu, file, title, icon, blank, show, quit, open = s
       paint()
     },
     pending: () => alerts.length,
-    dispose() { stop(); if (tray) { tray.destroy(); tray = undefined } },
+    dispose() {
+      stop()
+      for (const item of toasts) { try { item.close() } catch {} }
+      toasts.clear()
+      if (tray) { tray.destroy(); tray = undefined }
+    },
   }
 }
 
-module.exports = { createTray, readCloseToTray, cleanAlert, BLINK_MS }
+module.exports = { createTray, readShell, readCloseToTray, cleanAlert, BLINK_MS, HINT }

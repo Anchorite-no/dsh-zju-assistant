@@ -62,6 +62,10 @@ ipcRenderer.on('campus:open', () => { window.dispatchEvent(new Event('campus:ope
 contextBridge.exposeInMainWorld('campusShell', {
   closeToTray: () => ipcRenderer.invoke('campus:close-to-tray:get'),
   setCloseToTray: on => ipcRenderer.invoke('campus:close-to-tray:set', on === true),
+  // 「新消息时弹出系统通知」的开关（tray.cjs）。
+  notify: () => ipcRenderer.invoke('campus:notify:get'),
+  setNotify: on => ipcRenderer.invoke('campus:notify:set', on === true),
+  notifyBlocked: () => ipcRenderer.invoke('campus:notify:blocked'),
   update: () => ipcRenderer.invoke('campus:update:get'),
   checkUpdate: () => ipcRenderer.invoke('campus:update:check'),
   installUpdate: () => ipcRenderer.invoke('campus:update:install'),

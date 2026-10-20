@@ -2,13 +2,14 @@
  * 最小的自写壳：一个窗口 + 一个引擎子进程。
  * 壳只负责窗口、名字和进程生命周期；界面由引擎的 Web 应用提供，壳直接加载它的地址。
  */
-const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeImage, nativeTheme, safeStorage, screen, session, shell } = require('electron')
+const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, nativeTheme, safeStorage, screen, session, shell } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const { createTray } = require('./tray.cjs')
 const { createPane } = require('./pane.cjs')
 const { createUpdater, githubToken } = require('./update.cjs')
 const { createWereadBridge } = require('./weread.cjs')
 const { createReader } = require('./reader.cjs')
+const { handleMailSecret } = require('./mail-secrets.cjs')
 const { ffmpegEnv } = require('./ffmpeg.cjs')
 const { nodeEnv } = require('./node.cjs')
 const { createFilms, filmDirectory } = require('./film.cjs')
@@ -22,12 +23,20 @@ const TITLEBAR_HEIGHT = 40
 /** 窗口宽度的下限。 */
 const MIN_WIDTH = 520
 
+// Some launchers omit APPDATA. Use Windows' application-data folder for all child processes.
+// appData is the user's Roaming directory, distinct from this app's userData directory.
+if (process.platform === 'win32' && !process.env.APPDATA) process.env.APPDATA = app.getPath('appData')
+
 // A separate app data directory allows a full desktop check without touching the user's sessions.
 const customData = process.env.CAMPUS_AGENT_DATA_DIR || app.commandLine.getSwitchValue('campus-data-dir')
 if (customData) {
   if (!path.isAbsolute(customData)) throw new Error('CAMPUS_AGENT_DATA_DIR must be an absolute path')
   app.setPath('userData', customData)
 }
+
+// Windows 的系统通知认的是应用标识（AppUserModelID）。装好的应用用 build.appId：安装程序给开始菜单里的快捷方式写的就是它，
+// 通知上显示应用的名字和图标；没装（npm start）时没有那个快捷方式，用程序路径，Windows 才肯弹。
+if (process.platform === 'win32') app.setAppUserModelId(app.isPackaged ? require('../package.json').build.appId : process.execPath)
 
 // 同一份数据目录只开一个。窗口隐藏在托盘里时再打开一次应用，是把原来的窗口叫回来（见 main 里的 second-instance），不是再起一个引擎。
 const first = app.requestSingleInstanceLock()
@@ -56,6 +65,7 @@ function startHost() {
       stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
     })
     host.on('message', (message) => {
+      if (handleMailSecret(message, safeStorage, reply => { if (host.connected) host.send(reply) })) return
       if (message?.type === 'ready') resolve(message.url)
       else if (message?.type === 'fatal') reject(new Error(message.message))
       else if (message?.type === 'alert') onAlert(message.alert)
@@ -115,16 +125,30 @@ async function main() {
   })
   // 学习页上点播放的讲解另开一个窗口放（film.cjs），别的链接照旧进阅读窗口。appOrigin 是引擎起来以后应用自己的地址。
   let appOrigin = ''
-  const films = createFilms({ BrowserWindow, session, directory: () => filmDirectory(app.getPath('documents')) })
+  const narration = async (action, input = {}) => {
+    if (!appOrigin || window.isDestroyed()) return null
+    const response = await window.webContents.session.fetch(`${appOrigin}/api/campus/profile`, {
+      method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, input }),
+    })
+    const result = await response.json()
+    if (!response.ok || result.error) throw new Error(result.error || '配音服务没有响应。')
+    return result.value
+  }
+  const films = createFilms({ BrowserWindow, session, directory: () => filmDirectory(app.getPath('documents')),
+    voice: async name => (await narration('tts-open', { name }))?.url,
+    stopVoice: () => { void narration('tts-stop').catch(() => {}) },
+  })
   // ChatGPT 的登录页（设置 → 模型）交给系统浏览器：那里多半已经登着，密码管理器和第三方账号登录也只有它能用；登完它跳回本机，引擎自己接。
   const openAiLogin = (url) => { try { return new URL(url).origin === 'https://auth.openai.com' } catch { return false } }
+  // 邮箱的账号设置在用户常用浏览器里完成，复用登录状态；仅放行这两个固定的官方入口。
+  const mailSetupLinks = new Set(['https://mail.zju.edu.cn', 'https://mail.zju.edu.cn/', 'https://mail.zju.edu.cn/coremail/help/2fa_zh_CN.html'])
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (openAiLogin(url)) void shell.openExternal(url)
+    if (openAiLogin(url) || mailSetupLinks.has(url)) void shell.openExternal(url)
     else if (!films.open(url, appOrigin)) reader.open(url)
     return { action: 'deny' }
   })
   window.on('closed', () => { reader.close(); films.close() })
-  // 关闭按钮的去向（tray.cjs）：设置里的开关打开时只是把窗口藏起来，应用留在托盘里；默认关，照旧退出。
+  // 关闭按钮的去向（tray.cjs）：设置里的开关打开时只是把窗口藏起来，应用留在托盘里；默认开，用户关掉了才直接退出。
   const show = () => {
     if (window.isDestroyed()) return
     if (window.isMinimized()) window.restore()
@@ -137,7 +161,7 @@ async function main() {
   /** 托盘上点了一条消息以后，页面来取的「要打开哪里」（一个对话，或者侧栏上的一页）。 */
   let opening
   const tray = createTray({
-    Tray, Menu, file: path.join(app.getPath('userData'), 'shell.json'), title: TITLE,
+    Tray, Menu, Notification, file: path.join(app.getPath('userData'), 'shell.json'), title: TITLE,
     icon: trayIcon,
     blank: nativeImage.createFromBitmap(Buffer.alloc(iconWidth * iconHeight * 4), { width: iconWidth, height: iconHeight }),
     show, quit: () => { app.quit() },
@@ -160,6 +184,8 @@ async function main() {
     if (quitting || !tray.enabled()) return
     event.preventDefault()
     window.hide()
+    // 第一次藏进托盘时告诉用户应用还在后台、怎么退出。
+    tray.hidden()
   })
   // 关机、注销时系统要窗口真的关掉，不能再藏。
   window.on('session-end', () => { quitting = true })
@@ -169,6 +195,15 @@ async function main() {
   const fromPage = event => !window.isDestroyed() && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame
   ipcMain.handle('campus:close-to-tray:get', event => fromPage(event) && tray.enabled())
   ipcMain.handle('campus:close-to-tray:set', (event, on) => fromPage(event) ? tray.set(on === true) : false)
+  ipcMain.handle('campus:notify:get', event => fromPage(event) && tray.notifying())
+  // Windows 的通知是不是被用户整个关掉了：弹过的被拦下过，或者系统设置里「通知」那个总开关是关的。
+  ipcMain.handle('campus:notify:blocked', (event) => {
+    if (!fromPage(event)) return false
+    if (tray.blocked() || process.platform !== 'win32') return tray.blocked()
+    return new Promise(resolve => execFile('reg', ['query', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\PushNotifications', '/v', 'ToastEnabled'], { windowsHide: true, timeout: 5000 },
+      (error, stdout) => resolve(!error && /ToastEnabled\s+REG_DWORD\s+0x0\b/i.test(stdout))))
+  })
+  ipcMain.handle('campus:notify:set', (event, on) => fromPage(event) ? tray.setNotify(on === true) : false)
   // 托盘上点了一条消息：壳喊一声（campus:open），页面来取要打开哪里，取走就清掉（ui/client/alerts.ts）。
   ipcMain.handle('campus:open:take', (event) => {
     if (!fromPage(event)) return undefined

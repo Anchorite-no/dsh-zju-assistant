@@ -28,7 +28,7 @@ const text = value => typeof value === 'string' ? value.trim() : ''
 const facts = rows => rows.filter(row => row && text(String(row[1] ?? ''))).map(([label, value]) => ({ label, value: String(value) }))
 
 /**
- * `zju xuezai todos` 的结果：当前学期各课没交的作业和测验。
+ * `zju xuezai todos --done` 的结果：当前学期各课的作业和测验，交过的带 done（日程表把它标成已完成，校园事务页不列）。
  * requirement 是顺带读到的作业要求，只留在缓存里，点开这一条时先拿它顶着。
  */
 export function fromXuezai(data) {
@@ -36,6 +36,7 @@ export function fromXuezai(data) {
   return data.todos.map(todo => ({
     id: `xuezai:${text(todo.type)}|${text(todo.course)}|${text(todo.title)}`, source: 'xuezai',
     title: text(todo.title), course: text(todo.course), kind: text(todo.type) || '作业', deadline: deadlineOf(todo.deadline),
+    ...(todo.done === true ? { done: true } : {}),
     ...(text(todo.requirement) ? { requirement: text(todo.requirement) } : {}),
   }))
 }
@@ -57,25 +58,30 @@ export function xuezaiDetail(data) {
 }
 
 const PTA_UNFINISHED = new Set(['未开始', '未作答', '部分作答'])
+// PTA 的「未开始」指本人还没开启答题实例，与老师设定的开放时间无关。
+const ptaAnswerState = state => state === '未开始' ? '未作答' : state
 
 /**
- * `zju pta homework list` 的结果：还没截止的题目集。算作没做完的是还有题没答的，和已经判出有题没通过的；
- * 全部答完、结果还没公布的不算，自己交了卷的也不算。ref 是题目集的编号，读详情时用，只留在缓存里。
+ * `zju pta homework list` 的结果。算作没做完的是还没截止、还有题没答的，和已经判出有题没通过的；
+ * 全部答完（结果还没公布的也算）、自己交了卷的算做完了，带 done（日程表标成已完成，校园事务页不列）；
+ * 截止了还没做完的不要。ref 是题目集的编号，读详情时用，只留在缓存里。
  */
 export function fromPta(data) {
   if (!Array.isArray(data?.homeworks)) throw new Error('PTA 给的作业格式不对。')
-  return data.homeworks
-    .filter(set => !set.closed && !set.endedByUser && (PTA_UNFINISHED.has(set.state) || set.wrong > 0))
-    .map((set) => {
-      const ref = /\/problem-sets\/(\d+)\//.exec(text(set.url))?.[1]
-      return {
-        id: `pta:${text(set.url) || text(set.name)}`, source: 'pta', title: text(set.name), course: '', kind: '作业', deadline: deadlineOf(set.deadline),
-        note: typeof set.total !== 'number' ? '还没开始'
-          : set.answered < set.total ? `答了 ${set.answered}/${set.total} 题`
-          : `${set.wrong} 题没通过`,
-        ...(ref ? { ref } : {}),
-      }
-    })
+  return data.homeworks.flatMap((set) => {
+    const pending = !set.closed && !set.endedByUser && (PTA_UNFINISHED.has(set.state) || set.wrong > 0)
+    const done = set.endedByUser === true || (!PTA_UNFINISHED.has(set.state) && !(set.wrong > 0))
+    if (!pending && !done) return []
+    const ref = /\/problem-sets\/(\d+)\//.exec(text(set.url))?.[1]
+    return [{
+      id: `pta:${text(set.url) || text(set.name)}`, source: 'pta', title: text(set.name), course: '', kind: '作业', deadline: deadlineOf(set.deadline),
+      note: ptaAnswerState(set.state) === '未作答' ? '未作答'
+        : typeof set.total === 'number' && typeof set.answered === 'number' && set.answered < set.total ? `答了 ${set.answered}/${set.total} 题`
+        : set.wrong > 0 ? `${set.wrong} 题没通过` : '作答进度未知',
+      ...(pending ? {} : { done: true }),
+      ...(ref ? { ref } : {}),
+    }]
+  })
 }
 
 /** `zju pta homework view` 的结果：一份题目集的说明、进度和每道小题的情况。 */
@@ -84,7 +90,7 @@ export function ptaDetail(data) {
   return {
     body: text(data?.description), format: 'markdown',
     facts: facts([
-      ['状态', data?.state],
+      ['作答状态', ptaAnswerState(data?.state)],
       typeof data?.total === 'number' && ['进度', `答了 ${data.answered}/${data.total} 题，通过 ${data.accepted} 题`],
       data?.score !== undefined && data?.score !== null && ['得分', data.score],
     ]),
@@ -101,7 +107,7 @@ export function ptaDetail(data) {
  * download 给出把其中一个附件存到某个文件夹的命令，没有附件可下的系统不写。
  */
 const SOURCES = [
-  { id: 'xuezai', name: '学在浙大', plugin: 'campus.courses', account: 'zju', args: ['xuezai', 'todos'], read: fromXuezai,
+  { id: 'xuezai', name: '学在浙大', plugin: 'campus.courses', account: 'zju', args: ['xuezai', 'todos', '--done'], read: fromXuezai,
     detail: {
       args: item => item.kind === '作业' ? ['xuezai', 'homework', 'view', '--course', item.course, '--name', item.title] : null, read: xuezaiDetail,
       download: (item, name, folder) => ['xuezai', 'homework', 'attachments', '--course', item.course, '--name', item.title, '--file', name, '--out-dir', folder],
@@ -111,9 +117,9 @@ const SOURCES = [
 ]
 
 /** 账号在插件页的哪一项里填。 */
-const accountPlugin = id => CAMPUS_PLUGINS.find(plugin => plugin.accounts.includes(id))?.id ?? ''
+export const accountPlugin = id => CAMPUS_PLUGINS.find(plugin => plugin.accounts.includes(id))?.id ?? ''
 /** 缓存是哪个账号读到的；换了账号，旧的缓存就不能再给人看。只存指纹，不存账号本身。 */
-const fingerprint = value => createHash('sha256').update(String(value ?? '')).digest('hex').slice(0, 12)
+export const fingerprint = value => createHash('sha256').update(String(value ?? '')).digest('hex').slice(0, 12)
 const byDeadline = (a, b) => (a.deadline === null ? Infinity : Date.parse(a.deadline)) - (b.deadline === null ? Infinity : Date.parse(b.deadline)) || a.title.localeCompare(b.title, 'zh')
 /** 给页面的一条：缓存里自己用的两项不带出去。 */
 const shown = ({ requirement: _requirement, ref: _ref, ...item }) => item
@@ -156,6 +162,14 @@ export class Affairs {
     try { saved = JSON.parse(fs.readFileSync(this.file, 'utf8')) } catch { /* 没有缓存或读不了，都当作没有 */ }
     const part = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {}
     this.cache = { sources: part(saved?.sources), details: part(saved?.details) }
+    // 旧缓存也立刻改用明确的作答文案，不必等联网刷新成功。
+    const pta = this.cache.sources.pta
+    if (Array.isArray(pta?.items)) pta.items = pta.items.map(item => item.note === '还没开始' ? { ...item, note: '未作答' } : item)
+    for (const [id, entry] of Object.entries(this.cache.details)) {
+      if (id.startsWith('pta:') && Array.isArray(entry?.detail?.facts)) {
+        entry.detail.facts = entry.detail.facts.map(fact => fact.label === '状态' ? { label: '作答状态', value: ptaAnswerState(fact.value) } : fact)
+      }
+    }
     return this.cache
   }
 
@@ -204,10 +218,22 @@ export class Affairs {
     const items = [], sources = []
     for (const source of SOURCES) {
       const status = this.status(source, accounts), entry = this.kept(source, status)
-      if (entry) items.push(...entry.items.map(shown))
+      if (entry) items.push(...entry.items.filter(item => !item.done).map(shown))
       sources.push({ id: source.id, name: source.name, state: status.state, plugin: status.plugin, fetchedAt: entry?.fetchedAt ?? null, error: entry?.error ?? null })
     }
     return { items: items.sort(byDeadline), sources }
+  }
+
+  /** 日程表要的：各系统读到的全部作业，交过的也在（done 为真）。只看缓存，不联网。 */
+  tasks() {
+    const accounts = this.account.read().data
+    return SOURCES.flatMap(source => this.kept(source, this.status(source, accounts))?.items.map(shown) ?? [])
+  }
+
+  /** 每个系统都去读一次（刚读过的照常跳过），日程表打开时用。 */
+  async refreshAll({ force = false } = {}) {
+    await Promise.all(SOURCES.map(source => this.refresh({ source: source.id, force })))
+    return this.snapshot()
   }
 
   /**

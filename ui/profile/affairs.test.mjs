@@ -44,11 +44,17 @@ test('core results become page items: Beijing deadlines, PTA sets that still nee
   assert.deepEqual(fromXuezai(XUEZAI)[1], { id: 'xuezai:在线测验|大学物理|第二章测验', source: 'xuezai', title: '第二章测验', course: '大学物理', kind: '在线测验', deadline: '2026-10-09T15:59:00.000Z' })
   const sets = fromPta({ homeworks: [
     ...PTA.homeworks,
-    { name: '没开始的', state: '未开始', deadline: '2026-10-20 23:59' },
+    { name: '还没作答的', state: '未开始', deadline: '2026-10-20 23:59' },
+    { name: '开启后没作答的', state: '未作答', deadline: '2026-10-20 23:59', total: 10, answered: 0 },
+    { name: '进度没读全的', state: '部分作答', deadline: '2026-10-20 23:59' },
     { name: '答完但有错', state: '已全部作答', deadline: '2026-10-20 23:59', total: 4, answered: 4, accepted: 2, wrong: 2 },
     { name: '已交卷', state: '部分作答', deadline: '2026-10-20 23:59', total: 4, answered: 1, wrong: 0, endedByUser: true },
   ] })
-  assert.deepEqual(sets.map(set => [set.title, set.note]), [['HW3', '答了 3/10 题'], ['没开始的', '还没开始'], ['答完但有错', '2 题没通过']])
+  assert.deepEqual(sets.filter(set => !set.done).map(set => [set.title, set.note]), [['HW3', '答了 3/10 题'], ['还没作答的', '未作答'], ['开启后没作答的', '未作答'], ['进度没读全的', '作答进度未知'], ['答完但有错', '2 题没通过']])
+  // 全部答完、自己交了卷的算做完了，留着给日程表标成已完成；截止了还没做完的不要。
+  assert.deepEqual(sets.filter(set => set.done).map(set => set.title), ['HW2', '已交卷'])
+  assert.deepEqual(fromPta({ homeworks: [{ name: '错过的', state: '未作答', deadline: '2026-10-01 23:59', closed: true }] }), [])
+  assert.equal(fromXuezai({ todos: [{ course: '数据结构基础', title: '实验一', type: '作业', deadline: '2026-10-05 23:59', done: true }] })[0].done, true)
   assert.throws(() => fromXuezai({}), /格式不对/)
 })
 
@@ -69,6 +75,15 @@ test('the page gets the cache first; a refresh replaces one system at a time and
   assert.deepEqual(reopened.snapshot(), both)
   assert.deepEqual(world.calls, ['xuezai', 'pta'])
   assert.doesNotMatch(fs.readFileSync(world.file, 'utf8'), /3240100001|a@b\.c/)
+  // 升级前保存的 PTA 卡片和详情也不能继续把作答进度说成开放状态。
+  const legacy = JSON.parse(fs.readFileSync(world.file, 'utf8')), item = legacy.sources.pta.items[0]
+  item.note = '还没开始'
+  legacy.details[item.id] = { owner: legacy.sources.pta.owner, detail: { body: '', format: 'markdown', facts: [{ label: '状态', value: '未开始' }], files: [] } }
+  fs.writeFileSync(world.file, JSON.stringify(legacy))
+  const updated = world.create()
+  assert.equal(updated.snapshot().items.find(entry => entry.id === item.id).note, '未作答')
+  assert.deepEqual(updated.detail({ id: item.id }).detail.facts, [{ label: '作答状态', value: '未作答' }])
+  assert.deepEqual(world.calls, ['xuezai', 'pta'])
 })
 
 test('refreshes are spaced out, shared while running, and a failure keeps the last result', async (t) => {
@@ -189,7 +204,7 @@ test('detail views keep only what the page shows', () => {
   assert.deepEqual(xuezaiDetail({ requirement: '（老师未写文字说明）', status: '未交', attachments: [], submissions: [], groupHomework: true, score: 0 }),
     { body: '', format: 'text', facts: [{ label: '状态', value: '未交' }, { label: '小组作业', value: '是' }, { label: '得分', value: '0' }], files: [] })
   assert.deepEqual(ptaDetail({ state: '未开始', note: '还没有开始答题' }),
-    { body: '', format: 'markdown', facts: [{ label: '状态', value: '未开始' }], files: [], note: '还没有开始答题' })
+    { body: '', format: 'markdown', facts: [{ label: '作答状态', value: '未作答' }], files: [], note: '还没有开始答题' })
 })
 
 test('an attachment is downloaded into its own folder, remembered, and shown in the file manager', async (t) => {
@@ -235,4 +250,17 @@ test('an attachment is downloaded into its own folder, remembered, and shown in 
   // PTA 没有附件可下。
   await affairs.refresh({ source: 'pta' })
   assert.equal(affairs.detail({ id: affairs.snapshot().items.find(entry => entry.source === 'pta').id }).downloadable, false)
+})
+
+test('handed-in homework stays in the cache for the schedule but not on the affairs page', async (t) => {
+  const world = setup(t)
+  world.results.xuezai = { todos: [
+    { course: '数据结构基础', title: '实验一', type: '作业', deadline: '2026-10-05 23:59', done: true },
+    { course: '数据结构基础', title: '实验三', type: '作业', deadline: '2026-10-12 23:59' },
+  ] }
+  const affairs = world.create()
+  await affairs.refreshAll()
+  assert.deepEqual(affairs.snapshot().items.map(item => item.title), ['HW3', '实验三'])
+  assert.deepEqual(affairs.tasks().filter(item => item.done).map(item => item.title), ['实验一', 'HW2'])
+  assert.deepEqual(affairs.tasks().filter(item => !item.done).map(item => item.title).sort(), ['HW3', '实验三'])
 })

@@ -38,10 +38,11 @@ export const day = (value: string) => {
 /**
  * 把正文里的 [[标题]]、[[标题|显示的字]] 换成引擎认的文件链接（指向「标题.md」），代码里的不动。
  * 引擎把这种链接画成一个带文件图标的按钮，点了交给 openFile。
+ * HTML 注释不画出来：从通知加进来的备忘，最后一行 <!-- notice:编号 --> 是认重复用的记号（notice-memo.mjs），不是给人看的。
  */
 function withLinks(body: string): string {
   return body.split(/(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/).map((part, index) => index % 2 ? part
-    : part.replace(/\[\[([^[\]|#\n]+)(?:#[^[\]|\n]*)?(?:\|([^[\]\n]+))?\]\]/g, (_all, target: string, label?: string) =>
+    : part.replace(/<!--[\s\S]*?-->/g, '').replace(/\[\[([^[\]|#\n]+)(?:#[^[\]|\n]*)?(?:\|([^[\]\n]+))?\]\]/g, (_all, target: string, label?: string) =>
       `[${(label ?? target).trim()}](${encodeURIComponent(target.trim()).replace(/\(/g, '%28').replace(/\)/g, '%29')}.md)`)).join('')
 }
 

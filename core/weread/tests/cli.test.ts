@@ -20,8 +20,8 @@ test('help lists every command', () => {
 
 test('results and errors are JSON; bad arguments fail before any source is touched', () => {
   assert.deepEqual(JSON.parse(run('track').stdout), { ok: true, tracked: [] })
-  assert.deepEqual(JSON.parse(run('list').stdout), { ok: true, sources: {}, accounts: [] }, 'with nothing tracked there is nothing to look up')
-  for (const [args, status] of [[['read', '--url', 'https://example.com/a'], 'invalid_link'], [['read', '--account', '测试号'], 'invalid_input'], [['new'], 'nothing_tracked'], [['list', '--account', '测试号', '--source', 'both'], 'invalid_source']] as const) {
+  assert.deepEqual(JSON.parse(run('list').stdout), { ok: true, state: null, accounts: [] }, 'with nothing tracked there is nothing to look up')
+  for (const [args, status] of [[['read', '--url', 'https://example.com/a'], 'invalid_link'], [['read', '--account', '测试号'], 'invalid_input'], [['new'], 'nothing_tracked']] as const) {
     const result = run(...args)
     assert.equal(result.status, 1); assert.equal(JSON.parse(result.stdout).status, status)
   }

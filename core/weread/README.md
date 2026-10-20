@@ -1,10 +1,10 @@
 # WeRead Skill
 
-> 校园智能体里的这一份是 2026-10-11 从 WeRead Skill 的 56d17bd 复制过来的，之后在这里单独改，不和原仓库同步。为应用加了什么、和原仓库差在哪，见项目根目录 README 的「微信公众号」；应用里浏览器由壳提供，下面「开始使用」讲的自己装 Electron 是它独立使用时的做法。
+> 校园智能体里的这一份是 2026-10-11 从 WeRead Skill 的 56d17bd 复制过来的，之后保留应用托管适配；2026-10-16 核对本地最新 Skill，聊天功能单独同步到 core/wechat。为应用加了什么、和原仓库差在哪，见项目根目录 README 的「微信公众号」；应用里浏览器由壳提供，下面「开始使用」讲的自己装 Electron 是它独立使用时的做法。
 
 查询和跟踪微信公众号文章，用自带浏览器读取正文，导出 Markdown 和图片。提供一个统一 CLI，也可由支持 Skill 的智能体按 [SKILL.md](SKILL.md) 调用。
 
-Local 从本机微信消息中查找文章，Web 从微信读书查找文章。两种来源只负责找到链接；链接进入统一的浏览器取文流程，遇到验证码时再按站点和题型处理。
+公众号目录和文章列表只从微信读书获取。公众号链接仍由应用浏览器读取，验证码处理和 Markdown 导出共用。
 
 ## 开始使用
 
@@ -15,18 +15,12 @@ npm install
 node scripts/weread.ts --help
 ```
 
-使用 Local 来源时，需要 Windows、保持登录运行的电脑版微信和系统 PowerShell 5.1（解析消息用的是 Node 自己，2026-10-12 起不再需要 Python）。目前已实测微信 4.1.15.13。Web 来源不需要本机微信，但需要登录微信读书。
+需要登录微信读书，不依赖本机微信。聊天读取位于独立的 core/wechat。
 
 ```sh
-# 从本机微信查找文章
-node scripts/weread.ts list --account "公众号名称" --source local --limit 10
-
-# 按公众号和标题下载，不必先执行 list 或 read
-node scripts/weread.ts download --account "公众号名称" --title "文章标题" --source local --out ./downloads
-
-# 使用微信读书来源前，在自带窗口扫码登录
+# 使用微信读书前，在自带窗口扫码登录
 node scripts/weread.ts login
-node scripts/weread.ts list --account "公众号名称" --source web --limit 10
+node scripts/weread.ts list --account "公众号名称" --limit 10
 
 # 也可以直接读取微信原文链接，或 list 返回的微信读书链接
 node scripts/weread.ts read --url "文章链接"
@@ -51,17 +45,16 @@ node scripts/weread.ts read --url "文章链接"
 
 `read` 和 `download` 也接受 `--account 名称 --title 标题`，与 `--url` 二选一。名称和标题支持部分匹配；匹配到多个时返回候选，需要写得更完整。
 
-`--source local|web` 决定查找链接的来源，优先于 `.env` 中的 `WEREAD_SOURCE`。两者都没设置时先 Local，来源不可用或没找到文章再尝试 Web；名称有歧义时不切换。拿到链接以后，正文或验证码失败直接报错，不再换来源重查。
+公众号只使用微信读书查找链接，不再提供来源选择。
 
 下载结果保存为 `目录/标题-链接哈希/标题.md`，图片在同级 `images/`，Markdown 使用相对路径。下载失败的图片保留远程链接，结果中的 `images.failed` 列出失败项。跟踪按来源分别记录已见文章，首次使用某个来源检查时只建立基线。
 
 ## 架构
 
-多个来源先汇合到统一文章入口，再由共享验证码模块按页面分派处理。链接保留原站点，各站使用自己的验证入口和回执恢复方式，题型识别与浏览器输入共用。
+微信读书列表或直接链接进入统一文章入口，再由共享验证码模块按页面分派处理。链接保留原站点，各站使用自己的验证入口和回执恢复方式，题型识别与浏览器输入共用。
 
 ```mermaid
 flowchart TD
-    L[Local：本机微信查找链接] --> A[统一文章获取入口]
     W[Web：微信读书查找链接] --> A
     U[直接传入文章链接] --> A
     A --> B[自带 Electron 加载页面]
@@ -120,6 +113,5 @@ Skill 可以独立使用，也可以由应用托管：应用用自己的 Electro
 
 - [SKILL.md](SKILL.md)：智能体调用约定与命令用法。
 - [运行说明](references/runtime.md)：运行环境、配置、会话与错误处理。
-- [开发约定](AGENTS.md) · [当前计划](dev/PLAN.md) · [架构与接口](dev/architecture.md) · [验证依据](dev/verification.md)。
-- [历史调研与验收](dev/history/)：旧实现、实验和阶段证据，按各文档注明的时间理解。
+- [架构与接口](dev/architecture.md) · [验证依据](dev/verification.md)。
 - [第三方声明](THIRD_PARTY_NOTICES.txt) · [腾讯相关许可](dev/Tencent-LICENSE)。

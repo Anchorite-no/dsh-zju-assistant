@@ -4,7 +4,7 @@
 
 Node.js 24+。首次在 Skill 目录执行 `npm install`，安装固定版本的 Electron 44.0.0；Skill 用自己的浏览器，不依赖系统浏览器或其他应用。被应用托管时浏览器由应用提供（`WEREAD_BROWSER_ENDPOINT`），可以用 `npm install --omit=optional` 不装 Electron。
 
-本地来源只支持 Windows：用系统自带的 PowerShell 5.1 读取运行中的电脑版微信，解析消息用的是跑这个技能的 Node 自己（内置的 sqlite 和 zstd，Node 24 起有），不用另外装东西。已验证微信 4.1.15.13。Web 来源不需要微信。
+公众号只从微信读书查找，不读取本机微信。
 
 ## 配置
 
@@ -12,7 +12,6 @@ Node.js 24+。首次在 Skill 目录执行 `npm install`，安装固定版本的
 
 | 变量 | 作用 |
 |---|---|
-| `WEREAD_SOURCE` | 固定默认查找来源为 local 或 web；命令行 `--source` 优先，两者都不设时先 local 后 web |
 | `WEREAD_ENV_FILE` | 指定环境配置文件；不设时读取 Skill 根目录的 `.env` |
 | `WEREAD_DATA_DIR` | 数据目录，默认 `%APPDATA%/weread-skill` |
 | `WEREAD_BROWSER_ENDPOINT` | 宿主应用提供的浏览器管道。设了就连它，不启动自带的 Electron；登录状态、窗口和识别模型都由宿主管 |
@@ -53,4 +52,4 @@ Node.js 24+。首次在 Skill 目录执行 `npm install`，安装固定版本的
 | `rate_limited`、`article_rate_limited`、`verification_rate_limited` | 等待一段时间再试 |
 | `article_deleted` | 原文已删除，无法取得正文 |
 
-设置了来源就只使用该来源。未固定来源时，查找阶段可从 Local 回退到 Web；已经找到链接后的正文或验证码错误直接返回。`--url` 直接进入取文流程，不需要查公众号，也不受查找来源影响。
+公众号查找只用微信读书。`--url` 直接进入取文流程，不需要先查公众号。

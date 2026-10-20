@@ -92,10 +92,9 @@ export async function webArticles(bookId: string, limit: number, stop?: (article
     for (const group of reviews) for (const sub of group.subReviews ?? []) {
       const review = sub.review ?? {}, mp = review.mpInfo ?? {}, id = review.reviewId ?? sub.reviewId
       if (typeof id !== 'string' || !id.startsWith(bookId + '_')) continue
-      // 原文短链的标识就是 reviewId 的后半段。
-      const token = String(mp.originalId || id.slice(bookId.length + 1)).replaceAll('~', '_')
+      // reviewId / originalId 是微信读书自己的标识，不能拼成 mp.weixin.qq.com 短链。
       found.set(id, { id, title: decodeEntities(mp.title), url: `${ORIGIN}/web/mp/content?reviewId=${encodeURIComponent(id)}`,
-        originalUrl: 'https://mp.weixin.qq.com/s/' + token, publishedAt: beijing(mp.time || review.createTime || group.createTime), summary: decodeEntities(mp.content || review.content) })
+        publishedAt: beijing(mp.time || review.createTime || group.createTime), summary: decodeEntities(mp.content || review.content) })
     }
     if (found.size === before) break   // 空页或重复页：已经到头
     offset += reviews.length

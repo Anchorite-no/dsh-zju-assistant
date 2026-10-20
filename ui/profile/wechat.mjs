@@ -1,15 +1,4 @@
-/**
- * 微信公众号插件在引擎这一侧的全部：插件详情页和「校园事务」的通知要的数据、能做的操作，都从这里走。
- * 真正干活的是 weread 技能（core/weread，从 WeRead Skill 复制过来单独改的一份）。这里照 core.mjs 跑 ZJU Core 的办法跑它的命令，
- * 浏览器由壳提供（desktop/weread.cjs）。助手用的是同一个技能、同一份跟踪名单：页面上加的号助手看得到，反过来也一样。
- *
- * 这里自己只存两样：
- *   档案目录的 wechat.json   用户的两个选择：用不用本机微信（local）、要不要自动完成验证（autoVerify）。壳也读它。
- *   缓存目录的 wechat.json   跟踪的每个号最近的文章，和两个来源上一次读的情况。页面只看它，打开页面不会现去读微信或联网。
- * 缓存靠定时检查更新，像订阅 RSS：半小时把跟踪的号看一遍（间隔是用户 2026-10-12 定的），新出现的文章进「校园事务」的通知。
- * 这是这个插件最要紧的用处：公众号发了要报名的活动，不常翻公众号的人也不会错过。
- * 后台的检查不开窗口。微信读书要验证时，「自动完成验证」开着就由壳在隐藏的窗口里过掉；关着、或者登录过期了，就停下记在缓存里，等用户在页面上点一下再接着读。
- */
+/** 微信公众号插件：只用微信读书查找文章，半小时同步一次。 */
 import fs from 'node:fs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
@@ -32,6 +21,9 @@ const RECENT = 20, KEEP = 50
 
 const text = value => typeof value === 'string' ? value.trim() : ''
 const byTime = (a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? '')
+/** 包括旧缓存里的错误短链：用已有的文章编号恢复微信读书正文地址，无需重新同步。 */
+const articleUrl = article => /^MP_WXS_\d+_[\w~-]+$/.test(article.id)
+  ? `https://weread.qq.com/web/mp/content?reviewId=${encodeURIComponent(article.id)}` : article.url
 
 function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')) } catch { return undefined }
@@ -75,20 +67,16 @@ export function runWeread(args, { interactive = false, timeoutMs = 130_000, sign
 export class Wechat {
   /**
    * plugins 是插件开关；settingsFile、cacheFile 是上面说的两个文件；run 跑一条技能命令。
-   * env 是引擎进程的环境：助手调用技能时会继承它，「不用本机微信」靠它告诉技能（WEREAD_SOURCE）。
    */
   constructor({ plugins, settingsFile, cacheFile, run = runWeread, now = () => Date.now(), env = process.env, schedule = setInterval, cancel = clearInterval, onNew = () => {} }) {
     // onNew：一次检查读到了新出现的文章时叫它（给托盘的提醒用），参数是这些文章，从新到旧，各带号名 from。
     Object.assign(this, { plugins, settingsFile, cacheFile, run, now, env, schedule, cancel, onNew })
-    // 启动环境里原有的来源设置不归我们管，本机微信开着时照原样留着。
-    this.inherited = env.WEREAD_SOURCE
     this.queue = Promise.resolve()
     this.pending = 0
     this.controllers = new Set()
     this.activity = ''
     this.problem = ''
     this.disposed = false
-    this.applySettings()
   }
 
   enabled() { return !this.disposed && !this.plugins.disabled().includes(WECHAT_PLUGIN) }
@@ -96,22 +84,18 @@ export class Wechat {
 
   settings() {
     const saved = readJson(this.settingsFile) ?? {}
-    return { local: saved.local !== false, autoVerify: saved.autoVerify !== false }
-  }
-
-  applySettings() {
-    if (!this.settings().local) this.env.WEREAD_SOURCE = 'web'
-    else if (this.inherited) this.env.WEREAD_SOURCE = this.inherited
-    else delete this.env.WEREAD_SOURCE
+    return { autoVerify: saved.autoVerify !== false }
   }
 
   cache() {
     if (this.memory) return this.memory
     const saved = readJson(this.cacheFile) ?? {}
     this.memory = {
-      accounts: Array.isArray(saved.accounts) ? saved.accounts : [],
-      // 两个来源上一次读的情况：{ ok, status, message, at }，还没读过是 null。
-      sources: { local: saved.sources?.local ?? null, web: saved.sources?.web ?? null },
+      accounts: Array.isArray(saved.accounts) ? saved.accounts.map(account => ({ ...account,
+        articles: account.articles.map(article => ({ ...article, url: articleUrl(article) })),
+      })) : [],
+      // 微信读书上一次读的情况：{ ok, status, message, at }，还没读过是 null。
+      sources: { web: saved.sources?.web ?? null },
       loggedIn: saved.loggedIn === true,
       // 上一次检查是什么时候（做没做成都算）。
       checkedAt: typeof saved.checkedAt === 'string' ? saved.checkedAt : null,
@@ -129,7 +113,6 @@ export class Wechat {
     const cache = this.cache(), settings = this.settings()
     return {
       enabled: this.enabled(), busy: this.pending > 0, activity: this.activity, problem: this.problem, settings, checkedAt: cache.checkedAt,
-      local: settings.local ? cache.sources.local : null,
       weread: { loggedIn: cache.loggedIn, state: cache.sources.web },
       accounts: cache.accounts.map(({ biz, name, source, articles, error }) => ({ biz, name, source, count: articles.length, latest: articles[0] ?? null, error })),
     }
@@ -166,7 +149,7 @@ export class Wechat {
     finally { this.controllers.delete(controller) }
   }
 
-  /** 一次只做一件：读本机微信和用浏览器都不能两件事叠着来。activity 是做这件事时页面上显示的状态。 */
+  /** 一次只做一件：使用浏览器都不能两件事叠着来。activity 是做这件事时页面上显示的状态。 */
   serial(operation, activity = '') {
     this.pending++
     const work = this.queue.then(async () => {
@@ -221,38 +204,32 @@ export class Wechat {
 
   /**
    * 读一遍跟踪的号最近的文章，记进缓存。
-   * 技能自己先看本机微信、本机没有的号再问微信读书，这里只决定这一次许它用哪几个来源。
    */
   async read({ interactive }) {
     const cache = this.cache()
     if (!cache.accounts.length) return
-    const useLocal = this.settings().local, useWeb = cache.loggedIn && !this.webWaiting(interactive)
-    if (!useLocal && !useWeb) {
-      // 两个来源都没法用：本机微信关着，微信读书又没登录。
-      if (!cache.loggedIn) this.write({ accounts: cache.accounts.map(account => ({ ...account, error: { status: 'no_source', message: '本机微信关着，微信读书也没有登录。' } })) })
+    if (!cache.loggedIn || this.webWaiting(interactive)) {
+      if (!cache.loggedIn) this.write({ accounts: cache.accounts.map(account => ({ ...account, error: { status: 'login_required', message: '请先登录微信读书。' } })) })
       return
     }
-    const result = await this.call(['list', '--limit', String(RECENT), ...(useLocal && useWeb ? [] : ['--source', useLocal ? 'local' : 'web'])], { interactive })
+    const result = await this.call(['list', '--limit', String(RECENT)], { interactive })
     if (!result.ok) throw new Error(result.message)
     const at = new Date(this.now()).toISOString(), found = new Map(result.accounts.map(account => [account.biz, account]))
-    // 这一次没问微信读书、而它本来能用时（正等着用户去验证），「本机没有这个号」不算读不到，原来存着的照旧。
-    const complete = useWeb || !cache.loggedIn
     const accounts = this.cache().accounts.map((old) => {
       const entry = found.get(old.biz)
       if (!entry) return old
-      if (entry.error) return complete ? { ...old, error: entry.error } : old
-      // 两个来源给文章编的号不一样；换了来源（或者第一次读到）就整份换掉，现有的都不算新出现的。
-      const same = old.source === entry.source, known = new Map((same ? old.articles : []).map(article => [article.id, article]))
+      if (entry.error) return { ...old, error: entry.error }
+      // 第一次读到的文章建立基线，之后才记录新出现的文章。
+      const same = old.source === 'web', known = new Map((same ? old.articles : []).map(article => [article.id, article]))
       const fresh = entry.articles.map(article => ({
-        // 微信读书给的链接是它自己的正文接口，给人看的用原文的短链接。
-        id: article.id, title: article.title, url: article.originalUrl ?? article.url, publishedAt: article.publishedAt ?? null,
+        id: article.id, title: article.title, url: articleUrl(article), publishedAt: article.publishedAt ?? null,
         foundAt: known.has(article.id) ? known.get(article.id).foundAt : same ? at : null,
       }))
       const listed = new Set(fresh.map(article => article.id))
-      return { ...old, source: entry.source, error: null, articles: [...fresh, ...(same ? old.articles.filter(article => !listed.has(article.id)) : [])].sort(byTime).slice(0, KEEP) }
+      return { ...old, source: 'web', error: null, articles: [...fresh, ...(same ? old.articles.filter(article => !listed.has(article.id)) : [])].sort(byTime).slice(0, KEEP) }
     })
     const sources = { ...this.cache().sources }
-    for (const source of ['local', 'web']) if (result.sources?.[source]) sources[source] = { ...result.sources[source], at }
+    if (result.state) sources.web = { ...result.state, at }
     this.write({ accounts, sources })
     // 这一次才出现的文章（发现时间就是这一次）：告诉外面一声。一个号第一次读到的不算，它们的发现时间是空的。
     const fresh = accounts.flatMap(account => account.articles.filter(article => article.foundAt === at).map(article => ({ ...article, from: account.name }))).sort(byTime)
@@ -289,12 +266,11 @@ export class Wechat {
     await this.serial(() => this.check({ interactive: false }), 'checking')
   }
 
-  /** 找能跟踪的公众号。都不带名称：本机微信给出里面有推送的全部公众号，微信读书给出书架上的，页面自己筛。 */
+  /** 从微信读书书架找能跟踪的公众号。 */
   async find(input) {
-    const source = input?.source === 'web' ? 'web' : 'local'
-    if (source === 'local' && !this.settings().local) return { ok: true, source, accounts: [] }
+    const source = 'web'
     return this.serial(async () => {
-      const result = await this.call(['accounts', '--source', source], { interactive: true })
+      const result = await this.call(['accounts'], { interactive: true })
       this.noteSource(source, result)
       if (result.ok) return { ok: true, source, accounts: result.accounts }
       return result.status === 'account_not_found' ? { ok: true, source, accounts: [] } : { ok: false, source, status: result.status, message: result.message }
@@ -303,10 +279,10 @@ export class Wechat {
 
   /** 开始跟踪一个号。它现有的文章随后在后台读，页面先看到它已经在名单里。 */
   async track(input) {
-    const name = text(input?.name), source = input?.source === 'web' ? 'web' : 'local'
+    const name = text(input?.name)
     if (!name) throw new Error('请选择一个公众号')
     const snapshot = await this.serial(async () => {
-      const result = await this.call(['track', '--account', name, '--source', source], { interactive: true })
+      const result = await this.call(['track', '--account', name], { interactive: true })
       if (!result.ok) throw new Error(result.message)
       await this.reconcile(result.tracked)
       return this.snapshot()
@@ -348,15 +324,14 @@ export class Wechat {
     }, 'logout')
   }
 
-  /** 改用户的两个选择，改完重新检查一遍：本机微信开了或关了，文章要换个来源读；自动验证打开了，原来等着用户去验证的可以自己过了。 */
+  /** 自动验证设置变更后重新检查。 */
   set(input) {
     const next = this.settings()
-    for (const key of ['local', 'autoVerify']) if (typeof input?.[key] === 'boolean') next[key] = input[key]
+    for (const key of ['autoVerify']) if (typeof input?.[key] === 'boolean') next[key] = input[key]
     writeJson(this.settingsFile, next)
-    this.applySettings()
     const { sources } = this.cache()
     if (input?.autoVerify === true && sources.web?.status === 'verification_required') this.write({ sources: { ...sources, web: null } })
-    if (this.enabled() && (typeof input?.local === 'boolean' || input?.autoVerify === true)) this.serial(() => this.check({ interactive: false }), 'checking').catch(() => {})
+    if (this.enabled() && input?.autoVerify === true) this.serial(() => this.check({ interactive: false }), 'checking').catch(() => {})
     return this.snapshot()
   }
 

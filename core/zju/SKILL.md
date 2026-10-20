@@ -9,15 +9,15 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 
 常规查询成功后直接按结果回答，不再读取源码、开发记录或重复请求；命令报错时才作必要诊断。
 
-学校相关的问题（课程、成绩、考试、选课规则、通知、校内办事流程等）第一步用本技能：先读下方对应的参考文档和 `flows/` 下的工作流，能回答就直接作答；只有需要当期日期、名单等实时信息时才调用命令（如 `notice list --keyword 关键词`）。本技能确实没有答案时才联网，并说明信息来源。与学校无关的普通请求照常联网搜索。
+学校相关的问题（课程、成绩、考试、选课规则、通知、校内办事流程等）第一步用本技能：先读下方对应的参考文档，几步连起来的事照末尾列的技能走，能回答就直接作答；只有需要当期日期、名单等实时信息时才调用命令（如 `notice list --keyword 关键词`）。本技能确实没有答案时才联网，并说明信息来源。与学校无关的普通请求照常联网搜索。
 
-本技能没有现成答案、经多步探索才从官方来源确认的学校问题，答完后用 campus_skill_save 把最短可行路径存成技能：适用问题、按顺序的查找步骤（命令或网址）、关键结论与来源链接，四十行以内，不写个人信息。存下的技能会出现在技能目录里，下次遇到同类问题先加载它、按它走，走不通再改好重新存一次。
+用户说「把这套存成技能」，或一件跨几个系统的校园事务经多步探索才走通、以后会复用时，加载「写技能」（skill-writer）照它写，再用 campus_skill_save 保存。先检查已有技能：已有技能里的一步（比如比较老师属于选课）或只是用户的一条偏好的，不另建技能；单次查询、下载或一个命令能完成的事直接用工具。已有技能走不通时修订同一技能，不重复创建。
 
 ## 日常调用
 
 | 用户目标 | 调用 |
 |---|---|
-| 查看课表、下节课或教室 | `zdbk timetable`，完整课表含起止时间、星期、周次、教室和当前北京时间，自动缓存 |
+| 某天的课、下节课或教室 | `campus_schedule_read`，用 from/to 指定日期，已经处理校历、单双周、放假和调休；只看教务原始周课表时用 `zdbk timetable` |
 | 实验课哪天做什么、在哪个实验室 | `lab timetable`，按日期列出实验名、实验室、开始时间和教师 |
 | 考试时间、考场、座位 | `zdbk exams`，可加 `--course 课程名`，期中与期末分开返回 |
 | 成绩、GPA、学分 | `zdbk grades`，一次返回全部课程成绩、各学期与总体五分制绩点、主修绩点和已获学分 |
@@ -71,7 +71,7 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 
 `doc pdf` 多个文件用竖线分隔、按给出的顺序排页，如 `doc pdf --file "第1页.jpg|第2页.jpg" --out 学号_姓名_第二次作业.pdf`。图片自动转正、居中放 A4；用户要原图大小时加 `--size original`。
 
-“下节课”直接按完整课表及 currentTime 回答时间、教室，以“按课表”说明依据；正在上的课不算下一节。只有所问的那节课是实验课（如大学物理实验，每次实验室不同）时，才再调用一次 `lab timetable` 按日期取实验室；其他课程直接用课表教室。课表返回 `cache.stale` 时按 message 直接使用，不重试、不登录。
+“下节课”用 campus_schedule_read 返回的具体日期安排与当前北京时间判断，正在上的课不算下一节；它是应用工具，不拼成 zju 命令。校历缺失或读取失败时照 notes 说明，不能按普通星期表断言当天上课。只有所问的那节课是实验课时，才再调用一次 `lab timetable` 取当天的实验室。原始课表返回 `cache.stale` 时说明缓存时间，不反复登录。
 
 考试 status 为「未公布」表示时间还没出，已公布但没有 location、seat 表示考场和座位号还没出。通知关键词已含常见简称的全称（filters.searchedKeywords），一次结果即可作答，不换词重查。通知 status=partial 时说明未取全，sourceErrors 列出这次没读到的来源；attachment-only 表示正文在附件，summary-only 仅为摘要。
 
@@ -92,7 +92,7 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 - stdout 是完整 JSON；失败读取 error.message/detail，不能只提取 data 或忽略退出码。
 - 不绕过 ZJU_DISABLED_MODULES。会话维护及网络诊断仅在排障时使用，参数见 [命令总表](references/commands.md)。
 - CC98 发帖、回复、私信遵守站点规则，只发布用户提供并授权的内容。
-- 技能目录（SKILL.md、references、flows、代码、dev）只由开发维护，使用中不新增或修改其中任何文件；探索出来的做法按上文用 campus_skill_save 存，不写进这个目录。查到的课表、成绩、作业这些随时能再查，不往记忆里存；用户明确让你记住关于他本人的事时，先用 campus_profile_read 搜一下有没有同主题的记忆，再用 campus_profile_write 新建或更新那一条，来源写在属性里；用户让记的一件事（报名、截止时间）用 campus_note_write 记进备忘录；不写进 references，也不另建个人记忆副本。账号、密码由用户在应用的「插件」页填写，学院和专业在设置的「个人档案」里填写，都不要代填。
+- 技能目录（SKILL.md、references、代码、dev）和应用自带的技能（`../skills/`）只由开发维护，使用中不新增或修改其中任何文件；探索出来的做法按上文用 campus_skill_save 存，不写进这个目录。查到的课表、成绩、作业这些随时能再查，不往记忆里存；用户明确让你记住关于他本人的事时，先用 campus_profile_read 搜一下有没有同主题的记忆，再用 campus_profile_write 新建或更新那一条，来源写在属性里；用户让记的一件事（报名、截止时间）用 campus_note_write 记进备忘录；不写进 references，也不另建个人记忆副本。账号、密码由用户在应用的「插件」页填写，学院和专业在设置的「个人档案」里填写，都不要代填。
 
 ## 文件交付
 
@@ -100,8 +100,8 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 
 ## 按需参考
 
-[教务](references/zdbk.md) · [通知](references/notice.md) · [二三四课堂](references/sztz.md) · [电子图书](references/ebook.md) · [选课](references/zdbk-selection.md)（多轮流程见 [选课工作流](flows/course-selection.md)） · [实验课](references/lab.md) · [学在](references/xuezai.md) · [体艺](references/tyys.md) · [PTA](references/pta.md) · [超星学习通](references/chaoxing.md) · [智云](references/zhiyun.md) · [CC98](references/cc98.md) · [查老师](references/chalaoshi.md) · [知网](references/cnki.md)
+[教务](references/zdbk.md) · [通知](references/notice.md) · [二三四课堂](references/sztz.md) · [电子图书](references/ebook.md) · [选课](references/zdbk-selection.md)（多轮流程见 [选课](../skills/course-selection/SKILL.md) 技能） · [实验课](references/lab.md) · [学在](references/xuezai.md) · [体艺](references/tyys.md) · [PTA](references/pta.md) · [超星学习通](references/chaoxing.md) · [智云](references/zhiyun.md) · [CC98](references/cc98.md) · [查老师](references/chalaoshi.md) · [知网](references/cnki.md)
 
-几步连起来、跨几个系统的事照工作流走：[本科选课](flows/course-selection.md) · [选课前比较老师](flows/course-teachers.md) · [交作业](flows/homework-submit.md) · [课后总结](flows/lesson-summary.md) · [考前准备](flows/exam-prep.md) · [今日安排](flows/daily-brief.md)。它们在技能目录里各有一项，从那边加载的是同一篇。
+几步连起来、跨几个系统的事照应用自带的技能走：[选课](../skills/course-selection/SKILL.md) · [考前复习](../skills/exam-prep/SKILL.md) · [课程学习](../skills/course-study/SKILL.md) · [我的一周](../skills/my-week/SKILL.md) · [交作业](../skills/homework-submit/SKILL.md)。它们在技能目录里各有一项，里面的命令照本技能的写法执行。比较教学班与老师是选课技能的一部分。
 
 提醒和定时见 [定时任务](references/schedule.md)。修改本技能时遵循 [开发原则](AGENTS.md)。

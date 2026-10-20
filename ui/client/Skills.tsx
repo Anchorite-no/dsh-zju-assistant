@@ -1,6 +1,6 @@
 /**
  * 插件页第三组「技能」用的数据和详情页。技能有两种来处：
- * 应用自带的工作流（core/zju/flows/，引擎侧见 ui/profile/flow-notes.mjs），几步连起来、要跨几个系统的事怎么走，带「自带」的标记，只能看；
+ * 应用自带的技能（core/skills/，引擎侧见 ui/profile/flow-notes.mjs），几步连起来、要跨几个系统的事怎么走，带「自带」的标记，只能看；
  * 助手学到的做法：一件校园事务经过多步探索才走通之后，它把最短的走法存下来，下次遇到同类问题直接加载（引擎侧见 ui/profile/learned.mjs），不要的可以删。
  * 自带的工作流在使用中补进来的几条接在它的正文后面，这几条可以删。
  */
@@ -19,7 +19,8 @@ export interface Skill {
   /** 自带的工作流在使用中补进来了几条。 */
   notes?: number
 }
-interface SkillText extends Skill { body: string }
+interface SkillReference { path: string, title: string }
+interface SkillText extends Skill { body: string, references: SkillReference[], reference: SkillReference | null }
 
 const MARKDOWN_LABELS = { code: { copyLabel: '复制', copiedLabel: '已复制' }, footnotes: '注释' }
 /** 插件页的导航里，技能的编号前面带这个，和插件的编号分开。 */
@@ -64,18 +65,21 @@ export function SkillDetail({ name, onBack, onDeleted }: { name: string, onBack:
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [reference, setReference] = useState<string | undefined>()
+  const [loading, setLoading] = useState(false)
   useEffect(() => {
     let live = true
-    profileApi<SkillText>('skill-read', { name }).then((value) => { if (live) setSkill(value) }, (reason) => { if (live) setError(errorText(reason)) })
+    setLoading(true); setError('')
+    profileApi<SkillText>('skill-read', { name, ...(reference ? { reference } : {}) }).then((value) => { if (live) setSkill(value) }, (reason) => { if (live) setError(errorText(reason)) }).finally(() => { if (live) setLoading(false) })
     return () => { live = false }
-  }, [name])
+  }, [name, reference])
 
   const builtin = skill?.builtin === true
   const remove = async () => {
     setBusy(true); setError('')
     try {
       await profileApi('skill-delete', { name })
-      if (builtin) setSkill(await profileApi<SkillText>('skill-read', { name })); else onDeleted()
+      if (builtin) setSkill(await profileApi<SkillText>('skill-read', { name, ...(reference ? { reference } : {}) })); else onDeleted()
     } catch (reason) { setError(errorText(reason)) } finally { setBusy(false) }
   }
 
@@ -96,7 +100,17 @@ export function SkillDetail({ name, onBack, onDeleted }: { name: string, onBack:
         {skill && <p className="campus-detail-desc">{skill.description}</p>}
       </div>
       {error && <div className="campus-detail-notices"><Alert>{error}</Alert></div>}
-      {skill && <div className="campus-sections"><div className="campus-markdown"><MarkdownText text={skill.body} labels={MARKDOWN_LABELS} /></div></div>}
+      {skill && <div className="campus-sections">
+        {!!skill.references?.length && <section className="campus-section" aria-label="技能文档">
+          <h2 className="campus-section-title">技能文档</h2>
+          <p>正文说明整体流程，参考文档包含具体规则和来源。</p>
+          <div className="campus-actions" style={{ justifyContent: 'flex-start' }}>
+            <Button size="sm" variant={skill.reference ? 'outline' : 'primary'} disabled={loading} onClick={() => { setReference(undefined) }}>正文</Button>
+            {skill.references.map(item => <Button key={item.path} size="sm" variant={skill.reference?.path === item.path ? 'primary' : 'outline'} disabled={loading} onClick={() => { setReference(item.path) }}>{item.title}</Button>)}
+          </div>
+        </section>}
+        <div className="campus-markdown" aria-busy={loading}><MarkdownText text={skill.body} labels={MARKDOWN_LABELS} /></div>
+      </div>}
       <Modal open={deleting} title={builtin ? '删除使用中补进来的这几条？' : '删除这个技能？'} description={builtin ? '删除后助手只照自带的正文来做，找不回。' : '删除后助手不会再按它来做，找不回。'} closeLabel="关闭" onClose={() => { setDeleting(false) }}
         footer={(
           <>

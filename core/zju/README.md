@@ -56,7 +56,7 @@ node core/zju/scripts/zju.ts tyys --help --all
 
 ## 接入应用
 
-本目录就是一个技能：[SKILL.md](SKILL.md) 是入口，列出用户目标与对应命令；[references](references) 是按需阅读的各模块用法；[flows](flows/README.md) 是选课这类多步骤工作流。应用启动时由 `ui/profile/skills.mjs` 把它挂给引擎，助手按 SKILL.md 以 `node <SKILL>/scripts/zju.ts <模块> <命令>` 调用。
+本目录就是一个技能：[SKILL.md](SKILL.md) 是入口，列出用户目标与对应命令；[references](references) 是按需阅读的各模块用法。选课这类多步骤的事是应用自带的技能，在 [../skills](../skills/README.md)。应用启动时由 `ui/profile/skills.mjs` 把它挂给引擎，助手按 SKILL.md 以 `node <SKILL>/scripts/zju.ts <模块> <命令>` 调用。
 
 应用里和本技能对接的只有三处，定义都在 `ui/profile/catalog.mjs` 一张表里：
 
@@ -242,7 +242,7 @@ ZJU_ALLOW_WRITE=1 zju zdbk selection select --course 课程名 --teacher 教师 
 ZJU_ALLOW_WRITE=1 zju lab select --course 课程名 --lab 实验名 --week 周次 --confirm
 ```
 
-每条命令只提交一次并回查，`--dry-run` 只做预览。多轮选课的步骤顺序和决策点见 [选课工作流](flows/course-selection.md)，规则要点见 [选课参考](references/zdbk-selection.md)。
+每条命令只提交一次并回查，`--dry-run` 只做预览。多轮选课的步骤顺序和决策点见 [选课](../skills/course-selection/SKILL.md) 技能，规则要点见 [选课参考](references/zdbk-selection.md)。
 
 ### CC98 发布
 
@@ -301,6 +301,6 @@ npm run typecheck
 - [开发原则](AGENTS.md)：任务接口的设计约束。
 - [lib/README](lib/README.md)：各组件的唯一职责。
 - [命令总表](references/commands.md)：由 `scripts/command-docs.ts` 从 CLI 注册表生成。
-- [工作流](flows/README.md)：选课等定制化多步骤流程。
+- [自带技能](../skills/README.md)：选课等跨几个系统、多步骤的事。
 
 当前仓库不保留测试代码或 fixtures；按变更在临时环境中验证，结果写进提交说明。没有 `npm test` 或 `npm run check` 入口。

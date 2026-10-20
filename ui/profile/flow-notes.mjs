@@ -1,6 +1,6 @@
 /**
- * 应用自带的工作流（core/zju/flows/，也是插件页「技能」一组里自带的那几项），和它们的补充。
- * 工作流的补充：助手照 core/zju/flows/ 里的工作流办事时学到、正文里没有的那一条（比如被用户纠正了的一步）。
+ * 应用自带的技能（core/skills/ 下一个文件夹一个，也是插件页「技能」一组里自带的那几项），和它们的补充。
+ * 补充：助手照自带的技能办事时学到、正文里没有的那一条（比如被用户纠正了的一步）。
  * 工作流在应用的安装目录里，升级就换掉，使用中不能改；补充存在档案目录的 flow-notes.json，
  * 拼在 zju 技能正文的末尾交给引擎（skills.mjs），助手加载 zju 时就看到。
  * 谁来写：对话后的复盘（review.mjs）。用户在插件页「技能」一组里能看、能删。
@@ -30,9 +30,16 @@ const bullet = note => `- ${note.text}${note.source && !note.text.includes(note.
 const hash = value => createHash('sha256').update(value).digest('hex').slice(0, 16)
 /** 比两条是不是一回事时用：去掉空白和标点。 */
 const plain = value => String(value).replace(/[\s\p{P}\p{S}]+/gu, '').toLowerCase()
+const read = file => fs.readFileSync(file, 'utf8').replaceAll('\r\n', '\n')
+/** 一个技能文件夹里 references/、templates/ 下的各篇 Markdown，按路径排。 */
+export function docs(dir) {
+  return ['references', 'templates'].flatMap((sub) => {
+    try { return fs.readdirSync(path.join(dir, sub)).filter(name => name.endsWith('.md')).sort().map(name => path.join(dir, sub, name)) } catch { return [] }
+  })
+}
 
 export class FlowNotes {
-  /** file 是存补充的文件；flowsDir 是应用自带的工作流所在的文件夹。 */
+  /** file 是存补充的文件；flowsDir 是应用自带的技能所在的文件夹（core/skills），里面一个子文件夹一个技能。 */
   constructor({ file, flowsDir }) {
     this.file = file
     this.flowsDir = flowsDir
@@ -41,21 +48,25 @@ export class FlowNotes {
   }
 
   /**
-   * 应用自带的工作流。README 不算。
-   * name 是文件名，title 是正文的大标题，text 是正文（不含开头的属性区），hash 是正文的指纹；
+   * 应用自带的技能：flowsDir 下每个带 SKILL.md 的文件夹。
+   * name 是文件夹名，file 是它的 SKILL.md，title 是正文的大标题，text 是正文（不含开头的属性区）；
+   * hash 是正文连同 references/、templates/ 里各篇的指纹，哪一篇改了，之前的补充都标成待核对；
    * label 和 description 取自属性区：给人看的名字（没写就用大标题）和什么时候用（没写是空的，这样的不单独当技能列出来）。
    */
   flows() {
     let names = []
-    try { names = fs.readdirSync(this.flowsDir) } catch { return [] }
-    return names.filter(name => name.endsWith('.md') && name.toLowerCase() !== 'readme.md').sort().map((name) => {
-      const file = path.join(this.flowsDir, name), raw = fs.readFileSync(file, 'utf8').replaceAll('\r\n', '\n').trim()
+    try { names = fs.readdirSync(this.flowsDir, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name) } catch { return [] }
+    return names.sort().flatMap((name) => {
+      const dir = path.join(this.flowsDir, name), file = path.join(dir, 'SKILL.md')
+      if (!fs.existsSync(file)) return []
+      const raw = read(file).trim()
       const front = raw.match(FRONT)
       let meta
       try { meta = front ? load(front[1], { schema: JSON_SCHEMA }) : undefined } catch { meta = undefined }
       const text = front ? raw.slice(front[0].length).trim() : raw
-      const title = /^#\s+(.+)$/m.exec(text)?.[1].trim() ?? name.slice(0, -3)
-      return { name: name.slice(0, -3), file, title, label: word(meta?.title) || title, description: word(meta?.description), text, hash: hash(text) }
+      const title = /^#\s+(.+)$/m.exec(text)?.[1].trim() ?? name
+      const extra = docs(dir).map(doc => `\n${path.relative(dir, doc)}\n${read(doc)}`).join('')
+      return [{ name, dir, file, title, label: word(meta?.title) || title, description: word(meta?.description), parent: word(meta?.parent), text, hash: hash(text + extra) }]
     })
   }
 
@@ -105,12 +116,17 @@ export class FlowNotes {
 
   /** 一个工作流的补充，早的在前。 */
   notesOf(flow) { return this.list().filter(note => note.flow === flow).reverse() }
+  /** 子步骤的经验留在原处，随所属工作流展示、加载和清理，不再多占一个技能入口。 */
+  workflowNotes(flow) {
+    const names = new Set([flow, ...this.flows().filter(item => item.parent === flow).map(item => item.name)])
+    return this.list().filter(note => names.has(note.flow)).reverse()
+  }
   /** 这些补充写成接在工作流正文后面的一节；没有补充时是空的。 */
   notesSection(flow) {
-    const notes = this.notesOf(flow)
+    const notes = this.workflowNotes(flow)
     if (!notes.length) return ''
     const lead = notes.some(note => note.stale) ? '下面几条是使用中补进来的，工作流在这之后更新过，先对照正文：' : '下面几条是使用中补进来的，一并照做；正文已经写了的，以正文为准：'
-    return `\n\n## ${NOTES_HEADING}\n\n${lead}\n\n${notes.map(bullet).join('\n')}\n`
+    return `\n\n## ${NOTES_HEADING}\n\n${lead}\n\n${notes.map(note => note.flow === flow ? bullet(note) : bullet({ ...note, text: `【${note.flowTitle}】${note.text}` })).join('\n')}\n`
   }
 
   /**
@@ -119,7 +135,8 @@ export class FlowNotes {
    */
   groups() {
     return this.flows().flatMap((flow) => {
-      const notes = this.notesOf(flow.name)
+      if (flow.parent) return []
+      const notes = this.workflowNotes(flow.name)
       if (!flow.description && !notes.length) return []
       return [{
         name: `${GROUP}${flow.name}`, title: flow.label, description: flow.description || `照这个工作流办事时补进来的 ${notes.length} 条。`,
@@ -139,7 +156,8 @@ export class FlowNotes {
   removeGroup({ name } = {}) {
     const group = this.group({ name })
     if (!group.notes) throw new Error('这是应用自带的技能，没有可以删的补充')
-    this.write(this.stored().filter(note => `${GROUP}${note.flow}` !== name))
+    const ids = new Set(this.workflowNotes(name.slice(GROUP.length)).map(note => note.id))
+    this.write(this.stored().filter(note => !ids.has(note.id)))
     return { name }
   }
 
@@ -150,9 +168,9 @@ export class FlowNotes {
     const groups = new Map()
     for (const note of [...notes].reverse()) groups.set(note.flow, [...(groups.get(note.flow) ?? []), note])
     const parts = [...groups].map(([flow, items]) => [
-      `### ${items[0].flowTitle}（flows/${flow}.md）${items.some(item => item.stale) ? '：工作流在这些补充之后更新过，先对照正文' : ''}`,
+      `### ${items[0].flowTitle}（技能 ${flow}）${items.some(item => item.stale) ? '：工作流在这些补充之后更新过，先对照正文' : ''}`,
       ...items.map(bullet),
     ].join('\n'))
-    return `\n\n## 工作流的补充\n\n下面几条是使用中补进来的，不在工作流的文件里。走到对应的工作流时一并照做；正文已经写了的，以正文为准。\n\n${parts.join('\n\n')}\n`
+    return `\n\n## 工作流的补充\n\n下面几条是使用中补进来的，不在技能的文件里。照对应的技能办事时一并照做；正文已经写了的，以正文为准。\n\n${parts.join('\n\n')}\n`
   }
 }

@@ -59,7 +59,7 @@ CLI 将 `rejected` 作为 `REMOTE_REJECTED` 错误、`unknown` 作为 `BAD_RESPO
 
 ### 常规选课
 
-各轮的操作顺序见 [选课工作流](../flows/course-selection.md)。
+各轮的操作顺序见 [选课](../../skills/course-selection/SKILL.md) 技能，各轮规则的摘要在它的 [各轮规则](../../skills/course-selection/references/rounds.md)。
 
 一轮优先筛选本大类／专业培养方案建议本学期修读的课程。跨专业、跨年级选课一轮待定，二轮参与筛选；其他课程随机筛选。已有余量但待定人数多于名额，意味着要竞争筛选，不能把待定人数直接当成已占用名额。
 
@@ -99,7 +99,7 @@ CLI 将 `rejected` 作为 `REMOTE_REJECTED` 错误、`unknown` 作为 `BAD_RESPO
 
 ### 补选申请
 
-补选申请的办理步骤见 [选课工作流](../flows/course-selection.md#4-补选申请)。
+补选申请的办理步骤见选课技能的 [各轮规则](../../skills/course-selection/references/rounds.md)。
 
 - 可以申请容量已满的班，是否扩容及最终录取由院系处理。
 - 申请数超过名额时，培养方案要求本学期必修、毕业班、不及格重修、即将搬离紫金港等群体优先，其他学生随机选择。

@@ -11,7 +11,7 @@ const NARROW = 768
 /**
  * 发出问题、助手开始做事时，把右边的「执行过程」调出来（2026-10-12 用户要的：用的时候默认就开着）。
  * 一个对话只自己打开一次：之后人把它收起来，这个对话里就不再自己打开；换一个对话照样会开。
- * 窗口怎么不被它挤窄，见 ../rightpane.ts。
+ * 打开时照引擎原样从对话区里让出一列，按一下收回去；第一次打开的宽度见 ../rightpane.ts。
  */
 function installAutoOpen(ctx: Context): () => void {
   const { sidebarRight, uiConversation } = ctx

@@ -2,10 +2,9 @@
  * 最小的自写壳：一个窗口 + 一个引擎子进程。
  * 壳只负责窗口、名字和进程生命周期；界面由引擎的 Web 应用提供，壳直接加载它的地址。
  */
-const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, nativeTheme, safeStorage, screen, session, shell } = require('electron')
+const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, nativeTheme, safeStorage, session, shell } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const { createTray } = require('./tray.cjs')
-const { createPane } = require('./pane.cjs')
 const { createUpdater, githubToken } = require('./update.cjs')
 const { createWereadBridge } = require('./weread.cjs')
 const { createReader } = require('./reader.cjs')
@@ -211,10 +210,6 @@ async function main() {
     opening = undefined
     return target
   })
-  // 右边栏向右打开（pane.cjs）：页面报来右边栏要多宽，窗口跟着加宽、缩回，回给页面实际加了多少。
-  const pane = createPane({ window, screen, minWidth: MIN_WIDTH })
-  ipcMain.handle('campus:side-pane', (event, width, instant) =>
-    fromPage(event) && typeof width === 'number' && width >= 0 && width <= 4000 ? pane.set(width, instant === true) : 0)
   // 检查更新（update.cjs）。读私有仓库要 GitHub 令牌：设置里填的那个用系统的加密存在数据目录里，没填就问本机的 GitHub CLI。
   const tokenFile = path.join(app.getPath('userData'), 'update-token')
   const savedToken = () => { try { return safeStorage.decryptString(readFileSync(tokenFile)) } catch { return undefined } }

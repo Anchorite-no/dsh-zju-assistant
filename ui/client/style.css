@@ -1430,39 +1430,6 @@ html[data-campus-width] [data-width-handle] {
   user-select: all;
 }
 
-/* ── 右边栏向右打开 ───────────────────────────────────────
-   右边栏出现、收起的那一下，窗口的宽度要过一两帧才跟上（rightpane.ts）。这期间把引擎的框架钉住，对话区一个像素都不动；
-   引擎自己那段「让出一列」的过渡也关掉。
-   打开：框架钉成窗口到位以后的宽度，多出来的一截（右边栏）在窗口外面，窗口拉开把它露出来。
-   收起：框架和三列都钉成收起之前的样子，右边栏原样留在它那一列，由窗口的右边一点点盖过去。
-   引擎打开、收起右边栏时会让它从右边滑进来、往右滑出去（它那一列在跟着变宽变窄，两头是配着的）；我们这里列不变、
-   变的是窗口：照它来，打开时露出来的那一截先是空的，收起时右边栏会被挤到对话上面。所以钉着的时候让它待在原地不动，
-   收起放开以后的一小会儿（data-campus-settling）让它直接不见。
-   这几条认的是引擎右边栏里的 data-dockkit-*，引擎升级后对着 dsh-client-ui-sidebar-right 的样式重新核一遍。 */
-[data-campus-pinned] {
-  width: var(--campus-pin) !important;
-  transition: none !important;
-}
-
-[data-campus-pinned='closing'] {
-  grid-template-columns: var(--campus-pin-columns) !important;
-}
-
-[data-campus-pinned] > [data-rightbar-col] :is([data-dockkit-host='dock'], [data-dockkit-empty], [data-dockkit-divider]) {
-  transform: none !important;
-  visibility: visible !important;
-  transition: none !important;
-}
-
-[data-campus-settling] > [data-rightbar-col] :is([data-dockkit-host='dock'], [data-dockkit-empty], [data-dockkit-divider]) {
-  transition: none !important;
-}
-
-html[data-campus-pane],
-html[data-campus-pane] body {
-  overflow-x: clip;
-}
-
 /* ── 执行过程 ─────────────────────────────────────────────
    右边栏里的一张线路图：一根细线是助手自己，每去一个网站从它弯出一条支线；线的左边是网站名，右边是在那里做了什么，行尾是拿到几条。
    只用黑白灰，失败的才是红的；都直接落在底色上，没有表头、标签和色块。

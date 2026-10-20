@@ -22,7 +22,7 @@
     "test:profile": "node --test ui/profile/*.test.mjs",
     "test:trace": "node --test ui/client/trace/*.test.mjs ui/client/*.test.mjs",
     "test:credentials": "node --test desktop/config.test.mjs",
-    "test:plugins": "node --test desktop/profile.test.mjs desktop/ffmpeg.test.mjs desktop/node.test.mjs desktop/pane.test.mjs desktop/film.test.mjs desktop/reader.test.mjs desktop/tray.test.mjs desktop/update.test.mjs desktop/weread.test.mjs scripts/after-pack.test.mjs ui/profile/account.test.mjs ui/profile/plugins.test.mjs ui/profile/wechat.test.mjs",
+    "test:plugins": "node --test desktop/profile.test.mjs desktop/ffmpeg.test.mjs desktop/node.test.mjs desktop/film.test.mjs desktop/reader.test.mjs desktop/tray.test.mjs desktop/update.test.mjs desktop/weread.test.mjs scripts/after-pack.test.mjs ui/profile/account.test.mjs ui/profile/plugins.test.mjs ui/profile/wechat.test.mjs",
     "test:weread": "node --test core/weread/tests/*.test.ts core/weread/tests/*.test.mjs",
     "test:core": "node --test core/zju/tests/*.test.ts",
     "eval:review": "node scripts/review-eval/run.mjs",

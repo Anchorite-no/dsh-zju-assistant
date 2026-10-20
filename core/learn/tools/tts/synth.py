@@ -4,7 +4,7 @@
 
 解说词是 {"lang": "ja", "lines": [...]}，每项 {"key": "s1", "text": "字幕文本", "tts": "朗读文本"}。
 读的是 tts：外语配音时它是这一句的译文，中文配音时可以不写，不写就读字幕。
-只给一个数组时按中文读。语言、文本、音色、语速都没变的句子直接复用上次的音频。
+只给一个数组时按中文读。语言、文本、音色都没变的句子直接复用上次的音频。
 """
 import argparse
 import contextlib
@@ -24,9 +24,7 @@ def main():
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--voice", help="参考音色的路径，或 voices/ 下的名字")
     ap.add_argument("--lang", choices=engine.LANGS, help="配音语言，不给就用解说词里写的")
-    ap.add_argument("--speed", type=float, help="时长倍率，大于 1 变慢，范围 0.5 到 2.0。不给就用这个音色自己的（voice.json 的 speed）")
     ap.add_argument("--force", action="store_true", help="忽略缓存，全部重新合成")
-    ap.add_argument("--fp32", action="store_true", help="全精度，快约 15%%，多占 2GB 显存")
     args = ap.parse_args()
 
     with open(args.narration, encoding="utf-8") as f:
@@ -51,12 +49,11 @@ def main():
             old = json.load(f).get("lines", {})
 
     voice_id = engine.voice_id(voice)
-    speed = args.speed if args.speed is not None else engine.voice_speed(args.voice)
     todo = []
     result = {}
     for x in lines:
         spoken = (x.get("tts") or x["text"]).strip()
-        fp = engine.fingerprint(lang, spoken, voice_id, speed)
+        fp = engine.fingerprint(lang, spoken, voice_id)
         wav_path = os.path.join(out_dir, x["key"] + ".wav")
         prev = old.get(x["key"])
         if prev and prev.get("fingerprint") == fp and os.path.isfile(wav_path):
@@ -70,11 +67,11 @@ def main():
     print(f"配音语言 {lang}：共 {len(lines)} 句，复用 {len(result)} 句，需合成 {len(todo)} 句", flush=True)
     wall = 0.0
     if todo:
-        tts = engine.load(bf16=False if args.fp32 else None)
+        tts = engine.load()
         for i, (key, spoken, fp, wav_path) in enumerate(todo, 1):
             t0 = time.perf_counter()
             with contextlib.redirect_stdout(io.StringIO()):
-                sr, pcm = engine.speak(tts, voice, spoken, lang, duration_factor=speed)
+                sr, pcm = engine.speak(tts, voice, spoken, lang)
             took = time.perf_counter() - t0
             wall += took
             engine.save_wav(wav_path, pcm)
@@ -90,7 +87,7 @@ def main():
     ordered = {k: result[k] for k in keys}
     total = sum(v["seconds"] for v in ordered.values())
     with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump({"lang": lang, "voice": os.path.basename(voice), "speed": speed, "sample_rate": engine.SAMPLE_RATE,
+        json.dump({"lang": lang, "voice": os.path.basename(voice), "engine": engine.ENGINE, "sample_rate": engine.SAMPLE_RATE,
                    "total_seconds": round(total, 3), "lines": ordered}, f, ensure_ascii=False, indent=1)
     new_audio = sum(result[k]["seconds"] for k, *_ in todo)
     rtf = f"，实时率 {wall / new_audio:.2f}" if new_audio else ""

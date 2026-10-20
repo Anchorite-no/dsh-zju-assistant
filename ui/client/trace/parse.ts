@@ -216,6 +216,14 @@ export function describeCall(name: string, argsRaw: string): Action {
   const text = (key: string) => typeof args[key] === 'string' ? args[key] as string : undefined
   if (SHELL_TOOLS.has(name)) {
     const command = text('command') ?? ''
+    const tokens = shellTokens(command)
+    const chatAt = tokens.findIndex(word => word && /(?:wechat|dingtalk)\.(?:mjs|ts)$/.test(word))
+    if (chatAt >= 0) {
+      const platform = tokens[chatAt]!.includes('dingtalk') ? '钉钉聊天' : '微信聊天'
+      const operation = tokens[chatAt + 1] === 'chat' ? tokens[chatAt + 2] : tokens[chatAt + 1]
+      const labels: Record<string, string> = { status: '检查客户端', profiles: '查看本地账号', list: '查找聊天', contacts: '查找联系人', info: '读取聊天资料', members: '查看群成员', read: '读取聊天', search: '搜索消息', download: '保存聊天附件' }
+      if (operation && labels[operation]) return { kind: 'campus', output: 'envelope', site: platform, label: labels[operation]!, key: platform + ' ' + operation, command }
+    }
     const words = zjuWords(command)
     if (words && words.length > 0) return campusAction(words, command)
     const about = text('description') ?? command
@@ -275,10 +283,10 @@ export function readOutcome(text: string, isError: boolean): Outcome {
   const envelope = start >= 0 && end > start ? parseJson(text.slice(start, end + 1)) : undefined
   if (isRecord(envelope) && typeof envelope.ok === 'boolean') {
     if (!envelope.ok) {
-      const error = isRecord(envelope.error) && typeof envelope.error.message === 'string' ? envelope.error.message : undefined
+      const error = isRecord(envelope.error) && typeof envelope.error.message === 'string' ? envelope.error.message : typeof envelope.message === 'string' ? envelope.message : undefined
       return { ok: false, ...(error ? { error: shorten(error, 160) } : {}) }
     }
-    const list = onlyList(envelope.data)
+    const list = onlyList(envelope.data ?? envelope)
     const titles = list?.slice(0, 5).map(titleOf).filter((title): title is string => title !== undefined).map(title => shorten(title, 60))
     return {
       ok: true,

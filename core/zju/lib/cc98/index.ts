@@ -69,6 +69,12 @@ export function when(value: string | null | undefined): string | null {
   return beijingMinute(value ? withZone(value) : value);
 }
 
+/** 平台时间原样精确到秒（UTC ISO），给应用按时间去重和排序用；给人看的仍是 when() */
+export function exactTime(value: string | null | undefined): string | null {
+  const at = value ? Date.parse(withZone(value)) : NaN;
+  return Number.isFinite(at) ? new Date(at).toISOString() : null;
+}
+
 export function postDisplayName(p: Pick<Post, "isAnonymous" | "userName">): string {
   return p.isAnonymous ? `匿名${(p.userName ?? "").toUpperCase()}` : (p.userName ?? "（已删除）");
 }
@@ -285,15 +291,16 @@ type NotificationKind = "reply" | "at" | "system";
 /**
  * 回复和 @ 只带主题 ID 与楼层号，这里补上主题标题和该楼作者自己的话；
  * 系统通知直接给正文。逐条读取，单条失败只标注该条。
+ * 每条带平台的消息编号 id 和精确时间 at：应用的「个人消息」靠它们去重，不靠标题和分钟。
  */
 async function viewNotifications(s: Cc98Session, kind: NotificationKind, from: number, size: number) {
   const rows = await s.api.notifications(kind, from, size);
-  if (kind === "system") return rows.map((n) => ({ time: when(n.time), title: n.title ?? "", content: plainContent(n.content ?? ""), ...(n.topicId ? { url: topicUrl(n.topicId) } : {}), read: n.isRead }));
+  if (kind === "system") return rows.map((n) => ({ id: n.id, time: when(n.time), at: exactTime(n.time), title: n.title ?? "", content: plainContent(n.content ?? ""), ...(n.topicId ? { url: topicUrl(n.topicId) } : {}), read: n.isRead }));
   const titles = new Map<number, string | null>();
   const out = [];
   for (const n of rows) {
     const info = n.postBasicInfo;
-    const base = { time: when(n.time), from: info?.userName ?? null, read: n.isRead };
+    const base = { id: n.id, time: when(n.time), at: exactTime(n.time), from: info?.userName ?? null, read: n.isRead };
     if (!n.topicId || !info) { out.push({ ...base, content: plainContent(n.content ?? "") }); continue; }
     if (!titles.has(n.topicId)) titles.set(n.topicId, await s.api.topic(n.topicId).then((t) => t.title, () => null));
     let content: string | null = "（该楼已删除）";
@@ -315,7 +322,7 @@ export async function notifications(s: Cc98Session, kind: NotificationKind | und
   if (kind) return { unread, kind, items: await viewNotifications(s, kind, from, size) };
   const groups: { kind: string; items: unknown[]; note?: string }[] = await Promise.all((["reply", "at", "system"] as const).map(async (type) => ({ kind: type, items: await viewNotifications(s, type, from, size) })));
   if (unread.messageCount) {
-    const items = (await contacts(s, 0, 10)).filter((c) => c.unread).map((c) => ({ time: c.time, from: c.user, content: c.last, read: false }));
+    const items = (await contacts(s, 0, 10)).filter((c) => c.unread).map((c) => ({ userId: c.userId, time: c.time, at: c.at, from: c.user, content: c.last, read: false }));
     groups.push({ kind: "message", items, note: "未读私信，每个会话只列最新一条；完整对话用 cc98 private-message list，回复用 cc98 private-message send" });
   }
   return { unread, groups };
@@ -325,7 +332,7 @@ export async function notifications(s: Cc98Session, kind: NotificationKind | und
 async function contacts(s: Cc98Session, from: number, size: number) {
   const rows = await s.api.recentContacts(from, size);
   const names = new Map((await s.api.basicUsers(rows.map((c) => c.userId))).map((u) => [u.id, u.name]));
-  return rows.map((c) => ({ userId: c.userId, user: names.get(c.userId) ?? `用户${c.userId}`, time: when(c.time), unread: !c.isRead && c.senderId === c.userId, lastFrom: c.senderId === c.userId ? "received" as const : "sent" as const, last: plainContent(c.lastContent) }));
+  return rows.map((c) => ({ userId: c.userId, user: names.get(c.userId) ?? `用户${c.userId}`, time: when(c.time), at: exactTime(c.time), unread: !c.isRead && c.senderId === c.userId, lastFrom: c.senderId === c.userId ? "received" as const : "sent" as const, last: plainContent(c.lastContent) }));
 }
 
 /** 一条私信：received 是对方发来的；sent 是自己发的，带对方是否已读 */

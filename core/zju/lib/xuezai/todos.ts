@@ -11,8 +11,11 @@ export async function listTodos(client: Xuezai, courseId?: number): Promise<Todo
   return courseId === undefined ? data.todo_list : data.todo_list.filter((t) => Number(t.course_id) === Number(id(courseId)));
 }
 
-/** 用课程作业列表补查原生待办可能漏掉的未交作业；失败不会伪装成没有待办。范围是指定课程，或当前学期的全部课程。 */
-export async function scanHomeworkTodos(client: Xuezai, only?: { id: number; name: string }) {
+/**
+ * 用课程作业列表补查原生待办可能漏掉的未交作业；失败不会伪装成没有待办。范围是指定课程，或当前学期的全部课程。
+ * done 为真时已交的作业也留下（行里的 submitted 为真），日程表用它把交过的标成已完成；读的还是同一份列表，不多发请求。
+ */
+export async function scanHomeworkTodos(client: Xuezai, only?: { id: number; name: string }, { done = false } = {}) {
   const listed = only ? [only] : await listCourses(client, { semester: currentSemesters(await listSemesters(client)).map((s) => s.id) });
   const courses = [...new Map(listed.map((c) => [c.id, c])).values()];
   const tasks: Todo[] = [];
@@ -20,7 +23,7 @@ export async function scanHomeworkTodos(client: Xuezai, only?: { id: number; nam
   for (let i = 0; i < courses.length; i += 6) {
     await Promise.all(courses.slice(i, i + 6).map(async (course) => {
       try {
-        for (const row of await listHomework(client, course.id)) if (row.submitted !== true) tasks.push({ ...row, type: "homework", course_id: course.id, course_name: course.name });
+        for (const row of await listHomework(client, course.id)) if (done || row.submitted !== true) tasks.push({ ...row, type: "homework", course_id: course.id, course_name: course.name });
       } catch (e) { errors.push({ course: course.name, message: e instanceof Error ? e.message : String(e) }); }
     }));
   }
@@ -29,9 +32,9 @@ export async function scanHomeworkTodos(client: Xuezai, only?: { id: number; nam
   return result;
 }
 
-/** Native exams/quizzes plus a complete homework scan; the caller never selects a source. */
-export async function getTodos(client: Xuezai, only?: { id: number; name: string }) {
-  const responses = await Promise.allSettled([listTodos(client, only?.id), scanHomeworkTodos(client, only)]);
+/** Native exams/quizzes plus a complete homework scan; the caller never selects a source. done adds submitted homework, marked done. */
+export async function getTodos(client: Xuezai, only?: { id: number; name: string }, { done = false } = {}) {
+  const responses = await Promise.allSettled([listTodos(client, only?.id), scanHomeworkTodos(client, only, { done })]);
   const native = responses[0]!, scanned = responses[1]!;
   const scan = scanned.status === "fulfilled" ? scanned.value : scanned.reason instanceof BadResponse
     ? scanned.reason.detail.result as { todos: Todo[]; errors: unknown[] } | undefined : undefined;
@@ -42,7 +45,7 @@ export async function getTodos(client: Xuezai, only?: { id: number; name: string
   const deadline = (row: Todo) => { const t = Date.parse(String(row.end_time ?? row.deadline ?? "")); return Number.isFinite(t) ? t : Infinity; };
   const todos = [...merged.values()].sort((a, b) => deadline(a) - deadline(b)).map(row => {
     const requirement = requirementText(row.data);
-    return { course: row.course_name ?? "", title: row.title, type: activityType(row.type), deadline: beijingMinute(row.end_time ?? row.deadline), ...(requirement ? { requirement } : {}) };
+    return { course: row.course_name ?? "", title: row.title, type: activityType(row.type), deadline: beijingMinute(row.end_time ?? row.deadline), ...(row.submitted === true ? { done: true } : {}), ...(requirement ? { requirement } : {}) };
   });
   const result = { currentTime: beijingMinute(Date.now()), count: todos.length, todos };
   const errors = responses.flatMap((r, i) => r.status === "rejected" ? [{ source: i ? "课程作业" : "平台待办", message: String(r.reason?.message ?? r.reason) }] : []);

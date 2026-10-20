@@ -1,0 +1,67 @@
+/** Run against an unpacked Windows app outside the source tree, with fresh data and no developer PATH. */
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+const { fork, spawnSync } = require('node:child_process')
+const { nodeEnv } = require('../desktop/node.cjs')
+const { checkRuntimeDependencies } = require('./runtime-deps.cjs')
+
+async function main() {
+  if (process.platform !== 'win32' || !process.argv[2]) throw new Error('用法：node scripts/smoke-packaged.cjs <项目目录以外的 win-unpacked>')
+  const directory = fs.realpathSync.native(process.argv[2]), project = fs.realpathSync.native(path.join(__dirname, '..'))
+  if (directory.toLowerCase().startsWith(project.toLowerCase() + path.sep)) throw new Error('先把成品复制到项目目录之外，避免借用开发依赖。')
+  const root = path.join(directory, 'resources', 'app'), executable = path.join(directory, 'CampusAgent.exe')
+  checkRuntimeDependencies(root)
+  const tempRoot = fs.realpathSync.native(os.tmpdir())
+  const data = fs.mkdtempSync(path.join(tempRoot, 'campus-smoke-'))
+  const env = Object.fromEntries(['SystemRoot', 'WINDIR', 'SystemDrive', 'TEMP', 'TMP', 'COMSPEC', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS', 'PATHEXT'].filter(k => process.env[k]).map(k => [k, process.env[k]]))
+  Object.assign(env, { PATH: `${process.env.SystemRoot}/System32;${process.env.SystemRoot}/System32/WindowsPowerShell/v1.0`, ProgramFiles: path.join(data, 'empty'),
+    APPDATA: path.join(data, 'roaming'), LOCALAPPDATA: path.join(data, 'local'), USERPROFILE: data, HOME: data, DSH_HOME: path.join(data, 'home'),
+    CAMPUS_PROFILE_DIR: path.join(data, 'profile'), CAMPUS_KEYS_DIR: data, CAMPUS_CHATS_DIR: path.join(data, 'documents'), DSH_TELEMETRY_DISABLED: '1', ELECTRON_RUN_AS_NODE: '1' })
+  Object.assign(env, nodeEnv({ dir: path.join(data, 'bin'), execPath: executable, env }))
+  let child, logs = ''
+  try {
+    for (const file of ['core/zju/scripts/zju.ts', 'core/weread/scripts/weread.ts']) {
+      const run = spawnSync(executable, [path.join(root, file), '--help'], { cwd: data, env, windowsHide: true, encoding: 'utf8', timeout: 30_000 })
+      if (run.status !== 0) throw new Error(`${file} failed: ${run.stderr}`)
+      console.log('PASS', file)
+    }
+    const url = await new Promise((resolve, reject) => {
+      child = fork(path.join(root, 'desktop/host.mjs'), [], { execPath: executable, cwd: data, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
+      const timer = setTimeout(() => reject(new Error('引擎启动超时')), 30_000)
+      child.stdout.on('data', c => { logs = (logs + c).slice(-8000) })
+      child.stderr.on('data', c => { logs = (logs + c).slice(-8000) })
+      child.once('error', error => { clearTimeout(timer); reject(error) })
+      child.once('exit', code => { clearTimeout(timer); reject(new Error(`引擎退出 ${code}`)) })
+      child.on('message', m => {
+        if (m?.type === 'ready') { clearTimeout(timer); resolve(m.url) }
+        if (m?.type === 'fatal') { clearTimeout(timer); reject(new Error(m.message)) }
+      })
+    })
+    const exchange = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(10_000) })
+    const cookie = exchange.headers.get('set-cookie')?.split(';')[0]
+    if (!cookie) throw new Error('网页认证未建立')
+    const page = await fetch(new URL('/', url), { headers: { cookie }, signal: AbortSignal.timeout(10_000) })
+    if (page.status !== 200) throw new Error(`网页 HTTP ${page.status}`)
+    const settings = await fetch(new URL('/api/campus/profile', url), { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ action: 'tts-read' }), signal: AbortSignal.timeout(10_000) })
+    const { value, error } = await settings.json()
+    if (!settings.ok || error || value.installed || value.enabled || value.running) throw new Error('新用户配音默认状态不正确')
+    console.log('PASS engine, authenticated page, optional TTS stays uninstalled and stopped; no system Node/Python/npm on PATH')
+  } catch (error) {
+    // Do not print the launch URL token from the engine's logs.
+    console.error(logs.replace(/([?&]token=)[^\s]+/g, '$1[redacted]'))
+    throw error
+  } finally {
+    if (child && child.exitCode === null) await new Promise(resolve => {
+      const timer = setTimeout(() => { child.kill() }, 5000)
+      child.once('close', () => { clearTimeout(timer); resolve() })
+      if (child.connected) child.send({ type: 'shutdown' }); else child.kill()
+    })
+    const absolute = path.resolve(data)
+    if (absolute.startsWith(tempRoot + path.sep) && path.basename(absolute).startsWith('campus-smoke-')) {
+      try { fs.rmSync(absolute, { recursive: true, force: true, maxRetries: 4, retryDelay: 250 }) }
+      catch (error) { console.warn(`临时目录未能清理（${error.code}）：${absolute}`) }
+    }
+  }
+}
+main().catch(error => { console.error(error.message); process.exitCode = 1 })

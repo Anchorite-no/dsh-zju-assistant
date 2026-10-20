@@ -142,7 +142,7 @@ def show_in_edge(url):
     edge = next((p for v in ("ProgramFiles(x86)", "ProgramFiles")
                  if os.path.isfile(p := os.path.join(os.environ.get(v, ""), "Microsoft", "Edge", "Application", "msedge.exe"))), None)
     if not edge:
-        sys.exit("没有装 pywebview，也找不到 Edge。先装 pywebview：uv pip install --python tools/index-tts/.venv/Scripts/python.exe pywebview")
+        sys.exit("没有装 pywebview，也找不到 Edge。先装 pywebview：uv pip install --python tools/qwen-tts/.venv/Scripts/python.exe pywebview")
     profile = tempfile.mkdtemp(prefix="learn-reader-")
     window = subprocess.Popen([edge, f"--app={url}", f"--user-data-dir={profile}", "--window-size=1560,940", "--no-first-run",
                                "--no-default-browser-check", "--disable-background-mode", "--disable-sync", "--disable-extensions",

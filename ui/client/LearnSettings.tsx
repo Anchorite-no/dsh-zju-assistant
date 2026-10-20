@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import { errorText, profileApi } from './api.ts'
+import { TtsSettings } from './TtsSettings.tsx'
 
 interface Part { id: 'tex' | 'browser', state: 'ready' | 'missing' | 'installing', where: 'app' | 'system' | null, installable: boolean, step: string, percent: number | null, error: string }
 interface Snapshot { enabled: boolean, parts: Part[] }
@@ -43,7 +44,7 @@ export function LearnSettings() {
   }
   if (!data) return error ? <p className="campus-form-error">{error}</p> : null
   return (
-    <section className="campus-section" aria-label="可选依赖">
+    <><section className="campus-section" aria-label="可选依赖">
       <h2 className="campus-section-title">可选依赖</h2>
       <dl className="campus-systems campus-parts">
         {data.parts.map((part) => {
@@ -68,6 +69,6 @@ export function LearnSettings() {
         })}
       </dl>
       {error && <p className="campus-form-error">{error}</p>}
-    </section>
+    </section><TtsSettings /></>
   )
 }

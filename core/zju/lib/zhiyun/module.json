@@ -20,7 +20,6 @@
     "zhiyun setup",
     "zhiyun check",
     "zhiyun trans audio",
-    "zhiyun trans ppt",
     "zhiyun session login",
     "zhiyun session status",
     "zhiyun session logout",
@@ -45,10 +44,6 @@
       "runtime": "sherpa-onnx",
       "model": "SenseVoiceSmall int8",
       "setup": "zhiyun setup --component asr"
-    },
-    "ppt": {
-      "runtime": "python",
-      "setup": "zhiyun setup --component ppt"
     }
   }
 }

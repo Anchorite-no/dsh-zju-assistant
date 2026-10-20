@@ -83,7 +83,12 @@ if (!declarative) for (const sc of SCRIPT) {
   if (!new RegExp(`SCENES\\s*(?:\\.\\s*${sc.id}\\b|\\[\\s*['"]${sc.id}['"]\\s*\\])\\s*=`).test(allSceneSrc)) notes.push(`场景 ${sc.id} 还没有画面`);
 }
 for (const s of scenes) {
-  for (const m of s.src.matchAll(/\b(?:at|en)\(\s*'([^']+)'/g)) if (!TL.T[m[1]]) problems.push(`${s.name} 引用了不存在的句子 ${m[1]}`);
+  // at('编号') / en('编号')：句子要有；at('编号', '几个字')：这句字幕里要有这几个字
+  for (const m of s.src.matchAll(/\b(?:at|en)\(\s*'([^']+)'(?:\s*,\s*('(?:[^'\\]|\\.)*'))?/g)) {
+    if (!TL.T[m[1]]) { problems.push(`${s.name} 引用了不存在的句子 ${m[1]}`); continue; }
+    let part; try { part = m[2] && new Function('return ' + m[2])(); } catch { /* 不是一个完整的字面量 */ }
+    if (part && V.share(TL.T[m[1]].text, part) < 0) problems.push(`${s.name}：句子 ${m[1]} 的字幕里没有“${part}”`);
+  }
 }
 for (const lang of new Set([dub, ...Object.keys(dubbed)])) {
   if (lang === 'zh') continue;
@@ -145,7 +150,6 @@ const tag = src => `<script>\n${src.replace(/<\/script/g, '<\\/script')}\n</scri
 const theme = LESSON.theme || 'anthropic';
 const hook = process.env.LEARN_HOOK;                    // LEARN_HOOK：版面自查用，在引擎之后、场景之前插入的一段脚本
 // 成品放哪、叫什么
-// 应用里引擎在安装目录、讲解在用户的工作区，根目录按这一讲自己的位置定：<根目录>/lessons/<主题>/film。和 D:\Learn 原版只差这一行。
 const topic = dirname(lessonDir), lecture = basename(lessonDir) === 'film' && basename(dirname(topic)) === 'lessons';
 const root = lecture ? dirname(dirname(topic)) : dirname(engineDir);
 const title = LESSON.title || basename(lecture ? topic : lessonDir), film = relative(root, lessonDir).replace(/\\/g, '/');

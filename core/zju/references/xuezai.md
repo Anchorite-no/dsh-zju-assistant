@@ -16,7 +16,7 @@ xuezai
 
 | 用户目标 | 命令 | 结果 |
 |---|---|---|
-| 有什么作业、DDL | `todos`，只看一门课加 `--course` | 当前学期各课未交的作业和测验，按截止先后：course、title、type、deadline、requirement（作业要求全文） |
+| 有什么作业、DDL | `todos`，只看一门课加 `--course` | 当前学期各课未交的作业和测验，按截止先后：course、title、type、deadline、requirement（作业要求全文）。加 `--done` 时已交的作业也列出来，带 `done: true` |
 | 这学期有哪些课 | `course list` | 当前学期的课程、教师；往年加 `--semester 2025-2026春夏`（或只写学年 `2025-2026`），全部学期加 `--all` |
 | 一门课讲什么、每章有什么 | `course view --course 课程名` | 简介、开课日期，章节下的每个活动：类型、说明、链接、截止时间、文件名 |
 | 找课件 | `material list --course 课程名`，只看一章加 `--chapter 章节名` | 照课程里的先后：文件名、大小、在哪一章（`chapter`，有小节时还有 `section`）、所在活动，视频带 `video`；网页上只能预览、没有下载按钮的文件同样能下载 |

@@ -5,11 +5,20 @@
   "private": true,
   "description": "校园智能体桌面端：自写 Electron 壳 + 自己的界面包 + 自带的 ZJU / Learning / WeRead core，引擎用 DeepSeek Harness",
   "main": "desktop/main.cjs",
+  "engines": {
+    "node": ">=24.18.0 <25",
+    "npm": ">=11 <12"
+  },
   "scripts": {
+    "postinstall": "node scripts/setup.mjs",
+    "setup": "node scripts/setup.mjs",
+    "check:runtime": "node scripts/runtime-deps.cjs",
     "start": "node ui/build.mjs --app",
     "ui": "node ui/build.mjs",
     "typecheck": "tsc --noEmit -p ui",
     "typecheck:core": "node core/zju/node_modules/typescript/bin/tsc --noEmit -p core/zju",
+    "typecheck:weread": "node core/weread/node_modules/typescript/bin/tsc --noEmit -p core/weread",
+    "verify": "npm run typecheck && npm run typecheck:core && npm run typecheck:weread && npm run typecheck:dingtalk && node --test desktop/*.test.mjs scripts/*.test.mjs ui/profile/*.test.mjs ui/client/*.test.mjs ui/client/trace/*.test.mjs core/zju/tests/*.test.ts core/weread/tests/*.test.ts core/weread/tests/*.test.mjs core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts && node core/learn/tools/tts/test_reader.mjs",
     "test:profile": "node --test ui/profile/*.test.mjs",
     "test:trace": "node --test ui/client/trace/*.test.mjs ui/client/*.test.mjs",
     "test:credentials": "node --test desktop/config.test.mjs",
@@ -17,14 +26,19 @@
     "test:weread": "node --test core/weread/tests/*.test.ts core/weread/tests/*.test.mjs",
     "test:core": "node --test core/zju/tests/*.test.ts",
     "eval:review": "node scripts/review-eval/run.mjs",
-    "package": "node ui/build.mjs && electron-builder --dir --publish never",
-    "installer": "node ui/build.mjs && electron-builder --win nsis --publish never"
+    "package": "node ui/build.mjs && node scripts/runtime-deps.cjs && electron-builder --dir --publish never",
+    "installer": "node ui/build.mjs && node scripts/runtime-deps.cjs && electron-builder --win nsis --publish never",
+    "test:chats": "node --test core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts ui/profile/chat-watch.test.mjs",
+    "typecheck:dingtalk": "node core/dingtalk/node_modules/typescript/bin/tsc --noEmit -p core/dingtalk"
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.2.0-rc.2",
     "electron-updater": "^6.8.9",
     "ffmpeg-static": "5.3.0",
-    "js-yaml": "^4.3.2"
+    "imapflow": "^2.5.2",
+    "js-yaml": "^4.3.2",
+    "mailparser": "^3.9.40",
+    "nodemailer": "^10.1.2"
   },
   "devDependencies": {
     "@types/react": "18.3",
@@ -32,6 +46,12 @@
     "electron-builder": "26.15.3",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "@modelcontextprotocol/client": "2.2.0",
+    "@deepseek-ai/libreoffice-kit": {
+      "fflate": "0.8.3"
+    }
   },
   "build": {
     "appId": "cn.campusagent.desktop",
@@ -47,7 +67,11 @@
       "!ui/profile/*.test.mjs",
       "ui/lib/**/*",
       "core/**/*",
-      "!core/learn/朗读器.cmd",
+      "!core/learn/tools/tts/test*",
+      "!core/learn/tools/tts/voicelab/**",
+      "!core/learn/tools/tts/app.py",
+      "!core/learn/**/__pycache__/**",
+      "!core/learn/**/*.pyc",
       "core/learn/engine/vendor/node_modules/**/*",
       "!core/weread/tests/**",
       "core/weread/node_modules/**/*",
@@ -60,11 +84,16 @@
       "!core/zju/dev/**",
       "app.patch.yml",
       "api-keys.example.yaml",
-      "package.json"
+      "package.json",
+      "core/wechat/node_modules/**/*",
+      "!core/wechat/tests/**",
+      "!core/dingtalk/tests/**",
+      "!core/chat/*.test.mjs"
     ],
     "directories": {
       "output": "dist"
     },
+    "beforePack": "scripts/before-pack.cjs",
     "afterPack": "scripts/after-pack.cjs",
     "publish": [
       {

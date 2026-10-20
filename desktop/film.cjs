@@ -24,11 +24,12 @@ function filmDirectory(documents, env = process.env) {
   return path.join(env.CAMPUS_CHATS_DIR ? path.resolve(env.CAMPUS_CHATS_DIR) : path.join(documents, 'CampusAgent'), '讲解', 'dist')
 }
 
-const notePage = text => `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html><meta charset="utf-8"><title>校园智能体</title><body style="margin:0;height:100vh;display:grid;place-items:center;background:#1b1b1c;color:#c8c8c8;font:14px/1.6 system-ui,sans-serif">${text}</body>`)}`
+const escape = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+const notePage = text => `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html><meta charset="utf-8"><title>校园智能体</title><body style="margin:0;height:100vh;display:grid;place-items:center;background:#1b1b1c;color:#c8c8c8;font:14px/1.6 system-ui,sans-serif"><p style="max-width:640px;padding:24px">${escape(text)}</p></body>`)}`
 
 /** directory 返回成品文件夹。返回 { open(url, origin), close() }：open 认出是讲解就自己打开并返回 true，不是就返回 false。 */
-function createFilms({ BrowserWindow, session, directory }) {
-  let window
+function createFilms({ BrowserWindow, session, directory, voice = async () => null, stopVoice = () => {} }) {
+  let window, sequence = 0
   const alive = () => window && !window.isDestroyed()
   function open(url, origin) {
     const name = filmName(url, origin)
@@ -41,11 +42,25 @@ function createFilms({ BrowserWindow, session, directory }) {
       window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
       // 只放我们自己装进去的那一页，页面里的链接和脚本不能把窗口带到别处。
       window.webContents.on('will-navigate', (event) => { event.preventDefault() })
-      window.on('closed', () => { window = undefined })
+      window.on('closed', () => { window = undefined; sequence++; stopVoice() })
     }
     const file = name ? path.join(directory(), name) : ''
-    if (file && fs.existsSync(file)) void window.loadFile(file).catch(() => {})
-    else void window.loadURL(notePage('这条讲解已经不在原来的位置了。')).catch(() => {})
+    const target = window, turn = ++sequence
+    if (file && fs.existsSync(file)) {
+      void (async () => {
+        try {
+          const url = await voice(name)
+          if (target.isDestroyed() || turn !== sequence) return
+          if (url) {
+            const address = new URL(url)
+            if (address.protocol !== 'http:' || address.hostname !== '127.0.0.1') throw new Error('配音服务地址不正确。')
+            await target.loadURL(url)
+          } else await target.loadFile(file)
+        } catch (error) {
+          if (!target.isDestroyed() && turn === sequence) await target.loadURL(notePage(error.message || '配音未能启动，请在课程讲解插件检查。')).catch(() => {})
+        }
+      })()
+    } else void window.loadURL(notePage('这条讲解已经不在原来的位置了。')).catch(() => {})
     window.show()
     window.focus()
     return true

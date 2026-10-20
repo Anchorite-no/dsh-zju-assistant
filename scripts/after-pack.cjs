@@ -11,6 +11,7 @@
  */
 const fs = require('node:fs')
 const path = require('node:path')
+const { checkRuntimeDependencies } = require('./runtime-deps.cjs')
 
 function manifestOf(dir) {
   try { return JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')) } catch { return undefined }
@@ -139,7 +140,8 @@ async function afterPack(context) {
   const appDir = path.join(context.appOutDir, 'resources', 'app')
   const { added, unresolved } = shipMissingDependencies(appDir, context.packager.projectDir)
   console.log(`  • shipped ${added.length} installed packages the dependency walk left out${added.length ? `: ${added.join(', ')}` : ''}`)
-  if (unresolved.length > 0) console.log(`  • not installed in the project either (left as they are): ${unresolved.join('; ')}`)
+  if (unresolved.length > 0) throw new Error(`成品缺少必需依赖：${unresolved.join('; ')}`)
+  checkRuntimeDependencies(appDir)
   const dropped = dropDeadWeight(appDir)
   console.log(`  • dropped ${dropped.files} source maps and type declarations (${Math.round(dropped.bytes / 1048576)} MB) nothing reads at run time`)
   const odd = oddNames(context.appOutDir)

@@ -5,7 +5,7 @@
 
 参照是目标说话人的真实录音：一个音频文件，或者一个放着多段录音的目录；
 也可以是事先算好存下来的声纹（.npy）。
-用的是 IndexTTS 自带的 CAM++ 说话人模型（checkpoints/hf_cache/campplus_cn_common.bin），
+用的是 CAM++ 说话人模型（tools\\voiceprint 下的两个源码文件和 campplus_cn_common.bin，原是 IndexTTS 带的），
 每段音频算一个 192 维的声纹向量，相似度是向量夹角的余弦，1 是完全一致，0 是毫不相干。
 参照有多段时，先报告真人录音彼此之间有多像，这是克隆能达到的上限；排在最前面、离其余各段最远的，
 多半是别的说话人、音效或情绪很重的句子。
@@ -35,11 +35,11 @@ def leveled(samples):
 def load_model():
     import torch
 
-    sys.path.insert(0, engine.INDEXTTS_DIR)
+    sys.path.insert(0, engine.VOICEPRINT_DIR)  # 源码在这下面照原来的包路径放着，所以导入的写法不用变
     from indextts.s2mel.modules.campplus.DTDNN import CAMPPlus
 
     model = CAMPPlus(feat_dim=80, embedding_size=192)
-    model.load_state_dict(torch.load(os.path.join(engine.MODEL_DIR, "hf_cache", "campplus_cn_common.bin"), map_location="cpu"))
+    model.load_state_dict(torch.load(engine.VOICEPRINT_MODEL, map_location="cpu"))
     return model.eval()
 
 

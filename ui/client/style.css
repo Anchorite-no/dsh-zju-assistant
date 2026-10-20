@@ -32,7 +32,7 @@ button[role='switch'][class*='switch' i][aria-checked='true'] > span {
   overflow: auto;
   padding: 0 clamp(24px, 4vw, 48px) 48px;
   /* 列数按主区域的宽度定，不按窗口：侧栏和右边栏开着时主区域会窄很多。 */
-  container-type: inline-size;
+  container: campus-page / inline-size;
   color: var(--dsw-alias-label-primary);
   font-size: 13px;
   line-height: 20px;
@@ -489,6 +489,11 @@ button[role='switch'][class*='switch' i][aria-checked='true'] > span {
   margin-top: 32px;
 }
 
+.campus-notice-facts { display: grid; gap: 12px; margin: 16px 0 24px; }
+.campus-notice-facts > div { display: grid; grid-template-columns: 6em minmax(0, 1fr); gap: 12px; }
+.campus-notice-facts dt { color: var(--dsw-alias-label-secondary); }
+.campus-notice-facts dd { margin: 0; white-space: pre-wrap; }
+
 /* ── 微信公众号详情 ─────────────────────────────────────
    来源、跟踪的号、添加时的候选都是同一种行：左边名字在上、一行小字在下，右边一个开关或者按钮。 */
 .campus-wechat-main {
@@ -605,6 +610,21 @@ button[role='switch'][class*='switch' i][aria-checked='true'] > span {
 .campus-form-more {
   padding: 0 0 16px;
 }
+
+.campus-mail-settings { display: grid; gap: 24px; min-width: 0; }
+.campus-mail-settings .campus-form-foot { flex-wrap: wrap; }
+.campus-mail-help { margin: 12px 0; padding: 16px; border: 1px solid var(--dsw-alias-border-standard, #8883); border-radius: 12px; font-size: 13px; line-height: 1.7; }
+.campus-mail-help summary { cursor: pointer; font-size: 13px; font-weight: 500; }
+.campus-mail-help[open] summary { margin-bottom: 12px; }
+.campus-mail-help ol { margin: 0; padding-left: 20px; }
+.campus-mail-help li + li { margin-top: 4px; }
+.campus-mail-help-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.campus-mail-help-links a { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 12px; border: 1px solid var(--dsw-alias-border-standard, #8883); border-radius: 8px; color: inherit; text-decoration: none; min-width: 0; max-width: 100%; }
+.campus-mail-help-links a:hover { background: var(--dsw-alias-fill-secondary, #8881); }
+.campus-mail-help-links a:focus-visible { outline: 2px solid #4a78e8; outline-offset: 2px; }
+.campus-mail-help-links span { font-weight: 500; }
+.campus-mail-help-links small { font-size: 11px; opacity: .7; overflow-wrap: anywhere; }
+.campus-mail-settings .campus-text { overflow-wrap: anywhere; }
 
 .campus-form-grid {
   display: grid;
@@ -1451,6 +1471,11 @@ html[data-campus-pane] body {
   --campus-trace-row: 30px;
   --campus-trace-site: 92px;
   --campus-trace-ink: var(--dsw-alias-label-tertiary);
+  /* 步骤多到一屏放不下时在这一层里上下滚。引擎装页签正文的那一层是 overflow: hidden、和右边栏一样高，
+     不自己滚的话下面的行被裁掉，滚轮也滚不到（2026-10-12 之前就是这样，只靠新的一行出现时那一下自动滚）。 */
+  box-sizing: border-box;
+  height: 100%;
+  overflow: hidden auto;
   padding: 0 0 24px;
   font-size: 13px;
   line-height: 20px;
@@ -2189,10 +2214,10 @@ button[aria-label='工作区“对话”的操作'] {
 }
 
 /* ── 校园事务：两栏 ───────────────────────────────────────
-   左栏是要办的（作业，下面是备忘录），右栏是通知，两栏一样宽；主区域窄的时候上下叠放。 */
+   左栏是要办的（作业，下面是备忘录），右栏是通知；右栏略宽一点，放得下通知的标题（2026-10-18）。主区域窄的时候上下叠放。 */
 .campus-affairs-columns {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   align-items: start;
   gap: 32px 40px;
 }
@@ -2383,41 +2408,261 @@ button[aria-label='工作区“对话”的操作'] {
   color: color-mix(in srgb, var(--campus-orange) 78%, var(--dsw-alias-label-primary));
 }
 
-/* 通知那一栏表头右边的按钮：写着现在看的是多久以内的、哪一种，点开是菜单，时间和种类都在里面选。
-   加了二课以后要能只看一种；先想的是表头下面再加一排「全部 / 通知 / 公众号 / 二课」，用户说上面的按钮又多又长，
-   三种画法里选了收进一个菜单（2026-10-12）。高度和底色照左边作业那一栏的几选一（.campus-choice），两栏的表头一样高。 */
-.campus-feed-filter {
-  display: inline-flex;
-  flex: none;
+/* 通知的两个页签和「筛选」排在同一行，下面一根细线；页签选中的那个字深一档、底下一道线（2026-10-18）。 */
+.campus-feed-toolbar {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.campus-feed-tabs {
+  display: flex;
+  gap: 20px;
+  min-width: 0;
+}
+
+.campus-feed-tabs > button {
+  display: inline-flex;
+  align-items: baseline;
   gap: 6px;
-  height: 36px;
-  padding: 0 10px 0 14px;
+  margin-bottom: -0.5px;
+  padding: 8px 0 9px;
   border: 0;
-  border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-primary);
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
   font: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 20px;
-  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
 }
 
+.campus-feed-tabs > button:hover {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.campus-feed-tabs > button[aria-selected='true'] {
+  border-bottom-color: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.campus-feed-tabs > button:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+  border-radius: var(--dsw-radius-xs);
+}
+
+.campus-feed-tabs .campus-count {
+  font-weight: 400;
+}
+
+/* 页签那一行右边的「筛选」：平的文字按钮，不加底色和边框；选了别的来源或时间时按钮上写着选了什么，字深一档。
+   （原来是表头右边一个带边框的菜单按钮，2026-10-18 改成和页签同一行，面板贴着按钮弹出。） */
+.campus-feed-filter-anchor {
+  position: relative;
+  flex: none;
+}
+
+.campus-feed-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 220px;
+  height: 28px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.campus-feed-filter > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .campus-feed-filter:hover,
-.campus-feed-filter[aria-expanded='true'] {
-  background: var(--dsw-alias-interactive-bg-active, var(--dsw-alias-interactive-bg-hover));
+.campus-feed-filter[aria-expanded='true'],
+.campus-feed-filter[data-active] {
+  color: var(--dsw-alias-label-primary);
 }
 
 .campus-feed-filter:focus-visible {
   outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
-  outline-offset: -2px;
+  outline-offset: 0;
 }
 
 .campus-feed-filter > svg {
   flex: none;
+  transition: transform 120ms ease;
+}
+
+.campus-feed-filter[aria-expanded='true'] > svg {
+  transform: rotate(180deg);
+}
+
+/* 筛选的面板：贴着按钮下沿、靠右对齐，盖在列表上面，不挤动下面的列表；不透明，深浅主题都看得清。窄的时候不超出窗口。 */
+.campus-feed-filter-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 264px;
+  max-width: calc(100vw - 32px);
+  padding: 14px;
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base));
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
+}
+
+.campus-feed-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.campus-feed-filter-label {
+  font-size: 12px;
+  line-height: 16px;
   color: var(--dsw-alias-label-tertiary);
+}
+
+.campus-feed-filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.campus-feed-filter-options > button {
+  height: 28px;
+  padding: 0 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.campus-feed-filter-options > button:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.campus-feed-filter-options > button[aria-checked='true'] {
+  border-color: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.campus-feed-filter-options > button:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 1px;
+}
+
+.campus-feed-filter-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.campus-feed-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* 点开的一条通知，在右栏原位：返回、标题、来源和时间，下面是能读到的内容，最后是加到备忘录和原文。 */
+.campus-notice-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.campus-notice-detail .campus-crumb {
+  margin-top: 4px;
+}
+
+.campus-notice-detail-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+}
+
+.campus-notice-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.campus-notice-detail .campus-notice-facts {
+  margin: 4px 0;
+}
+
+.campus-notice-detail .campus-task-body {
+  max-width: none;
+  font-size: 13.5px;
+}
+
+.campus-notice-detail img {
+  max-width: 100%;
+  height: auto;
+}
+
+.campus-notice-summary,
+.campus-notice-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.campus-notice-detail-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.campus-notice-detail-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-top: 4px;
+}
+
+/* 只给读屏的人听的字：看不见，但读得到（列表里「未读」的那个点）。 */
+.campus-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* 收起的那些展开以后：字淡一档，看得出是另一类。 */
@@ -2956,3 +3201,564 @@ button[aria-label='工作区“对话”的操作'] {
 @keyframes campus-move-in-right { from { opacity: 0; transform: translateX(28px); } }
 @keyframes campus-move-fade { to { opacity: 0; } }
 @keyframes campus-move-rise { from { opacity: 0; transform: translateY(12px); } }
+.campus-tts details { margin-top: 12px; }
+.campus-tts details > label { display: block; margin: 10px 0; }
+.campus-tts textarea { display: block; width: 100%; height: auto; min-height: 84px; padding: 8px 12px; margin-top: 6px; resize: vertical; font: inherit; }
+.campus-tts input[type="file"] { display: block; margin-top: 6px; max-width: 100%; }
+
+/* Chat settings and retained message originals. */
+.campus-chat-search, .campus-chat-selected { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.campus-chat-search > input { flex: 1; min-width: 160px; }
+.campus-section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.campus-chat-track { display: flex; flex-direction: column; gap: 14px; padding: 20px 0; border-bottom: 1px solid var(--dsw-alias-border-l2); }
+.campus-chat-track:last-child { border-bottom: 0; }
+.campus-chat-name { text-align: left; font-weight: 600; overflow-wrap: anywhere; }
+.campus-chat-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.campus-chat-person { display: flex; gap: 10px; align-items: center; cursor: pointer; }
+.campus-chat-history { max-height: 55vh; overflow: auto; }
+.campus-chat-message { padding: 12px 0; border-bottom: 1px solid var(--dsw-alias-border-l2); }
+.campus-chat-message:last-child { border-bottom: 0; }
+.campus-chat-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.campus-chat-message blockquote { margin: 10px 0 0; padding-left: 14px; border-left: 2px solid var(--dsw-alias-border-l2); }
+button.campus-chat-open { border: 0; background: transparent; padding: 0; text-align: left; font: inherit; cursor: pointer; }
+.campus-notice-account[data-kind='chat'] > span { color: light-dark(#13864e, #7ae3ac); background: color-mix(in srgb, #1da86a 12%, transparent); }
+/* 个人消息里的 CC98 用一点紫色，和邮箱（同公众号的浅蓝）、聊天（浅绿）分得开。 */
+.campus-notice-account[data-kind='cc98'] > span { --campus-violet: #7d5bd6; color: color-mix(in srgb, var(--campus-violet) 80%, var(--dsw-alias-label-primary)); background: color-mix(in srgb, var(--campus-violet) 13%, transparent); }
+@container (max-width: 480px) { .campus-chat-options { grid-template-columns: 1fr; } }
+
+.campus-chat-open { font-size: 13.5px !important; line-height: 20px !important; font-weight: 500 !important; }
+
+/* ── 日程表 ───────────────────────────────────────────────
+   侧栏上「日程表」那一页（SchedulePage.tsx）：顶上「日程 / 定时任务」两个页签当标题用，尺寸和别的页标题一样；
+   宽度、左右留白照引擎任务页的内容区，两个页签切过去时标题不跳。
+   「日程」是课表那样的格子，见下面「课表格子」。 */
+.campus-schedule {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.campus-schedule > .campus-page {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.campus-schedule-bar {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  max-width: calc(960px + 2 * clamp(24px, 4vw, 48px));
+  margin: 0 auto;
+  padding: 20px clamp(24px, 4vw, 48px) 0;
+}
+
+.campus-schedule-tabs {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  min-width: 0;
+}
+
+.campus-schedule-tabs > button {
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-xs);
+  background: none;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.campus-schedule-tabs > button:hover,
+.campus-schedule-tabs > button[aria-selected='true'] {
+  color: var(--dsw-alias-label-primary);
+}
+
+.campus-schedule-tabs > button:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+/* 引擎的任务页原样放在下面，它自己的标题那一行（「自动化任务」和「新建」）由上面的页签和按钮代替。 */
+.campus-schedule-tasks {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 20px;
+}
+
+.campus-schedule-tasks > [data-testid='task-manager-page'] {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.campus-schedule-tasks [data-testid='task-manager-page'] div:has(> h1) {
+  display: none;
+}
+
+.campus-schedule-tasks-alert {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(960px + 2 * clamp(24px, 4vw, 48px));
+  margin: 0 auto 12px;
+  padding: 0 clamp(24px, 4vw, 48px);
+}
+
+/* 「日程」一页：页签、哪一周、刷新和校历挤在第一行，下面直接是格子，上下的留白都收紧，默认大小的窗口放得下一整天。 */
+.campus-plan {
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.campus-plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  padding-top: 20px;
+}
+
+.campus-plan-head > .campus-actions {
+  margin-left: auto;
+}
+
+.campus-plan-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.campus-plan-nav > button {
+  flex: none;
+  white-space: nowrap;
+}
+
+.campus-plan-range {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0 0 0 8px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.campus-plan-week {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.campus-plan-refresh[data-busy] svg {
+  animation: campus-spin 0.9s linear infinite;
+}
+
+@keyframes campus-spin { to { transform: rotate(360deg); } }
+
+.campus-plan-notices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 校历还没填时的那一段：不是出错，用浅底，不用红色。 */
+.campus-plan-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 12px 10px 14px;
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-specific-sidebar-fill, var(--dsw-alias-interactive-bg-hover));
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.campus-plan-notice > p {
+  flex: 1 1 320px;
+  margin: 0;
+}
+
+/* 课表格子：照手机上的课表，一张浅底的卡片，左边一列是节次，右边七列是一周；不画格线，课是圆角的色块。
+   表头一行，下面是 13 节，每节一样高；作业的截止也按时间钉在格子里。高度只看节数，和这周有多少事无关；
+   块里放不下的字截掉，鼠标放上去看全。页面是纵向的弹性容器，裁边的子项默认会被压到放得下为止，格子不能被压。 */
+.campus-grid {
+  /* 每节的高度跟着窗口：减去第一行、表头和上下留白（约 162px），剩下的 13 节平分，最矮 34px、最高 56px。 */
+  --campus-row: clamp(34px, calc((100dvh - 162px) / var(--campus-periods)), 56px);
+  --campus-axis: 48px;
+  --campus-gap: 3px;
+  display: grid;
+  flex: none;
+  grid-template-columns: var(--campus-axis) repeat(7, minmax(0, 1fr));
+  grid-template-rows: 44px calc(var(--campus-row) * var(--campus-periods));
+  column-gap: 2px;
+  padding: 2px 8px 8px 2px;
+  border-radius: 16px;
+  background: var(--dsw-specific-sidebar-fill, var(--dsw-alias-interactive-bg-hover));
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.campus-grid-head,
+.campus-grid-day {
+  min-width: 0;
+}
+
+.campus-grid-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.campus-grid-dayline {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.campus-grid-weekday {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.campus-grid-date {
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.campus-grid-head[data-today] .campus-grid-weekday {
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.campus-grid-head[data-today] .campus-grid-date {
+  background: var(--dsw-alias-state-business-primary);
+  color: #fff;
+}
+
+.campus-mark {
+  max-width: 100%;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.campus-mark[data-kind='off'] {
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.campus-mark[data-kind='swap'] {
+  background: var(--dsw-alias-state-warn-tertiary);
+  color: var(--dsw-alias-label-primary);
+}
+
+.campus-grid-axis {
+  display: grid;
+  grid-template-rows: repeat(var(--campus-periods), var(--campus-row));
+}
+
+.campus-grid-period {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1;
+}
+
+.campus-grid-period > span {
+  font-size: 10px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.campus-grid-period > b {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 一天：今天和放假的那天垫一层很浅的底；块都按行数绝对定位。 */
+.campus-grid-day {
+  position: relative;
+  border-radius: 10px;
+}
+
+.campus-grid-day[data-today] {
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, transparent);
+}
+
+.campus-grid-day[data-off] {
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 4%, transparent);
+}
+
+.campus-grid-offnote,
+.campus-grid-missing {
+  position: absolute;
+  top: calc(var(--campus-row) * 1.5);
+  left: 0;
+  right: 0;
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  color: var(--dsw-alias-label-tertiary);
+  pointer-events: none;
+}
+
+.campus-grid-now {
+  position: absolute;
+  top: calc(var(--campus-row) * var(--campus-block-top));
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1.5px solid var(--dsw-alias-state-error-primary);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.campus-grid-now::before {
+  content: '';
+  position: absolute;
+  top: -4.5px;
+  left: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dsw-alias-state-error-primary);
+}
+
+/* 一块：中等深浅的底、深色的字，课是蓝的，考试橙的，备忘录里的事绿的；挂在课上的作业是块里一张白色的小卡片，
+   靠和底色的反差显出来，不靠大块的红。底色和字色都和引擎的底色、字色混出来，深浅主题自己跟着变。 */
+.campus-block {
+  --campus-accent: var(--dsw-alias-state-business-primary);
+  position: absolute;
+  top: calc(var(--campus-row) * var(--campus-block-top) + var(--campus-gap));
+  height: calc(var(--campus-row) * var(--campus-block-span) - var(--campus-gap) * 2);
+  left: calc((100% - var(--campus-gap)) * var(--campus-block-lane) / var(--campus-block-lanes) + var(--campus-gap));
+  width: calc((100% - var(--campus-gap)) / var(--campus-block-lanes) - var(--campus-gap));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--campus-accent) 40%, var(--dsw-alias-bg-base));
+  color: color-mix(in srgb, var(--campus-accent) 45%, var(--dsw-alias-label-primary));
+  text-align: center;
+  overflow: hidden;
+}
+
+.campus-block[data-kind='exam'] { --campus-accent: var(--dsw-alias-state-warn-primary); }
+.campus-block[data-kind='event'] { --campus-accent: var(--dsw-alias-state-success-primary); }
+
+/* 正在上的那一节：外面一圈底色再一圈本色，像被选中。 */
+.campus-block[data-live] {
+  box-shadow: 0 0 0 2px var(--dsw-specific-sidebar-fill, var(--dsw-alias-bg-base)), 0 0 0 3.5px var(--campus-accent);
+}
+
+.campus-block-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+/* 钉在格子里的截止：一行高的卡片，和页面同色，底对着截止的时刻，盖在课的上面（课名在块的上头，一般挡不住）；
+   上面一行红字是几点截止，下面是作业名，最多两行。 */
+.campus-pin {
+  position: absolute;
+  top: calc(var(--campus-row) * var(--campus-block-top) + var(--campus-gap));
+  left: 4px;
+  right: 4px;
+  z-index: 1;
+  height: calc(var(--campus-row) - var(--campus-gap) * 2);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-base);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.14), inset 0 0 0 0.5px var(--dsw-alias-border-l3);
+  color: var(--dsw-alias-label-primary);
+  overflow: hidden;
+}
+
+.campus-pin-when {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 12px;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.campus-pin[data-kind='event'] .campus-pin-when { color: var(--dsw-alias-state-success-primary); }
+
+/* 交过的作业：整张卡片变淡，上面一行是绿色的「已完成」。 */
+.campus-pin[data-done] {
+  opacity: 0.6;
+  box-shadow: inset 0 0 0 0.5px var(--dsw-alias-border-l3);
+}
+
+.campus-pin[data-done] .campus-pin-when {
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.campus-pin[data-done] .campus-pin-title {
+  font-weight: 500;
+  color: var(--dsw-alias-label-secondary);
+}
+.campus-pin[data-kind='exam'] .campus-pin-when { color: var(--dsw-alias-state-warn-primary); }
+
+.campus-pin-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 13px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.campus-block-time,
+.campus-block-sub {
+  font-size: 11px;
+  line-height: 14px;
+  color: color-mix(in srgb, var(--campus-accent) 30%, var(--dsw-alias-label-secondary));
+  overflow-wrap: anywhere;
+}
+
+/* 主区域窄的时候还是七列，只是字小一点、左边一列窄一点，和手机上的课表一样。按页面的宽度算（块自己也是个容器）。 */
+@container campus-page (max-width: 640px) {
+  .campus-grid {
+    --campus-axis: 34px;
+    --campus-gap: 2px;
+    padding-right: 4px;
+  }
+
+  .campus-grid-period > span {
+    font-size: 9px;
+  }
+
+  .campus-block {
+    padding: 4px 2px;
+  }
+
+  .campus-block-title {
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .campus-block-sub,
+  .campus-block-time {
+    font-size: 10px;
+    line-height: 13px;
+  }
+}
+
+/* 校历：一行一个学期或一个特殊的日子，几格并排；最后一格是删除。 */
+.campus-calendar {
+  padding-bottom: 24px;
+}
+
+.campus-calendar > .campus-section,
+.campus-calendar > .campus-alert {
+  margin-top: 24px;
+}
+
+.campus-calendar-rows {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+}
+
+.campus-calendar-rows[data-kind='terms'] {
+  grid-template-columns: minmax(96px, 1fr) minmax(72px, 0.6fr) minmax(140px, 1.2fr) minmax(64px, 0.5fr) 28px;
+}
+
+.campus-calendar-rows[data-kind='days'] {
+  grid-template-columns: minmax(140px, 1fr) minmax(80px, 0.6fr) minmax(140px, 1fr) minmax(96px, 1fr) 28px;
+}
+
+.campus-calendar-row {
+  display: contents;
+}
+
+.campus-calendar-known {
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  padding: 9px 2px;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.campus-calendar-known[data-past] {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.campus-calendar-known > .campus-row-title {
+  flex: 1 1 auto;
+}
+
+.campus-calendar-source {
+  flex: none;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.campus-calendar-label {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.campus-calendar .campus-form-foot {
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.campus-plan-foot-gap {
+  flex: 1;
+}
+
+@container (max-width: 560px) {
+  .campus-calendar-rows:is([data-kind='terms'], [data-kind='days']) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 28px;
+  }
+
+  .campus-calendar-label {
+    display: none;
+  }
+}

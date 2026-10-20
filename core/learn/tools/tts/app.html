@@ -136,6 +136,7 @@ iframe{width:100%;height:100%;border:0;display:block}
 .texting .say,.texting #toggle-say,.texting #export{display:none}
 /* feeling: eight faders in a panel that floats over the controls, like a mixing desk; they act on the sentence being read */
 .mix{position:relative;display:inline-flex}
+.mix[hidden]{display:none}
 .mix-pop{position:absolute;right:0;bottom:calc(100% + 6px);z-index:30;padding:6px 6px 8px;border-radius:12px;background:#fff;border:.5px solid var(--hair);box-shadow:var(--shadow-pop);animation:menu-in-up .12s ease-out}
 .mix-pop[hidden]{display:none}
 .faders{display:flex;padding:8px 6px 4px}
@@ -343,7 +344,7 @@ const FONT_CSS = `
 @font-face{font-family:"Learn Sans";font-weight:600 700;src:url("/fonts/inter/inter-latin-wght-normal.woff2") format("woff2");unicode-range:U+0020-007E,U+00A0-00FF}
 `;
 /* A canvas does not fetch a web font by naming it: ask for each weight outright, then have the picture drawn again. */
-const loadFace = doc => Promise.all([400, 500, 700].flatMap(w => [doc.fonts.load(`${w} 40px "Learn Sans"`, '字'), doc.fonts.load(`${w} 40px "Learn Sans"`, 'A1')]));
+const loadFace = doc => Promise.allSettled([400, 500, 700].flatMap(w => [doc.fonts.load(`${w} 40px "Learn Sans"`, '字'), doc.fonts.load(`${w} 40px "Learn Sans"`, 'A1')]));
 document.head.append(Object.assign(document.createElement('style'), { textContent: FONT_CSS + MENU_CSS }));
 loadFace(document);
 const voiceMenu = menu($('voice'));
@@ -501,7 +502,16 @@ function load(text, fileName, at = 0) {
   frame.onload = () => {
     const w = frame.contentWindow;
     if (!w.film || !w.film.timeline) { $('title').textContent = `${fileName} 不是 Learn 做的讲解，里面找不到播放器`; return; }
-    film = w.film.retime ? dubFilm(w.film) : w.film;      // a film built before the voice moved out here still voices itself
+    // A bridge also works with previously built standalone films: their timeline stays the owner of visual timing.
+    w.document.head.appendChild(Object.assign(w.document.createElement('script'), { textContent: `
+      if (typeof V !== 'undefined' && typeof SCRIPT !== 'undefined') {
+        window.readerSpeech = { gaps: {}, options: Object.fromEntries(SCRIPT.flatMap(sc => sc.lines.map(([k,t,o={}]) => [k,o]))) };
+        const originalTimeline = V.buildTimeline;
+        V.buildTimeline = (script, durations, lang) => originalTimeline(script.map(sc => ({...sc, lines: sc.lines.map(([k,t,o={}]) =>
+          [k,t,window.readerSpeech.gaps[k] === undefined ? o : {...o,gap:window.readerSpeech.gaps[k]}])})), durations, lang);
+      }
+    ` }));
+    film = w.film.retime ? dubFilm(w.film, w.readerSpeech) : w.film;
     w.document.head.appendChild(Object.assign(w.document.createElement('style'), { textContent: EMBED }));
     const speed = w.document.getElementById('speed');
     if (speed) menu(speed, { up: true });
@@ -536,16 +546,39 @@ function pasted(e) {
    picked a spot it asks for the missing ones; each real length goes back to the film, which lays its timeline out
    again (retime), and the film's clock is kept out of the first line still without sound (gate). With no service
    there is no gate: the film plays silent, on estimated timing. */
-function dubFilm(inner) {
+function speechGroups(lines, config = service.speech || { sentences: 2, max_chars: 120 }) {
+  const groups = [], count = t => (t.match(/[\p{L}\p{N}_]/gu) || []).length;
+  for (const line of lines) {
+    const block = groups[groups.length - 1], prev = block && block[block.length - 1];
+    const same = prev && !prev.para && !prev.break_after && prev.lang === line.lang && prev.scene === line.scene
+      && JSON.stringify(prev.mood || null) === JSON.stringify(line.mood || null)
+      && Math.min(count(prev.text), count(line.text)) >= 6;
+    if (same && block.length < config.sentences && block.reduce((n,x) => n+x.text.length,0)+line.text.length <= config.max_chars) block.push(line);
+    else groups.push([line]);
+  }
+  return groups;
+}
+async function requestSpeech(lines, voiceId) {
+  return (await post('/speak', {lang: lines[0].lang, lines, voice_id: voiceId})).clips;
+}
+function dubFilm(inner, bridge) {
   const all = inner.texts, base = inner.base;
   let lang = base, texts = all[lang] || {}, dur = { ...inner.durations }, clips = { ...inner.audio };   // the clips a film brings with it speak base
-  let live = false, started = false, busy = false, gen = 0, seen = inner.time, sounds = {}, current = null;
+  let live = false, started = false, busy = false, gen = 0, seen = inner.time, sounds = {}, current = null, units = [], voiceId = null, meta = {};
   const missing = c => texts[c.key] && !clips[c.key];
-  const accept = (key, clip) => { clips[key] = `/audio/${clip.fp}.mp3`; dur[key] = clip.seconds; };
+  const accept = (key, clip) => {
+    clips[key] = `/audio/${clip.fp}.mp3`; dur[key] = clip.seconds; meta[key] = clip;
+    if (bridge) {
+      const o = bridge.options[key] || {};
+      if (clip.continuous) bridge.gaps[key] = 0;
+      else if (o.gap === undefined) bridge.gaps[key] = clip.gap;
+      else delete bridge.gaps[key];
+    }
+  };
   const retime = () => { inner.retime(dur, lang); seen = inner.time; };
   function hush() { if (current) { current.el.pause(); current = null; } }
   // read in this language, with nothing but what the film brought: clips fetched from the service are dropped
-  function forget(to) { hush(); lang = to; texts = all[lang] || {}; sounds = {}; dur = lang === base ? { ...inner.durations } : {}; clips = lang === base ? { ...inner.audio } : {}; retime(); }
+  function forget(to) { hush(); lang = to; texts = all[lang] || {}; sounds = {}; meta = {}; if (bridge) bridge.gaps = {}; dur = lang === base ? { ...inner.durations } : {}; clips = lang === base ? { ...inner.audio } : {}; retime(); }
   /* Is the service there, what language does its voice speak, which lines has it already voiced? Synthesizes nothing. */
   async function connect() {
     if (!Object.values(all).some(texts => Object.keys(texts).length)) return;
@@ -555,7 +588,15 @@ function dubFilm(inner) {
       if (mine !== gen) return;
       const to = Object.keys(all[status.lang] || {}).length ? status.lang : base;
       if (to !== lang) forget(to);
-      const lines = inner.timeline.cues.filter(missing).map(c => ({ key: c.key, text: texts[c.key] }));
+      voiceId = status.voice_id;
+      const cues = inner.timeline.cues;
+      const lines = cues.filter(c => texts[c.key]).map(c => {
+        const i = cues.indexOf(c), next = cues[i+1], o = bridge && bridge.options[c.key] || {};
+        return {key:c.key, text:texts[c.key], lang, scene:c.scene,
+          break_after: !bridge || !!o.min || (o.gap !== undefined && o.gap > 0) || !next || !texts[next.key]
+            || next.scene !== c.scene || !!(bridge.options[next.key] || {}).min};
+      });
+      units = speechGroups(lines, bridge ? status.speech : {sentences:1,max_chars:120});
       if (!lines.length) return;
       const have = await post('/cached', { lang, lines });
       if (mine !== gen) return;                           // the voice changed again while we were asking
@@ -571,27 +612,30 @@ function dubFilm(inner) {
     if (!live || !started || busy) return;
     const t = inner.time, cue = inner.timeline.cues.find(c => missing(c) && c.e > t && c.s < t + AHEAD);
     if (!cue) return;
+    const block = units.find(g => g.some(x => x.key === cue.key));
+    if (!block) return;
     busy = true;
     const mine = gen;
-    try { const clip = await post('/speak', { lang, text: texts[cue.key] }); if (mine === gen) { accept(cue.key, clip); retime(); } }
+    try { const have = await requestSpeech(block, voiceId); if (mine === gen) { for (const key in have) accept(key, have[key]); retime(); } }
     catch (e) { if (mine === gen) live = false; }         // the service went away: carry on silent
     busy = false;
   }
   // the sound: one short clip per caption, started when the clock enters that caption
-  const sound = key => sounds[key] || (sounds[key] = Object.assign(new Audio(clips[key]), { preload: 'auto' }));
+  const sound = key => sounds[clips[key]] || (sounds[clips[key]] = Object.assign(new Audio(clips[key]), { preload: 'auto' }));
   function voice(t) {
     if (!inner.playing) { hush(); return; }
     if (current && current.el.playbackRate !== inner.rate) current.el.playbackRate = inner.rate;
     const cue = inner.timeline.cues.find(c => clips[c.key] && t >= c.s && t < c.e);
     if (!cue || (current && current.key === cue.key)) return;   // between lines: let the last clip ring out
+    if (current && current.clip === clips[cue.key]) { current.key = cue.key; return; } // the subtitle changed inside a continuously playing group
     hush();
     const el = sound(cue.key);
     // Entering a line normally lands a frame or two past its start: play the clip from its very beginning,
     // because starting inside the waveform (past the clip's fade-in) makes a pop. Only a seek lands deeper.
     const into = t - cue.s;
-    el.currentTime = into < 0.15 ? 0 : into; el.playbackRate = inner.rate;
+    el.currentTime = (meta[cue.key]?.offset || 0) + (into < 0.15 ? 0 : into); el.playbackRate = inner.rate;
     el.play().catch(() => { /* autoplay refused until the first click */ });
-    current = { key: cue.key, el };
+    current = { key: cue.key, clip: clips[cue.key], el };
   }
   /* Every frame, ahead of the film's own tick (a page's animation-frame callbacks run before those of the frames in it):
      has the viewer started, how far may the clock go, what should be sounding. */
@@ -678,13 +722,19 @@ function textFilm() {
       spoken[c.key] = c.say;
     }
   }
-  function lay() { let t = 0; for (const c of cues) { c.s = t; c.e = t + (c.dur || guess(c.say, c.lang)); T[c.key] = c; t = c.e + (c.para ? BREAK : PAUSE); } }
-  function accept(c, clip) { c.clip = `/audio/${clip.fp}.mp3`; c.dur = clip.seconds; c.voiced = 1; lay(); }
+  const gapAfter = c => c.continuous ? 0 : c.para ? BREAK : c.gap ?? service.speech?.gap ?? PAUSE;
+  function lay() { let t = 0; for (const c of cues) { c.s = t; c.e = t + (c.dur || guess(c.say, c.lang)); T[c.key] = c; t = c.e + gapAfter(c); } }
+  function accept(c, clip) { c.clip = `/audio/${clip.fp}.mp3`; c.dur = clip.seconds; c.offset = clip.offset || 0; c.continuous = !!clip.continuous; c.gap = clip.gap; c.voiced = 1; lay(); }
+  const speechLines = () => cues.map((c,i) => ({key:c.key,text:c.say,lang:c.lang,mood:c.mood,para:c.para,
+    break_after: !!cues[i+1] && cues[i+1].lang !== c.lang}));
+  function discard(c) { c.clip = null; c.dur = 0; c.offset = 0; c.continuous = false; c.voiced = 0; c.skip = false; }
   async function known() {      // which of the unvoiced sentences the service has voiced before; asks it to make nothing
     const mine = gen;
+    try { const status = await fetch('/status').then(r => r.json()); if (mine !== gen) return; service = status; }
+    catch (e) { live = false; return; }
     for (const lang of new Set(cues.filter(c => !c.clip).map(c => c.lang))) {
       try {
-        const have = await post('/cached', { lang, lines: cues.filter(c => c.lang === lang && !c.clip).map(c => ({ key: c.key, text: c.say, mood: c.mood })) });
+        const have = await post('/cached', { lang, lines: speechLines().filter(c => c.lang === lang) });
         if (mine !== gen) return;
         for (const c of cues) if (have[c.key] && !c.clip) accept(c, have[c.key]);
         live = true;
@@ -699,9 +749,10 @@ function textFilm() {
       const c = cues.slice(at).find(c => !c.clip && !c.skip && c.s - cues[at].s < AHEAD);
       if (!c) break;
       try {
-        const clip = await post('/speak', { lang: c.lang, text: c.say, mood: c.mood });
+        const block = speechGroups(speechLines()).find(g => g.some(x => x.key === c.key));
+        const have = await requestSpeech(block, service.voice_id);
         if (mine !== gen) break;
-        accept(c, clip); live = true;
+        for (const key in have) accept(cues.find(x => x.key === key), have[key]); live = true;
       } catch (e) {
         if (mine !== gen) break;
         if (e instanceof TypeError) { live = false; break; }   // the service is not there; try again later
@@ -715,33 +766,40 @@ function textFilm() {
   function start() {            // read the current sentence, from where it was left if it was paused midway
     clearTimeout(timer);
     const c = cues[at];
-    if (c.skip || (audio.dataset.key === c.key && audio.ended)) return next();   // refused by the service, or already read through
+    if (c.skip || (audio.dataset.key === c.key && audio.ended)) return next();
     if (!c.clip) { holding = true; audio.pause(); pump(); return; }
     holding = false;
-    if (audio.dataset.key !== c.key) { audio.src = c.clip; audio.dataset.key = c.key; }
+    if (audio.dataset.key !== c.key) { audio.src = c.clip; audio.dataset.key = c.key; audio.currentTime = c.offset || 0; }
     audio.playbackRate = rate;
     audio.play().catch(e => { if (e.name === 'NotAllowedError') playing = false; });   // a browser that wants a click first: show the button as 朗读 again
     pump();
   }
-  function next() {
+  function next(continuous = false) {
     if (at >= cues.length - 1) { playing = false; done = true; return; }
-    at++; delete audio.dataset.key;
-    if (playing) start();
+    at++;
+    if (continuous) audio.dataset.key = cues[at].key;
+    else delete audio.dataset.key;
+    if (playing && !continuous) start();
   }
-  audio.addEventListener('ended', () => { timer = setTimeout(next, (cues[at].para ? BREAK : PAUSE) * 1000 / rate); });
+  function followGroup() {
+    while (cues[at]?.continuous && at < cues.length-1 && audio.dataset.key === cues[at].key
+      && audio.currentTime >= (cues[at].offset || 0) + cues[at].dur - .015) next(true);
+  }
+  audio.addEventListener('timeupdate', followGroup);
+  audio.addEventListener('ended', () => { followGroup(); timer = setTimeout(next, gapAfter(cues[at]) * 1000 / rate); });
   const nudge = setInterval(() => { if (playing && holding && !pumping) pump(); }, 2000);   // the service came back, or was slow to start
   function go(i) {
     if (!cues.length) return;
     at = Math.max(0, Math.min(cues.length - 1, i)); done = false; clearTimeout(timer); audio.pause(); delete audio.dataset.key; holding = false;
     if (playing) start(); else pump();
   }
-  function forget() { gen++; clearTimeout(timer); audio.pause(); delete audio.dataset.key; holding = false; for (const c of cues) { c.clip = null; c.dur = 0; c.voiced = 0; c.skip = false; } label(true); lay(); known().then(() => (playing ? start() : pump())); }
+  function forget() { gen++; clearTimeout(timer); audio.pause(); delete audio.dataset.key; holding = false; cues.forEach(discard); label(true); lay(); known().then(() => (playing ? start() : pump())); }
 
   return {
     isText: true, timeline: { cues, T }, spoken,
     get lang() { return mostly; }, get at() { return at; }, get done() { return done; }, get playing() { return playing; }, get holding() { return holding; }, get live() { return live; },
     get duration() { return cues.length ? cues[cues.length - 1].e : 0; },
-    get time() { const c = cues[at]; return !c ? 0 : done ? c.e : c.s + (audio.dataset.key === c.key ? Math.min(audio.currentTime, c.e - c.s) : 0); },
+    get time() { const c = cues[at]; return !c ? 0 : done ? c.e : c.s + (audio.dataset.key === c.key ? Math.max(0, Math.min(audio.currentTime - (c.offset || 0), c.e - c.s)) : 0); },
     // more sentences at the end; returns how many. now: read them at once, leaving whatever was being read (a pasted
     // passage). Otherwise they wait their turn (lines typed one after another) and start by themselves if nothing is being read
     add(more, now) {
@@ -766,7 +824,8 @@ function textFilm() {
       if (!cues.length) return;
       const mood = values.some(v => v) ? values.map(v => Math.round(v * 100) / 100) : null;
       gen++;
-      for (const c of all ? cues : [cues[at]]) { c.mood = mood && [...mood]; c.clip = null; c.dur = 0; c.voiced = 0; c.skip = false; }
+      for (const c of all ? cues : [cues[at]]) c.mood = mood && [...mood];
+      cues.forEach(discard); // a changed sentence also changes its former/next speech group's cache identity
       lay(); done = false; clearTimeout(timer); audio.pause(); delete audio.dataset.key; playing = true; holding = true;
       known().then(start);
     },
@@ -945,6 +1004,7 @@ async function poll() {
     const s = await fetch('/status').then(r => r.json());
     const first = !service.voices, sel = $('voice');
     service = s;
+    $('mix').hidden = s.moods === false;   // the model in use has no emotion to set: the faders go away
     if (first || sel.options.length !== s.voices.length || sel.value !== s.voice) {
       sel.textContent = '';
       for (const v of s.voices) sel.add(new Option(v, v));
@@ -963,7 +1023,7 @@ async function poll() {
 }
 (function again() { poll().finally(() => setTimeout(again, service.progress != null ? 500 : 2000)); })();   // asked more often while the model loads, so the bar moves
 $('voice').addEventListener('change', async e => {
-  await post('/voice', { name: e.target.value });
+  Object.assign(service, await post('/voice', { name: e.target.value }));
   if (film) film.revoice();
 });
 addEventListener('pagehide', () => navigator.sendBeacon('/bye', '{}'));

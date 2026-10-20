@@ -1,0 +1,280 @@
+<style>
+#campus-layout-demo {
+  --ca-bg: light-dark(#ffffff, #191a1d); --ca-side: light-dark(#f7f8fa, #131417);
+  --ca-text: light-dark(#20242b, #eceef3); --ca-muted: light-dark(#6d7480, #a4aab5);
+  --ca-line: light-dark(#e7e9ed, #32343b); --ca-soft: light-dark(#f1f3f6, #272a31);
+  --ca-blue: light-dark(#386bcb, #91b5ff); --ca-blue-soft: light-dark(#edf3ff, #24334f);
+  --ca-primary: light-dark(#242830, #e6e9f0); --ca-primary-text: light-dark(#ffffff, #20242b);
+  --ca-space: 16px;
+  font: 400 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  color: var(--ca-text); background: var(--ca-bg); border: 1px solid var(--ca-line); border-radius: 14px;
+  display: grid; grid-template-columns: 152px minmax(0, 1fr); min-height: 660px; overflow-wrap: anywhere;
+}
+#campus-layout-demo * { box-sizing: border-box; }
+#campus-layout-demo [hidden] { display: none !important; }
+#campus-layout-demo button, #campus-layout-demo select { font: inherit; color: inherit; }
+#campus-layout-demo button { cursor: var(--cursor-interaction, pointer); }
+#campus-layout-demo button:disabled { cursor: default; opacity: .48; }
+#campus-layout-demo button:focus-visible, #campus-layout-demo select:focus-visible { outline: 2px solid var(--ca-blue); outline-offset: 3px; }
+#campus-layout-demo h1 { font-size: 21px; font-weight: 500; line-height: 1.4; margin: 0; }
+#campus-layout-demo h2 { font-size: 16px; font-weight: 500; line-height: 1.5; margin: 0; }
+#campus-layout-demo h3 { font-size: 17px; font-weight: 500; line-height: 1.5; margin: 12px 0; }
+#campus-layout-demo p { margin: 0; }
+#campus-layout-demo .ca-side { background: var(--ca-side); padding: 25px 12px; border-radius: 14px 0 0 14px; display: flex; flex-direction: column; gap: 24px; }
+#campus-layout-demo .ca-brand { font-size: 15px; font-weight: 500; padding: 0 8px; display: flex; align-items: center; gap: 8px; }
+#campus-layout-demo .ca-nav { display: grid; gap: 6px; }
+#campus-layout-demo .ca-nav button { background: transparent; border: 0; border-radius: 8px; padding: 11px 12px; text-align: left; display: flex; align-items: center; gap: 9px; }
+#campus-layout-demo .ca-nav button[aria-current="page"] { background: var(--ca-soft); color: var(--ca-text); font-weight: 500; }
+#campus-layout-demo .ca-side-foot { margin-top: auto; color: var(--ca-muted); font-size: 12px; padding: 0 8px; }
+#campus-layout-demo svg { width: 17px; height: 17px; flex: none; }
+#campus-layout-demo .ca-main { padding: 29px 27px 25px; min-width: 0; }
+#campus-layout-demo .ca-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-right: 78px; margin-bottom: 28px; }
+#campus-layout-demo .ca-sub { color: var(--ca-muted); font-size: 12px; }
+#campus-layout-demo .ca-columns { display: grid; grid-template-columns: minmax(0, .86fr) minmax(0, 1.14fr); gap: 28px; }
+#campus-layout-demo .ca-column { min-width: 0; }
+#campus-layout-demo .ca-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+#campus-layout-demo .ca-heading { display: flex; align-items: center; gap: 8px; }
+#campus-layout-demo .ca-count { color: var(--ca-muted); font-size: 12px; font-weight: 400; }
+#campus-layout-demo .ca-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--ca-bg); border: 1px solid var(--ca-line); border-radius: 7px; padding: 6px 10px; white-space: normal; }
+#campus-layout-demo .ca-button.ca-primary { color: var(--ca-primary-text); background: var(--ca-primary); border-color: var(--ca-primary); }
+#campus-layout-demo .ca-link { background: none; border: 0; padding: 2px 0; color: var(--ca-muted); font-size: 12px; text-align: left; }
+#campus-layout-demo .ca-link:hover { color: var(--ca-blue); }
+#campus-layout-demo .ca-task { padding: 13px 0; border-bottom: 1px solid var(--ca-line); }
+#campus-layout-demo .ca-task:first-of-type { padding-top: 5px; }
+#campus-layout-demo .ca-task-title { font-weight: 500; margin-bottom: 5px; }
+#campus-layout-demo .ca-meta { color: var(--ca-muted); font-size: 12px; display: flex; flex-wrap: wrap; gap: 5px 9px; }
+#campus-layout-demo .ca-due { margin-top: 8px; font-size: 12px; }
+#campus-layout-demo .ca-due.ca-soon { color: var(--ca-blue); }
+#campus-layout-demo .ca-memos { margin-top: 31px; }
+#campus-layout-demo .ca-memo { padding: 12px 0; border-bottom: 1px solid var(--ca-line); }
+#campus-layout-demo .ca-memo-name { border: 0; background: transparent; padding: 0; text-align: left; font-weight: 500; }
+#campus-layout-demo .ca-memo-name:hover { color: var(--ca-blue); }
+#campus-layout-demo .ca-memo .ca-meta { margin-top: 5px; }
+#campus-layout-demo .ca-notice-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--ca-line); margin-bottom: 1px; }
+#campus-layout-demo .ca-tabs { display: flex; gap: 20px; min-width: 0; }
+#campus-layout-demo .ca-tabs button { border: 0; background: transparent; color: var(--ca-muted); padding: 9px 0 11px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#campus-layout-demo .ca-tabs button[aria-selected="true"] { color: var(--ca-text); border-color: var(--ca-text); font-weight: 500; }
+#campus-layout-demo .ca-row { display: grid; grid-template-columns: minmax(0, 1fr) 34px; align-items: center; gap: 7px; padding: var(--ca-space) 0; border-bottom: 1px solid var(--ca-line); }
+#campus-layout-demo .ca-open { display: block; border: 0; background: transparent; padding: 0; text-align: left; min-width: 0; }
+#campus-layout-demo .ca-open:hover .ca-row-title { color: var(--ca-blue); }
+#campus-layout-demo .ca-row-title { display: block; font-weight: 500; margin-bottom: 5px; }
+#campus-layout-demo .ca-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ca-blue); vertical-align: middle; margin-right: 6px; }
+#campus-layout-demo .ca-brief { display: block; color: var(--ca-muted); font-size: 12px; margin-bottom: 5px; }
+#campus-layout-demo .ca-save { border: 1px solid var(--ca-line); color: var(--ca-muted); background: var(--ca-bg); border-radius: 7px; display: grid; place-items: center; width: 30px; height: 30px; }
+#campus-layout-demo .ca-save[data-saved="true"] { color: var(--ca-blue); background: var(--ca-blue-soft); border-color: transparent; }
+#campus-layout-demo .ca-more { margin-top: 15px; width: 100%; text-align: center; }
+#campus-layout-demo .ca-filter-anchor { position: relative; flex: none; }
+#campus-layout-demo .ca-filters { position: absolute; top: calc(100% + 8px); right: 0; z-index: 5; display: grid; gap: 13px; width: 236px; max-width: calc(100vw - 70px); padding: 15px; background: var(--ca-bg); border: 1px solid var(--ca-line); border-radius: 9px; box-shadow: 0 8px 28px light-dark(#1820301a, #00000050); }
+#campus-layout-demo .ca-filters label { display: grid; gap: 5px; color: var(--ca-muted); font-size: 12px; min-width: 0; }
+#campus-layout-demo .ca-filter-footer { display: flex; justify-content: flex-end; }
+#campus-layout-demo #ca-filter-toggle[aria-expanded="true"] { color: var(--ca-text); }
+#campus-layout-demo select { width: 100%; padding: 6px; border: 1px solid var(--ca-line); border-radius: 6px; background: var(--ca-bg); }
+#campus-layout-demo .ca-detail { padding-top: 15px; }
+#campus-layout-demo .ca-detail-meta { color: var(--ca-muted); font-size: 12px; margin: 9px 0 20px; }
+#campus-layout-demo .ca-facts { display: grid; grid-template-columns: 58px minmax(0,1fr); gap: 9px 12px; margin: 18px 0; }
+#campus-layout-demo .ca-facts dt { color: var(--ca-muted); }
+#campus-layout-demo .ca-facts dd { margin: 0; }
+#campus-layout-demo .ca-original { background: var(--ca-soft); padding: 16px; margin: 18px 0; border-radius: 8px; }
+#campus-layout-demo .ca-original p + p { margin-top: 9px; }
+#campus-layout-demo .ca-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+#campus-layout-demo .ca-status { color: var(--ca-blue); min-height: 22px; font-size: 12px; margin-top: 18px; }
+#campus-layout-demo .ca-plugin-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 28px 30px; }
+#campus-layout-demo .ca-plugin-row { display: flex; align-items: center; gap: 10px; padding: 13px 0; border-bottom: 1px solid var(--ca-line); }
+#campus-layout-demo .ca-plugin-icon { width: 31px; height: 31px; border-radius: 8px; display: grid; place-items: center; background: var(--ca-soft); flex: none; }
+#campus-layout-demo .ca-plugin-copy { min-width: 0; flex: 1; }
+#campus-layout-demo .ca-plugin-copy > p { font-weight: 500; }
+#campus-layout-demo .ca-skill-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+#campus-layout-demo .ca-skill-label { padding: 5px 9px; background: var(--ca-soft); border-radius: 5px; font-size: 12px; }
+#campus-layout-demo .ca-empty { color: var(--ca-muted); padding: 28px 0; }
+@media (max-width: 820px) {
+  #campus-layout-demo { grid-template-columns: 120px minmax(0,1fr); }
+  #campus-layout-demo .ca-main { padding: 24px 18px; }
+  #campus-layout-demo .ca-columns { gap: 20px; }
+  #campus-layout-demo .ca-brand { font-size: 13px; padding: 0; }
+}
+@media (max-width: 690px) {
+  #campus-layout-demo { display: block; }
+  #campus-layout-demo .ca-side { padding: 15px; border-radius: 14px 14px 0 0; gap: 13px; }
+  #campus-layout-demo .ca-nav { display: flex; flex-wrap: wrap; gap: 4px; }
+  #campus-layout-demo .ca-nav button { padding: 8px 10px; }
+  #campus-layout-demo .ca-nav button:disabled, #campus-layout-demo .ca-side-foot { display: none; }
+  #campus-layout-demo .ca-brand { font-size: 15px; }
+  #campus-layout-demo .ca-head { padding-right: 0; margin-bottom: 23px; }
+  #campus-layout-demo .ca-columns { grid-template-columns: 1fr; gap: 31px; }
+  #campus-layout-demo .ca-plugin-grid { grid-template-columns: 1fr; }
+}
+@media (pointer: coarse) {
+  #campus-layout-demo button, #campus-layout-demo select { min-height: 44px; }
+  #campus-layout-demo .ca-save { width: 44px; }
+  #campus-layout-demo .ca-row { grid-template-columns: minmax(0,1fr) 44px; }
+}
+</style>
+<div id="campus-layout-demo" aria-label="校园智能体页面设计草图">
+  <aside class="ca-side">
+    <div class="ca-brand"><i data-lucide="graduation-cap" aria-hidden="true"></i>校园智能体</div>
+    <nav class="ca-nav" aria-label="应用导航">
+      <button type="button" disabled><i data-lucide="plus" aria-hidden="true"></i>新会话</button>
+      <button type="button" data-page="plugins"><i data-lucide="puzzle" aria-hidden="true"></i>插件</button>
+      <button type="button" disabled><i data-lucide="calendar-days" aria-hidden="true"></i>日程表</button>
+      <button type="button" data-page="affairs" aria-current="page"><i data-lucide="inbox" aria-hidden="true"></i>校园事务</button>
+      <button type="button" disabled><i data-lucide="book-open" aria-hidden="true"></i>学习</button>
+    </nav>
+    <div class="ca-side-foot">页面草案<br/>示例内容</div>
+  </aside>
+  <main class="ca-main">
+    <div class="ca-head"><h1 id="ca-page-title">校园事务</h1><span class="ca-sub">布局草案 · 示例内容</span></div>
+    <div id="ca-affairs">
+      <div class="ca-columns">
+        <div class="ca-column">
+          <section aria-label="作业">
+            <div class="ca-section-head"><div class="ca-heading"><h2>作业</h2><span class="ca-count">3</span></div><span class="ca-sub">两周内</span></div>
+            <div class="ca-task"><div class="ca-task-title">实验三：线性表</div><div class="ca-meta"><span>数据结构</span><span>学在浙大</span></div><p class="ca-due ca-soon">10月19日 周一 22:00 截止</p></div>
+            <div class="ca-task"><div class="ca-task-title">第六周练习</div><div class="ca-meta"><span>程序设计</span><span>PTA · 未作答</span></div><p class="ca-due">10月21日 周三 23:59 截止</p></div>
+            <div class="ca-task"><div class="ca-task-title">实验报告：测量与误差</div><div class="ca-meta"><span>大学物理实验</span><span>学在浙大</span></div><p class="ca-due">10月23日 周五 18:00 截止</p></div>
+          </section>
+          <section class="ca-memos" aria-label="备忘录">
+            <div class="ca-section-head"><div class="ca-heading"><h2>备忘录</h2><span class="ca-count" id="ca-memo-count">2</span></div></div>
+            <div id="ca-memo-list"></div>
+            <div id="ca-memo-detail" hidden></div>
+          </section>
+        </div>
+        <section class="ca-column" aria-label="通知">
+          <div class="ca-section-head"><h2>通知</h2></div>
+          <div class="ca-notice-toolbar">
+            <div class="ca-tabs" role="tablist" aria-label="通知类别">
+              <button type="button" role="tab" id="ca-campus-tab" data-tab="campus" aria-selected="true" aria-controls="ca-notice-panel">校园通知 <span class="ca-count">8</span></button>
+              <button type="button" role="tab" id="ca-personal-tab" data-tab="personal" aria-selected="false" aria-controls="ca-notice-panel">个人消息 <span class="ca-count">3</span></button>
+            </div>
+            <div class="ca-filter-anchor" id="ca-filter-anchor">
+              <button class="ca-link" id="ca-filter-toggle" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="ca-filters">筛选 <span aria-hidden="true">⌄</span></button>
+              <div class="ca-filters" id="ca-filters" role="dialog" aria-label="通知筛选" hidden>
+                <label>来源<select id="ca-source"><option value="all">全部来源</option><option>钉钉</option><option>微信</option><option>二课</option><option>公众号</option><option>学校官网</option><option>邮箱</option><option>CC98</option></select></label>
+                <label>时间<select id="ca-range"><option value="week">一周内</option><option value="today">今天</option></select></label>
+                <div class="ca-filter-footer"><button type="button" class="ca-button" data-close-filters>完成</button></div>
+              </div>
+            </div>
+          </div>
+          <div id="ca-notice-panel" role="tabpanel" aria-labelledby="ca-campus-tab"><div id="ca-notice-list"></div><div id="ca-notice-detail" hidden></div></div>
+        </section>
+      </div>
+      <div class="ca-status" id="ca-status" role="status" aria-live="polite"></div>
+    </div>
+    <div id="ca-plugins" hidden></div>
+  </main>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('campus-layout-demo');
+  const get = id => root.querySelector('#' + id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const notices = [
+    {id:'n1',tab:'campus',title:'周末社区志愿服务招募',source:'钉钉',from:'学院通知群',when:'今天 14:20',today:true,hint:'10月20日 周二 18:00 报名截止',date:'10月24日 周六 09:00—12:00',place:'紫金港校区集合',body:'本周六组织社区志愿服务。请有意参加的同学在周二 18:00 前填写群内报名表，具体分工会在报名结束后通知。',memoTime:'10月20日 18:00 报名截止'},
+    {id:'n2',tab:'campus',title:'职业规划讲座开放报名',source:'微信',from:'年级通知群',when:'今天 11:40',today:true,hint:'10月21日 周三 18:30 举行',date:'10月21日 周三 18:30',place:'教学楼报告厅',body:'本次讲座介绍实习准备与职业方向选择。请在群公告中报名，入场前出示报名记录。',memoTime:'10月21日 18:30 活动开始'},
+    {id:'n3',tab:'campus',title:'校园植物观察活动',source:'二课',from:'素质拓展平台',when:'今天 10:10',today:true,hint:'10月22日 周四 12:00 报名截止',date:'10月25日 周日 14:00—16:00',place:'校内植物园',body:'活动包含植物辨识和校园生态观察，报名方式与参与要求以素质拓展平台的活动详情为准。',memoTime:'10月22日 12:00 报名截止'},
+    {id:'n4',tab:'campus',title:'学生创新项目交流会',source:'公众号',from:'学院学生会',when:'昨天 19:00',today:false,hint:'报名方式见活动原文',date:'10月23日 周五 19:00',place:'学院活动中心',body:'交流会面向对学生创新项目感兴趣的同学，包含项目介绍、经验分享和自由交流。报名入口见原文。',memoTime:'10月23日 19:00 活动开始'},
+    {id:'n5',tab:'campus',title:'图书馆部分区域开放时间调整',source:'学校官网',from:'图书馆',when:'昨天 16:00',today:false,hint:'涉及本周末开放安排',date:'10月24日 周六',place:'图书馆部分区域',body:'本周末部分区域进行设施维护，请前往对应区域的同学提前查看开放安排。其他区域正常开放。',memoTime:'10月24日 开放安排调整'},
+    {id:'n6',tab:'campus',title:'校园摄影比赛开始征稿',source:'微信',from:'摄影社群',when:'昨天 12:30',today:false,hint:'10月30日 周五 截稿',date:'10月30日 周五',place:'线上提交',body:'本次征稿主题为校园日常。作品要求与提交地址见群公告。',memoTime:'10月30日 摄影比赛截稿'},
+    {id:'n7',tab:'campus',title:'企业参访活动报名',source:'二课',from:'素质拓展平台',when:'10月16日 16:30',today:false,hint:'10月22日 周四 报名截止',date:'10月27日 周二',place:'统一乘车前往',body:'请在平台查看活动条件、集合地点与交通安排后报名。',memoTime:'10月22日 企业参访报名截止'},
+    {id:'n8',tab:'campus',title:'学生事务办事时间说明',source:'学校官网',from:'学院办公室',when:'10月16日 09:00',today:false,hint:'工作日办理，需携带学生证',date:'时间以办公室通知为准',place:'学院办公室',body:'办理相关事务前请准备学生证和所需材料，具体要求见通知。',memoTime:''},
+    {id:'m1',tab:'personal',title:'关于项目申请材料的修改建议',source:'邮箱',from:'项目指导老师',when:'今天 15:10',today:true,hint:'请补充项目进度安排',date:'10月22日 周四前回复',place:'邮件回复',body:'申请材料已收到，请补充项目进度安排，并确认团队成员分工。修改好后回复此邮件即可。',memoTime:'10月22日 回复项目申请邮件'},
+    {id:'m2',tab:'personal',title:'有人回复了你的选课咨询',source:'CC98',from:'课程讨论帖',when:'今天 12:05',today:true,hint:'新增 1 条回复',date:'今天 12:05',place:'CC98 原帖',body:'这门课的平时作业安排每学期可能调整，建议同时核对本学期教学大纲。',memoTime:''},
+    {id:'m3',tab:'personal',title:'请确认志愿活动的集合安排',source:'钉钉',from:'活动负责人 · 私聊',when:'今天 09:35',today:true,hint:'对方在等你确认',date:'10月24日 周六 08:45',place:'校区南门',body:'你报名的志愿活动计划在周六 08:45 集合，请确认是否能够按时到达。',memoTime:'10月24日 08:45 志愿活动集合'}
+  ];
+  const fixedMemos = [{id:'own1',title:'周一办理材料盖章',time:'10月19日 周一',source:'自己记录',body:'带上学生证、申请表与需要盖章的材料。'}, {id:'own2',title:'准备项目讨论提纲',time:'10月20日 周二',source:'自己记录',body:'整理本周进展和需要讨论的问题。'}];
+  let state = {page:'affairs',tab:'campus',source:'all',range:'week',more:false,detail:null,memo:null,filters:false,saved:[],read:[]};
+  const known = id => notices.some(n => n.id === id);
+  function restore(saved) {
+    const p = saved?.privateContent;
+    if (!p || p.version !== 1) return;
+    state = {...state, page:p.page==='plugins'?'plugins':'affairs', tab:p.tab==='personal'?'personal':'campus', source:['all','钉钉','微信','二课','公众号','学校官网','邮箱','CC98'].includes(p.source)?p.source:'all', range:p.range==='today'?'today':'week', more:!!p.more, filters:!!p.filters, detail:known(p.detail)?p.detail:null, saved:Array.isArray(p.saved)?[...new Set(p.saved.filter(known))]:[], read:Array.isArray(p.read)?[...new Set(p.read.filter(known))]:[]};
+  }
+  function persist() {
+    if (window.openai?.setWidgetState) window.openai.setWidgetState({modelContent:{页面方案:'校园事务保留双栏，邮箱和CC98归个人消息，筛选与页签同排并紧贴按钮弹出',查看页面:state.page==='plugins'?'插件分类':'校园事务',通知视图:state.tab==='campus'?'校园通知':'个人消息'},privateContent:{version:1,...state}}).catch(()=>{});
+  }
+  function icons() { if (globalThis.lucide) globalThis.lucide.createIcons({attrs:{width:17,height:17}}); }
+  function memoItems() { return [...fixedMemos,...state.saved.map(id => { const n=notices.find(x=>x.id===id); return {id:n.id,title:n.title,time:n.memoTime||'未设置时间',source:n.source+' · '+n.from,body:n.body}; })]; }
+  function renderMemos() {
+    const items=memoItems(); get('ca-memo-count').textContent=String(items.length);
+    const selected=items.find(m=>m.id===state.memo);
+    get('ca-memo-list').hidden=!!selected; get('ca-memo-detail').hidden=!selected;
+    get('ca-memo-list').innerHTML=items.map(m=>`<div class="ca-memo"><button type="button" class="ca-memo-name" data-memo="${m.id}">${esc(m.title)}</button><div class="ca-meta"><span>${esc(m.time)}</span></div><div class="ca-meta"><span>${esc(m.source)}</span></div></div>`).join('');
+    if(selected) get('ca-memo-detail').innerHTML=`<button type="button" class="ca-link" data-close-memo>‹ 返回备忘录</button><h3>${esc(selected.title)}</h3><p class="ca-sub">${esc(selected.time)}</p><div class="ca-original"><p>${esc(selected.body)}</p></div><p class="ca-sub">${esc(selected.source)}</p>`;
+  }
+  function saveButton(n, full=false) {
+    const saved=state.saved.includes(n.id);
+    return `<button type="button" data-save="${n.id}" data-saved="${saved}" class="${full?'ca-button ca-primary':'ca-save'}" aria-label="${saved?'查看备忘录：':'加入备忘录：'}${esc(n.title)}"><i data-lucide="${saved?'check':'plus'}" aria-hidden="true"></i>${full?(saved?'查看备忘录':'加入备忘录'):''}</button>`;
+  }
+  function renderFeed() {
+    root.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===state.tab)));
+    get('ca-notice-panel').setAttribute('aria-labelledby','ca-'+state.tab+'-tab');
+    get('ca-filters').hidden=!state.filters;
+    get('ca-filter-toggle').setAttribute('aria-expanded',String(state.filters));
+    const sources=[...new Set(notices.filter(n=>n.tab===state.tab).map(n=>n.source))];
+    if(state.source!=='all'&&!sources.includes(state.source))state.source='all';
+    get('ca-source').innerHTML='<option value="all">全部来源</option>'+sources.map(source=>`<option>${esc(source)}</option>`).join('');
+    get('ca-source').value=state.source; get('ca-range').value=state.range;
+    const selected=notices.find(n=>n.id===state.detail&&n.tab===state.tab);
+    get('ca-notice-list').hidden=!!selected; get('ca-notice-detail').hidden=!selected;
+    if(selected) {
+      get('ca-notice-detail').innerHTML=`<div class="ca-detail"><button type="button" class="ca-link" data-close-detail>‹ 返回${state.tab==='campus'?'校园通知':'个人消息'}</button><h3>${esc(selected.title)}</h3><p class="ca-detail-meta">${esc(selected.source)} · ${esc(selected.from)}<br/>${esc(selected.when)}</p><dl class="ca-facts"><dt>时间</dt><dd>${esc(selected.date)}</dd><dt>地点</dt><dd>${esc(selected.place)}</dd></dl><div class="ca-original"><p class="ca-sub">原始内容 · 示例</p><p>${esc(selected.body)}</p></div><div class="ca-actions">${saveButton(selected,true)}</div></div>`;
+    } else {
+      const rows=notices.filter(n=>n.tab===state.tab&&(state.source==='all'||n.source===state.source)&&(state.range==='week'||n.today));
+      const visible=state.more?rows:rows.slice(0,5);
+      get('ca-notice-list').innerHTML=visible.map(n=>`<article class="ca-row"><button type="button" class="ca-open" data-open="${n.id}"><span class="ca-row-title">${state.read.includes(n.id)?'':'<span class="ca-dot" aria-label="未读"></span>'}${esc(n.title)}</span><span class="ca-brief">${esc(n.hint)}</span><span class="ca-meta"><span>${esc(n.source)} · ${esc(n.from)}</span><span>${esc(n.when)}</span></span></button>${saveButton(n)}</article>`).join('')+(rows.length>5?`<button type="button" class="ca-link ca-more" data-more>${state.more?'收起':'查看全部 '+rows.length+' 条'} <span aria-hidden="true">${state.more?'⌃':'⌄'}</span></button>`:'')+(rows.length?'':'<p class="ca-empty">这个范围内没有消息</p>');
+    }
+  }
+  const pluginGroups=[
+    {title:'课程与学习',items:[['课程与作业','教务、学在、PTA 与实验课','notebook-pen'],['学习资料','智云、学习通、电子书与论文','book-open'],['课程讲解','把资料做成可观看的讲解','presentation']]},
+    {title:'消息与资讯',items:[['校园通知','学校与学院发布的通知','megaphone'],['微信聊天','关注的微信群与个人聊天','messages-square'],['钉钉聊天','关注的钉钉群与个人聊天','messages-square'],['浙大邮箱','连接邮箱，在对话中查信与回复','mail'],['微信公众号','关注的公众号文章','newspaper']]},
+    {title:'校园生活',items:[['活动与场馆','二课、活动报名与场馆预约','calendar-check'],['校园社区','CC98 与教师评价','users']]},
+    {title:'基础能力',items:[['校园账号','统一身份认证与 WebVPN','key-round'],['网页搜索','查找外部资料','search'],['自动化任务','定时执行已安排的任务','clock'],['语音输入','用语音和助手交流','mic'],['自动授权审查','操作授权设置','shield-check']]}
+  ];
+  function renderPlugins() {
+    get('ca-plugins').innerHTML=`<div class="ca-plugin-grid">${pluginGroups.map(g=>`<section aria-label="${esc(g.title)}"><div class="ca-section-head"><h2>${esc(g.title)}</h2><span class="ca-count">${g.items.length}</span></div>${g.items.map(p=>`<div class="ca-plugin-row"><span class="ca-plugin-icon"><i data-lucide="${p[2]}" aria-hidden="true"></i></span><div class="ca-plugin-copy"><p>${esc(p[0])}</p><span class="ca-sub">${esc(p[1])}</span></div></div>`).join('')}</section>`).join('')}</div><section class="ca-memos" aria-label="完整工作流技能"><h2>技能</h2><div class="ca-skill-list">${['初始化','选课','今日安排','考前准备','交作业','课后总结'].map(s=>`<span class="ca-skill-label">${s}</span>`).join('')}</div></section>`;
+  }
+  function render() {
+    root.querySelectorAll('[data-page]').forEach(b=>{if(b.dataset.page===state.page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+    get('ca-page-title').textContent=state.page==='plugins'?'插件':'校园事务';
+    get('ca-affairs').hidden=state.page!=='affairs'; get('ca-plugins').hidden=state.page!=='plugins';
+    renderMemos(); renderFeed(); renderPlugins(); icons();
+  }
+  function closeFilters(focusButton=false) {
+    state.filters=false;
+    get('ca-filters').hidden=true;
+    get('ca-filter-toggle').setAttribute('aria-expanded','false');
+    if(focusButton) get('ca-filter-toggle').focus({preventScroll:true});
+    persist();
+  }
+  root.addEventListener('click',event=>{
+    const b=event.target.closest('button'); if(!b||!root.contains(b)||b.disabled)return;
+    get('ca-status').textContent='';
+    if(b.dataset.page) {state.page=b.dataset.page;state.filters=false;}
+    else if(b.dataset.tab) {state.tab=b.dataset.tab;state.source='all';state.more=false;state.detail=null;state.filters=false;}
+    else if(b.dataset.open) {state.detail=b.dataset.open;if(!state.read.includes(state.detail))state.read.push(state.detail);}
+    else if(b.hasAttribute('data-close-detail')) state.detail=null;
+    else if(b.hasAttribute('data-more')) state.more=!state.more;
+    else if(b.id==='ca-filter-toggle') state.filters=!state.filters;
+    else if(b.hasAttribute('data-close-filters')) state.filters=false;
+    else if(b.dataset.save) {
+      if(state.saved.includes(b.dataset.save)) state.memo=b.dataset.save;
+      else {state.saved.push(b.dataset.save);state.memo=null;get('ca-status').textContent='已加入左侧备忘录（草图演示）';}
+    }
+    else if(b.dataset.memo) state.memo=b.dataset.memo;
+    else if(b.hasAttribute('data-close-memo')) state.memo=null;
+    render(); persist();
+    if(b.id==='ca-filter-toggle'&&state.filters) get('ca-source').focus({preventScroll:true});
+    else if(b.hasAttribute('data-close-filters')) get('ca-filter-toggle').focus({preventScroll:true});
+  });
+  root.addEventListener('change',event=>{if(event.target.id==='ca-source')state.source=event.target.value;else if(event.target.id==='ca-range')state.range=event.target.value;else return;state.detail=null;state.more=false;render();persist();});
+  document.addEventListener('pointerdown',event=>{if(state.filters&&!get('ca-filter-anchor').contains(event.target))closeFilters();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&state.filters){event.preventDefault();closeFilters(true);}});
+  document.addEventListener('focusin',event=>{if(state.filters&&!get('ca-filter-anchor').contains(event.target))closeFilters();});
+  restore(window.openai?.widgetState); render();
+  window.addEventListener('openai:set_globals',event=>{if(event.detail?.globals?.widgetState){restore(event.detail.globals.widgetState);render();}});
+  if(globalThis.Tweak) {
+    const settings={density:'紧凑'};
+    const tweak=new globalThis.Tweak({container:root,onChange:()=>root.style.setProperty('--ca-space',settings.density==='紧凑'?'16px':'23px')});
+    tweak.addSelect(settings,'density',{label:'通知行间距',options:['紧凑','舒展']});
+  }
+})();
+</script>

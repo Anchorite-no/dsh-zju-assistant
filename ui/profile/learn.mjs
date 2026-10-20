@@ -5,7 +5,7 @@
  * TeX 可以在插件页上点「安装」：从国内的 CTAN 镜像取 TeX Live 的安装程序，只装排公式用得到的那一小部分（约 300 MB），
  * 装在应用的数据目录里，不改系统的 PATH、注册表和开始菜单；卸载就是删掉那个文件夹。
  * 装好以后把位置放进环境变量 LEARN_TEX_BIN（engine/tex.mjs 第一个看的就是它），引擎之后启动的命令都会继承。
- * 配音（IndexTTS）没有放进来：它要 NVIDIA 显卡和十几 GB 的模型，而且应用里的播放窗口还不会出声，装了也用不上。
+ * 千问 TTS 配音由 tts.mjs 单独管理；默认不安装，不影响这两项依赖。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -68,7 +68,7 @@ const profile = home => [
 ].join('\n')
 
 /** 把一个地址存成文件，边收边报收到多少字节、一共多少。 */
-async function download(url, file, onProgress) {
+export async function download(url, file, onProgress) {
   const response = await fetch(url, { signal: AbortSignal.timeout(10 * 60_000) })
   if (!response.ok || !response.body) throw new Error(`${new URL(url).host} 回了 ${response.status}`)
   const total = Number(response.headers.get('content-length')) || 0
@@ -78,7 +78,7 @@ async function download(url, file, onProgress) {
 }
 
 /** 跑一个程序到结束，输出一行一行交给 onLine；退出码不是 0 时带着最后几行报错。Windows 上的 .bat 要经 cmd 才能启动。 */
-function run(command, args, { cwd, env, onLine, timeoutMs = INSTALL_LIMIT_MS } = {}) {
+export function run(command, args, { cwd, env, onLine, timeoutMs = INSTALL_LIMIT_MS } = {}) {
   return new Promise((resolve, reject) => {
     const batch = process.platform === 'win32' && /\.(bat|cmd)$/i.test(command)
     const child = batch ? spawn('cmd.exe', ['/d', '/s', '/c', command, ...args], { cwd, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })

@@ -11,9 +11,12 @@ function fixture(t) {
   const flowsDir = path.join(root, 'flows')
   fs.mkdirSync(flowsDir)
   fs.writeFileSync(path.join(flowsDir, 'README.md'), '# 工作流\n')
-  fs.writeFileSync(path.join(flowsDir, 'course-selection.md'), '---\ntitle: 本科选课\ndescription: 一个学期的选课怎么走。用户说选课、退课时用。\n---\n# 本科选课工作流\n\n## 1. 开始前\n\n先读当期[选课通知](../references/notice.md#list)，确认轮次和时间窗。\n')
-  // 没写「什么时候用」的：只是 zju 里的一篇文档，不单独当技能列出来。
-  fs.writeFileSync(path.join(flowsDir, 'plain.md'), '# 没有属性区的工作流\n\n照着做。\n')
+  fs.mkdirSync(path.join(flowsDir, 'course-selection', 'references'), { recursive: true })
+  fs.writeFileSync(path.join(flowsDir, 'course-selection', 'references', 'rounds.md'), '# 各轮\n\n常规、低定、补选。\n')
+  fs.writeFileSync(path.join(flowsDir, 'course-selection', 'SKILL.md'), '---\nname: course-selection\ntitle: 本科选课\ndescription: 一个学期的选课怎么走。用户说选课、退课时用。\n---\n# 本科选课工作流\n\n## 1. 开始前\n\n先读当期[选课通知](../references/notice.md#list)，确认轮次和时间窗。\n')
+  // 没写「什么时候用」的：不单独当技能列出来。
+  fs.mkdirSync(path.join(flowsDir, 'plain'))
+  fs.writeFileSync(path.join(flowsDir, 'plain', 'SKILL.md'), '# 没有属性区的工作流\n\n照着做。\n')
   let changed = 0
   const notes = new FlowNotes({ file: path.join(root, 'profile', 'flow-notes.json'), flowsDir })
   notes.onChange = () => { changed++ }
@@ -42,7 +45,7 @@ test('工作流的补充：存在档案目录，拼成给 zju 技能用的一段
   assert.equal(changed(), 2)
   assert.deepEqual(notes.list().map(item => [item.flowTitle, item.stale]), [['本科选课工作流', false], ['本科选课工作流', false]])
   const section = notes.section()
-  assert.match(section, /## 工作流的补充[\s\S]*### 本科选课工作流（flows\/course-selection\.md）\n- 实验课的教学班在单独的页面里选， 自主选课里搜不到。（用户说）\n- 跨校区的课要留出四十分钟的路程。（来源：https:\/\/example\.edu\/notice\/1）/)
+  assert.match(section, /## 工作流的补充[\s\S]*### 本科选课工作流（技能 course-selection）\n- 实验课的教学班在单独的页面里选， 自主选课里搜不到。（用户说）\n- 跨校区的课要留出四十分钟的路程。（来源：https:\/\/example\.edu\/notice\/1）/)
   // 有了补充：接在正文后面的一节里，早的在前；页面上和单独加载这个工作流时看到的是同一节。
   const added = '\n\n## 使用中补充的\n\n下面几条是使用中补进来的，一并照做；正文已经写了的，以正文为准：\n\n- 实验课的教学班在单独的页面里选， 自主选课里搜不到。（用户说）\n- 跨校区的课要留出四十分钟的路程。（来源：https://example.edu/notice/1）\n'
   assert.equal(notes.notesSection('course-selection'), added)
@@ -75,11 +78,31 @@ test('补充过不了的几种：没有这个工作流、太短太长、重复�
 test('应用升级后工作流的正文变了，之前的补充标成待核对', t => {
   const { notes, flowsDir } = fixture(t)
   notes.add({ flow: 'course-selection', text: '实验课的教学班在单独的页面里选。' })
-  fs.appendFileSync(path.join(flowsDir, 'course-selection.md'), '\n## 2. 实验课\n\n在实验课选课页面里选。\n')
+  fs.appendFileSync(path.join(flowsDir, 'course-selection', 'SKILL.md'), '\n## 2. 实验课\n\n在实验课选课页面里选。\n')
   assert.equal(notes.list()[0].stale, true)
+  // 参考文档改了也算：补充写下以后，技能文件夹里哪一篇变了都要重新核对。
+  const other = notes.add({ flow: 'course-selection', text: '补选申请要写清楚理由和联系电话。' })
+  assert.equal(notes.list().find(item => item.id === other.id).stale, false)
+  fs.appendFileSync(path.join(flowsDir, 'course-selection', 'references', 'rounds.md'), '\n退课在补退选模块里申请。\n')
+  assert.equal(notes.list().find(item => item.id === other.id).stale, true)
   assert.match(notes.section(), /工作流在这些补充之后更新过，先对照正文/)
   // 工作流被拿掉以后，它的补充不再列出来，也不再交给助手。
-  fs.rmSync(path.join(flowsDir, 'course-selection.md'))
+  fs.rmSync(path.join(flowsDir, 'course-selection'), { recursive: true })
   assert.deepEqual(notes.list(), [])
   assert.equal(notes.section(), '')
+})
+
+test('子步骤归属完整工作流，已有补充随父技能保留、加载和删除', t => {
+  const { notes, flowsDir } = fixture(t)
+  fs.mkdirSync(path.join(flowsDir, 'course-teachers'))
+  fs.writeFileSync(path.join(flowsDir, 'course-teachers', 'SKILL.md'), '---\ntitle: 比较老师\nparent: course-selection\ndescription: 选课中的比较步骤\n---\n# 比较老师\n\n查同一门课的教学班和评价。\n')
+  const child = notes.add({ flow: 'course-teachers', text: '比较之前核对教学班对应的学期。' })
+  assert.equal(notes.list()[0].id, child.id)
+  assert.deepEqual(notes.groups().map(item => [item.name, item.notes]), [['flow:course-selection', 1]])
+  assert.ok(notes.group({ name: 'flow:course-selection' }).body.includes(child.text))
+  assert.ok(notes.notesSection('course-selection').includes(child.text))
+  assert.throws(() => notes.group({ name: 'flow:course-teachers' }), /没有这个技能/)
+  notes.removeGroup({ name: 'flow:course-selection' })
+  assert.equal(notes.list().length, 0)
+  assert.equal(notes.groups()[0].notes, 0)
 })

@@ -6,7 +6,7 @@ import { join, resolve, sep } from 'node:path'
 import test from 'node:test'
 
 const require = createRequire(import.meta.url)
-const { createTray, readCloseToTray, cleanAlert, BLINK_MS } = require('./tray.cjs')
+const { createTray, readShell, readCloseToTray, cleanAlert, BLINK_MS, HINT } = require('./tray.cjs')
 
 /** 假的托盘和菜单：只记下壳对它们做了什么。icons 是现在还在托盘上的那些。 */
 function fakes() {
@@ -40,23 +40,92 @@ async function fixture(t) {
   return { file, calls, icons: f.icons, create }
 }
 
-test('默认直接退出：没存过、文件坏了、写的不是 true，都按关算，托盘上也没有图标', async (t) => {
+test('默认藏进托盘：没存过、文件坏了、写的不是 false，都按开算；只有明确关过的才直接退出', async (t) => {
   const f = await fixture(t)
-  assert.equal(readCloseToTray(f.file), false)
+  assert.equal(readCloseToTray(f.file), true)
   for (const text of ['不是 JSON', '{"closeToTray":"yes"}', '{}', 'null']) {
     await writeFile(f.file, text)
-    assert.equal(readCloseToTray(f.file), false, text)
+    assert.equal(readCloseToTray(f.file), true, text)
   }
-  const tray = f.create()
-  assert.equal(tray.enabled(), false)
+  assert.deepEqual(readShell(f.file), { closeToTray: true, notify: true, hinted: false })
+  assert.equal(f.create().enabled(), true)
+  assert.equal(f.icons.length, 1)
+  // 0.1.6 以前关过的人，文件里写着 false：照旧直接退出，托盘上没有图标。
+  await writeFile(f.file, '{"closeToTray":false}')
+  f.icons.splice(0)
+  assert.equal(f.create().enabled(), false)
   assert.equal(f.icons.length, 0)
+})
+
+test('新消息弹一条系统通知，点了打开它说的地方；关掉开关就不弹；系统不支持时只闪托盘', async (t) => {
+  const f = await fixture(t)
+  const shown = []
+  class Notification {
+    static isSupported() { return Notification.supported }
+    constructor(options) { this.options = options; this.handlers = {} }
+    on(name, handler) { this.handlers[name] = handler }
+    show() { shown.push(this) }
+    close() { this.closed = true }
+  }
+  Notification.supported = true
+  const tray = createTray({ Tray: fakes().Tray, Menu: { buildFromTemplate: items => items }, Notification, file: f.file, title: '校园智能体', icon: 'icon', blank: 'blank', show: () => { f.calls.push('show') }, quit: () => {}, open: (alert) => { f.calls.push(['open', alert]) } })
+  assert.equal(tray.notifying(), true)
+  tray.alert({ title: '钉钉聊天有新消息', text: '比赛群 · 3 条通知', panel: 'campus.affairs' })
+  assert.equal(shown.length, 1)
+  assert.deepEqual(shown[0].options, { title: '钉钉聊天有新消息', body: '比赛群 · 3 条通知', icon: 'icon' })
+  shown[0].handlers.click()
+  assert.deepEqual(f.calls, [['open', { title: '钉钉聊天有新消息', text: '比赛群 · 3 条通知', panel: 'campus.affairs' }]])
+  assert.equal(tray.pending(), 0)
+  // 关掉以后不弹，托盘照样攒着；下次启动还记得。
+  assert.equal(tray.setNotify(false), false)
+  tray.alert({ title: '成绩出了', text: '高等数学' })
+  assert.equal(shown.length, 1)
+  assert.equal(tray.pending(), 1)
+  assert.deepEqual(readShell(f.file), { closeToTray: true, notify: false, hinted: false })
+  tray.setNotify(true)
+  Notification.supported = false
+  tray.alert({ title: '作业快截止', text: '数据结构' })
+  assert.equal(shown.length, 1)
+  // 退出时把没点的通知收掉。
+  Notification.supported = true
+  tray.alert({ title: '作业快截止', text: '数据结构' })
+  // Windows 的通知被用户关掉时，弹出去的会失败；记下来，设置页照实说。
+  assert.equal(tray.blocked(), false)
+  shown.at(-1).handlers.failed({}, 'Notification failed - Settings prevent the notification type from being delivered. (HRESULT: -2143420140)')
+  assert.equal(tray.blocked(), true)
+  tray.alert({ title: '作业快截止', text: '数据结构' })
+  tray.dispose()
+  assert.equal(shown.at(-1).closed, true)
+})
+
+test('第一次藏进托盘时弹一条说明，只弹这一次，重启以后也不再弹', async (t) => {
+  const f = await fixture(t)
+  const shown = []
+  class Notification {
+    constructor(options) { this.options = options; this.handlers = {} }
+    on(name, handler) { this.handlers[name] = handler }
+    show() { shown.push(this) }
+  }
+  const make = () => createTray({ Tray: fakes().Tray, Menu: { buildFromTemplate: items => items }, Notification, file: f.file, title: '校园智能体', icon: 'icon', blank: 'blank', show: () => { f.calls.push('show') }, quit: () => {} })
+  const tray = make()
+  tray.hidden()
+  tray.hidden()
+  assert.equal(shown.length, 1)
+  assert.equal(shown[0].options.title, HINT.title)
+  shown[0].handlers.click()
+  assert.deepEqual(f.calls, ['show'])
+  assert.equal(readShell(f.file).hinted, true)
+  make().hidden()
+  assert.equal(shown.length, 1)
+  // 弹过说明不影响别的选择。
+  assert.deepEqual(readShell(f.file), { closeToTray: true, notify: true, hinted: true })
 })
 
 test('打开后托盘上出现图标：点它叫回主窗口，右键菜单能打开和退出；下次启动还记得', async (t) => {
   const f = await fixture(t)
   const tray = f.create()
   assert.equal(tray.set(true), true)
-  assert.deepEqual(JSON.parse(await readFile(f.file, 'utf8')), { closeToTray: true })
+  assert.deepEqual(JSON.parse(await readFile(f.file, 'utf8')), { closeToTray: true, notify: true, hinted: false })
   assert.equal(f.icons.length, 1)
   const icon = f.icons[0]
   assert.equal(icon.tip, '校园智能体')
@@ -152,7 +221,10 @@ test('认不出来的消息不收；太长的截短；去处只认对话和侧�
   // 写得不像编号的对话不认，退到侧栏上的那一页。
   assert.equal(long.sessionId, undefined)
   assert.equal(long.panel, 'campus.affairs')
+  assert.equal(cleanAlert({ title: '邮箱有新邮件', panel: 'campus.affairs:personal' }).panel, 'campus.affairs:personal')
   const f = await fixture(t)
+  // 用户关过托盘：消息只是攒着，没有图标。
+  await writeFile(f.file, '{"closeToTray":false}')
   const tray = f.create()
   assert.equal(tray.alert({ title: '提醒' }).title, '提醒')
   assert.equal(tray.pending(), 1)

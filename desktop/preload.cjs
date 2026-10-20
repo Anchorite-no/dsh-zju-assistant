@@ -70,8 +70,6 @@ contextBridge.exposeInMainWorld('campusShell', {
   checkUpdate: () => ipcRenderer.invoke('campus:update:check'),
   installUpdate: () => ipcRenderer.invoke('campus:update:install'),
   saveUpdateToken: token => ipcRenderer.invoke('campus:update:token', String(token ?? '')),
-  // 右边栏向右打开（pane.cjs，ui/client/rightpane.ts）：报右边栏要的宽度，拿回窗口实际加宽了多少。
-  setSidePane: (width, instant) => ipcRenderer.invoke('campus:side-pane', Number(width) || 0, instant === true),
   // 托盘上点的那条消息要打开哪里（tray.cjs）：一个对话或侧栏上的一页，取一次就没了。
   takeOpen: () => ipcRenderer.invoke('campus:open:take'),
 })

@@ -68,8 +68,8 @@ export function apply(ctx: Context): void {
   ctx.slots.inject('settings.general.item', () =>
     ctx.slots.register({ name: 'settings.general.item', id: 'campus-content-width', order: 11.5 }, WidthRow))
 
-  // 右边栏向右打开：它占多宽，窗口就加宽多少，中间的对话不被挤窄。
-  ctx.effect(() => installRightPane(ctx), 'campus-ui: right pane opens outward')
+  // 右边栏第一次打开的宽度（rightpane.ts）；打开、收起照引擎原样。
+  ctx.effect(() => installRightPane(ctx), 'campus-ui: right pane default width')
 
   // 关闭窗口时隐藏到系统托盘：开关存在壳那边，排在性能与用量后面；不在壳里打开（比如浏览器）时没有这一行。
   if (window.campusShell) {

@@ -28,7 +28,7 @@ import { CORE_ROOT } from './skills.mjs'
  * learn 的引擎脚本（build、lint、shots）不在里面：它们会执行讲解里的脚本，那是助手自己写的代码，
  * 不受限地跑要用户点头（引擎的做法：这一条命令申请更宽的权限，弹出来问一次）。
  */
-export const TRUSTED_SCRIPTS = ['zju/scripts/zju.ts', 'weread/scripts/weread.ts']
+export const TRUSTED_SCRIPTS = ['zju/scripts/zju.ts', 'weread/scripts/weread.ts', 'wechat/scripts/wechat.mjs', 'dingtalk/scripts/dingtalk.mjs']
 
 const fold = text => process.platform === 'win32' ? text.toLowerCase() : text
 

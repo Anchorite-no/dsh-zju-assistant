@@ -17,6 +17,7 @@ import { ChatGptCard } from './ChatGptCard.tsx'
 import { installContentWidth } from './width.ts'
 import { installRightPane } from './rightpane.ts'
 import { installPluginsPage } from './PluginsPage.tsx'
+import { installSchedulePage } from './SchedulePage.tsx'
 import { installFolderlessChats } from './chats.ts'
 import { installHandoff } from './handoff.tsx'
 import { installAlerts } from './alerts.ts'
@@ -28,6 +29,8 @@ export const inject = ['slots', 'sidebarRightTabs', 'layout', 'remote', 'remote.
 
 export function apply(ctx: Context): void {
   installPluginsPage(ctx)
+  // 侧栏上引擎的「自动化任务」换成日程表：这周的课和事，原来的任务页挪到它的「定时任务」页签里。
+  installSchedulePage(ctx)
   // 新对话默认不选文件夹；别的页面可以把一件事交给助手（开一个新对话，话先写进输入框）；
   // 托盘上点了一条消息时，打开它说的那个对话或那一页。
   // 这三个服务是引擎的工作区界面提供的，等它们都在了再接管。

@@ -12,8 +12,15 @@
   let TL = V.buildTimeline(SCRIPT, EMBED.dur, BASE), DURATION = TL.duration;
   const need = key => { const c = TL.T[key]; if (!c) throw new Error('unknown caption key: ' + key); return c; };
   V.TL = TL; V.t = 0;
-  V.at = key => need(key).s;
-  V.en = key => need(key).e;
+  // at(key) / en(key): when a line starts and ends. at(key, '几个字') / en(key, '几个字'): when the voice reaches those words of the line
+  // and when it has said them, estimated from where they stand in the caption (V.share).
+  const moment = (key, part, end) => {
+    const c = need(key); if (typeof part !== 'string') return end ? c.e : c.s;
+    const k = V.share(c.text, part, end); if (k < 0) throw new Error(`句子 ${key} 里没有“${part}”`);
+    return c.s + (c.e - c.s) * k;
+  };
+  V.at = (key, part) => moment(key, part, false);
+  V.en = (key, part) => moment(key, part, true);
 
   const $ = id => document.getElementById(id);
   const canvas = $('film'), ctx = canvas.getContext('2d'), stage = $('stage'), player = $('player');

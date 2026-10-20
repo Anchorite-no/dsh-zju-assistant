@@ -150,7 +150,8 @@ const homework = group("作业：列表、要求与本人提交记录、下载�
 export const xuezaiCommands: Record<string, Command> = sessionCommands({
   todos: read("待办：当前学期各课未交的作业和测验，按截止先后，含作业要求", {
     course: { description: "只看这门课" },
-  }, async (c, f) => getTodos(c, f.course === undefined ? undefined : await findCourse(c, f.course as string))),
+    done: { description: "已交的作业也列出来，标 done: true", type: "boolean" },
+  }, async (c, f) => getTodos(c, f.course === undefined ? undefined : await findCourse(c, f.course as string), { done: bool(f, "done") })),
   course, material, homework,
   ...rollcallCommands,
   login: command("检查或更新学在站点会话，返回当前账号；认证复用 zjuam", { fresh: { description: "强制重新登录", type: "boolean" } },

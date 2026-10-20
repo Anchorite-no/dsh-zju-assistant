@@ -13,6 +13,9 @@ export type CampusArt = AppPlugin['art']
 interface Paints { blue: string, teal: string, green: string }
 
 const SHAPES: Record<CampusArt, (paint: Paints) => ReactNode> = {
+  mail: paint => <><rect x="6" y="9" width="24" height="18" rx="4" fill={paint.blue} /><path d="m8 12 10 8 10-8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></>,
+  'wechat-chat': paint => <><path d="M7 9h16a5 5 0 0 1 5 5v7a5 5 0 0 1-5 5h-8l-5 3v-4a5 5 0 0 1-3-4Z" fill={paint.green} /><circle cx="13" cy="17" r="1.5" fill="white" /><circle cx="21" cy="17" r="1.5" fill="white" /></>,
+  dingtalk: paint => <><rect x="7" y="7" width="23" height="23" rx="7" fill={paint.blue} /><path d="m12 13 13-3-5 9h4l-10 9 3-9h-5l7-5Z" fill="white" /></>,
   learn: paint => (
     <>
       <rect x="7" y="9" width="22" height="15.5" rx="3.6" fill={paint.blue} fillOpacity="0.8" />

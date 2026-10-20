@@ -341,13 +341,21 @@ const V = (() => {
     return u;
   }
   const RATE = 4.7;
+  /* Where in a line a few of its words fall, as a share of the line's spoken length: 0 at its first sound, 1 at its last.
+     end = false: where the words begin; true: where they end. -1 when the line does not hold them.
+     An estimate from the count of sounds before them, good to a few tenths of a second when the voice reads the caption itself. */
+  function share(text, part, end) {
+    const i = text.indexOf(part); if (i < 0 || part === '') return -1;
+    const u = s => speakUnits(spoken(s)), all = u(text);
+    return all > 0 ? u(text.slice(0, end ? i + part.length : i)) / all : 0;
+  }
   /* What a caption shows of its line (cue.show): the comma or full stop that closes the line is left off; a question mark,
      an ellipsis, and a closing quote or bracket after the stop all stay. The voice and the timing go by the whole line (cue.text). */
   const shown = s => s.replace(/(?:[，。、；：,;:]|(?<!\.)\.)+(?=[”’」』）)》】\]"']*\s*$)/, '');
-  /* Voice-over language (LESSON.dub). Captions stay Chinese; the voice reads a translation of each line.
-     pace = how much longer the translation runs than the Chinese line would (measured on examples/heap-intro),
-     used only for the estimate. */
-  const DUB = { zh: { name: '中文', pace: 1 }, ja: { name: '日语', pace: 1.3 }, en: { name: '英语', pace: 1.05 } }, DUB_DEFAULT = 'ja';
+  /* Voice-over language (LESSON.dub). Captions are Chinese and so is the voice unless a film says otherwise: it reads the
+     caption itself. For another language it reads a translation of each line. pace = how much longer that translation runs
+     than the Chinese line would (measured on examples/heap-intro), used only for the estimate. */
+  const DUB = { zh: { name: '中文', pace: 1 }, ja: { name: '日语', pace: 1.3 }, en: { name: '英语', pace: 1.05 } }, DUB_DEFAULT = 'zh';
   function buildTimeline(script, durations = {}, dub = DUB_DEFAULT) {
     const pace = DUB[dub].pace;
     const T = {}, cues = [], scenes = []; let t = 0;
@@ -361,7 +369,7 @@ const V = (() => {
         const voiced = durations[key] !== undefined;
         const d = voiced ? durations[key] : o.d !== undefined ? o.d : Math.max(1.25, speakUnits(o.tts || spoken(text)) / RATE * pace + 0.25);
         const gap = o.gap === undefined ? 0.32 : o.gap;
-        const s = t, e = t + d; T[key] = { s, e }; if (text) cues.push({ key, s, e, text, show: shown(text), scene: sc.id, voiced });
+        const s = t, e = t + d; T[key] = { s, e, text: text || '' }; if (text) cues.push({ key, s, e, text, show: shown(text), scene: sc.id, voiced });
         t = e + Math.max(gap, (o.min || 0) - d);
       }
       t += sc.post === undefined ? (joins[i + 1] ? 0 : 1.1) : sc.post;
@@ -373,5 +381,5 @@ const V = (() => {
   }
 
   return { W, H, SAFE, C, CAT, THEMES, setTheme, FONT, TAU, rad, setCtx, get ctx() { return ctx; }, clamp, lerp, ease, easeOut, easeBack, rng, rgba, mixc, alpha, txt, measure, extent, rich, line, arrow, circle, rrect, poly, bezPt, curve, fontOf,
-    math, plain, spoken, need, needs, tex: d => { TEX.em = d.em; TEX.g = d.g; TEX.f = bare(d.f); TEXG.length = 0; TEXP.clear(); }, buildTimeline, speakUnits, DUB, DUB_DEFAULT, SCENES: {} };
+    math, plain, spoken, need, needs, tex: d => { TEX.em = d.em; TEX.g = d.g; TEX.f = bare(d.f); TEXG.length = 0; TEXP.clear(); }, buildTimeline, speakUnits, share, DUB, DUB_DEFAULT, SCENES: {} };
 })();

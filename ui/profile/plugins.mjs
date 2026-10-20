@@ -61,6 +61,7 @@ export class PluginSwitches {
     else delete this.env.ZJU_DISABLED_MODULES
     if (this.disabled().includes('campus.wechat')) this.env.WEREAD_DISABLED = '1'
     else delete this.env.WEREAD_DISABLED
+    for (const [id, key] of [['campus.wechat-chat', 'WECHAT_CHAT_DISABLED'], ['campus.dingtalk', 'DINGTALK_CHAT_DISABLED']]) { if (this.disabled().includes(id)) this.env[key] = '1'; else delete this.env[key] }
   }
   /** 给模型的一句说明；没有关着的功能时为空。默认关着、用户还没打开的也在里面，所以不说是用户关的。 */
   promptText() {
@@ -68,7 +69,8 @@ export class PluginSwitches {
     if (!disabled.length) return ''
     const names = disabled.map((id) => {
       const plugin = SWITCHABLE[id]
-      return plugin.modules ? `${plugin.title}（zju 的 ${plugin.modules.join('、')}）` : plugin.backend === 'learn' ? `${plugin.title}（learn 技能，做讲解）` : `${plugin.title}（weread 技能，读公众号文章）`
+      if (plugin.backend === 'mail') return `${plugin.title}（campus-mail 技能和 campus_mail_* 工具）`
+      return plugin.modules ? `${plugin.title}（zju 的 ${plugin.modules.join('、')}）` : plugin.backend === 'learn' ? `${plugin.title}（learn 技能，做讲解）` : plugin.backend === 'wechat' ? `${plugin.title}（weread 技能，读公众号文章）` : `${plugin.title}（${plugin.backend === 'wechat-chat' ? 'wechat' : 'dingtalk'} 技能，读取聊天）`
     }).join('；')
     return `这些功能在「插件」页关着：${names}。不要调用对应模块的命令，也不要绕过去自己做；用户需要时，请他到「插件」页打开。`
   }

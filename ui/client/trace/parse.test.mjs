@@ -157,3 +157,10 @@ test('按是哪一种调用来读结果；不访问网站的校园命令也看�
   assert.deepEqual(outcomeOf(campus, `${envelope([{ title: 'a' }])}\n[exit code: 1]`, false), { ok: true, count: 1, titles: ['a'] })
   assert.deepEqual(outcomeOf(campus, '[stderr]\n[zju] 正在登录\n[timed out after 120000ms]\n[killed by signal: SIGTERM]', false), { ok: false, error: '等了 120 秒没有跑完，被停掉了' })
 })
+
+test('微信钉钉聊天显示可读动作并支持直接 JSON 结果',()=>{
+ assert.equal(describeCall('pwsh',JSON.stringify({command:'node core/wechat/scripts/wechat.mjs chat read --chat group'})).label,'读取聊天')
+ assert.equal(describeCall('pwsh',JSON.stringify({command:'node core/dingtalk/scripts/dingtalk.mjs chat members --chat group'})).site,'钉钉聊天')
+ assert.deepEqual(readOutcome(JSON.stringify({ok:false,message:'客户端关闭'}),true),{ok:false,error:'客户端关闭'})
+ assert.equal(readOutcome(JSON.stringify({ok:true,messages:[{id:'a'}]}),false).count,1)
+})

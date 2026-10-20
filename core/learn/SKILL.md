@@ -55,10 +55,10 @@ description: 把用户想学的一份资料（课件和课堂字幕、教材章�
 
 | 阶段 | 做什么 | 参考文档 | 产出 |
 |---|---|---|---|
-| 1 知识点 | 由 subagent 把资料中的知识提炼成鱼骨图；主代理把例题做一遍，把原因问到底，再换条路讲出来 | `references/teaching.md` 第一节 | `plan/points.md`，`plan/code/` |
-| 2 讲稿 | 排出底稿，写成剧本式的讲稿（画面提示加口述），由 subagent 核对 | `references/teaching.md` 第二节 | `plan/outline.md`，`plan/narration.md` |
-| 3 画面 | 讲稿切分为字幕行，按讲稿里的〔画面〕行制作画面，检查 | `references/animation.md` | `film/script.js`，`film/scenes/` |
-| 4 朗读文本 | 逐句写日语译文；给带公式、负数和记号的字幕行加中文读法。只写文本，不合成音频 | `tools/tts/README.md` 的“配音语言和译文” | `film/dub.ja.json`，`script.js` 中的 `tts` |
+| 1 知识点 | 由 subagent 把资料中的知识提炼成鱼骨图；主代理把例题做一遍，把原因问到底，再换条路讲出来 | [知识提炼与讲稿](references/teaching.md) 第一节 | `plan/points.md`，`plan/code/` |
+| 2 讲稿 | 排出底稿，写成剧本式的讲稿（画面提示加口述），由 subagent 核对 | [知识提炼与讲稿](references/teaching.md) 第二节 | `plan/outline.md`，`plan/narration.md` |
+| 3 画面 | 讲稿切分为字幕行，按讲稿里的〔画面〕行制作画面，检查 | [画面制作](references/animation.md) | `film/script.js`，`film/scenes/` |
+| 4 朗读文本 | 给带公式、负数和记号的字幕行加中文读法。只写文本，不合成音频 | [配音说明](tools/tts/README.md) 的“配音语言和译文” | `script.js` 中的 `tts` |
 | 5 打包交付 | 打包，交付 | 本文“交付”一节 | `dist/<主题> <标题>.html` |
 
 先后的原因：
@@ -95,7 +95,7 @@ description: 把用户想学的一份资料（课件和课堂字幕、教材章�
       film\                 成片
         script.js           字幕行
         scenes\*.js         画面代码
-        dub.ja.json         配音译文，与字幕行一句对一句
+        dub.<语言>.json     其他语言译文，用户要求时才制作
         make\               这一讲自己写的辅助脚本和它们的输入，有则放这里
         build\              工具生成的一切（切出的字幕行、公式缓存、截图、配音），可整个删掉重来
   dist\<主题> <标题>.html    所有讲解的成品都在这一个文件夹里，打包时写入
@@ -105,7 +105,7 @@ description: 把用户想学的一份资料（课件和课堂字幕、教材章�
   references\
     teaching.md             从资料到讲稿
     animation.md            画面的框架和风格
-  tools\tts\                配音（本机的 IndexTTS，装在 tools\index-tts）
+  tools\tts\                千问 TTS 配音脚本；运行环境在插件中选装，保存在应用数据目录
 ```
 
 根目录不添新东西，文件夹一律用英文名：新的一讲建在 `lessons\` 下，试验和换下来的旧版本放 `out\`。主题目录下只有 `data`、`plan`、`film` 三样；`plan` 和 `film` 里除了上面列出的文件，其余的各进 `work`、`make`、`build`，不散放。一份资料默认做成一个成片，讲解从头到尾连续，不拆成互不相干的短片。
@@ -132,11 +132,11 @@ description: 把用户想学的一份资料（课件和课堂字幕、教材章�
 
 配音是独立的一条线，不在上述流程内，做法和现状以 `tools/tts/README.md` 为准，制作讲解时不修改它。
 
-成片在朗读器里看，配音由朗读器在播放时逐句现场合成；成片单独打开只有画面和字幕。成片中每句的时长先按字数估算，声音到了再换成真实时长。
+配音在应用的「课程讲解」插件中选装，默认不安装。启用配音后，学习页的播放窗口使用朗读器逐句合成；未安装或未启用时仍播放画面和字幕。成片中每句的时长先按字数估算，声音到了再换成真实时长。
 
-字幕为中文。配音读哪种语言跟着当前音色走：日语音色读 `dub.ja.json` 中的译文，中文音色读字幕，有 `tts` 的句子读 `tts`。音色说哪种语言写在 `voices\<名字>\voice.json` 中。`script.js` 的 `LESSON.dub` 写 `ja`，它是配音服务没开或音色没标语言时用的默认。用户依靠画面和字幕学习，配音的作用是提供有人在旁讲解的感觉。
+字幕和配音都是中文，用户听着解说看画面。中文音色读字幕，有 `tts` 的句子读 `tts`；`script.js` 的 `LESSON.dub` 写 `zh`。别的语言的配音默认不做：用户说要时，才按 `tools/tts/README.md` 的“配音语言和译文”逐句写译文 `dub.<语言>.json`，由那门语言的音色来读。
 
 讲解流程为配音做两件事：
 
-- 第 4 阶段写好日语译文和中文读法，供配音服务朗读。
+- 第 4 阶段写好中文读法，供配音服务朗读。
 - 画面挂在句子上而不是秒数上，播放时才能跟上每句的实际时长。

@@ -1,57 +1,82 @@
-"""本机 IndexTTS-2.5 的统一入口：路径、默认配置、加载和存盘。"""
+"""本机 Qwen3-TTS 的统一入口：路径、加载、音色、朗读、缓存和存盘。
+模型是 Qwen3-TTS-12Hz-1.7B-Base，经 faster-qwen3-tts 运行（依据和装法见 tools/tts/README.md）。"""
 import contextlib
+import ctypes
 import io
 import json
-import logging
 import os
+import re
 import wave
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-INDEXTTS_DIR = os.path.join(ROOT, "tools", "index-tts")
-MODEL_DIR = os.path.join(INDEXTTS_DIR, "checkpoints")
-VOICE_DIR = os.path.join(ROOT, "voices")  # 一个音色一个文件夹，里面的 voice.wav 是克隆用的参考音频
-DEFAULT_VOICE = "咲来"
-SAMPLE_RATE = 22050
-LANGS = ("zh", "ja", "en")  # 配音语言。模型另外支持 es 和 ar，本机没有试过
+ROOT = os.path.abspath(os.environ.get("LEARN_WORKSPACE") or os.path.join(os.path.dirname(__file__), "..", ".."))
+DATA_DIR = os.path.abspath(os.environ.get("LEARN_TTS_DATA") or ROOT)
+QWEN_DIR = os.path.abspath(os.environ.get("LEARN_TTS_HOME") or os.path.join(ROOT, "tools", "qwen-tts"))
+MODEL_DIR = os.path.join(QWEN_DIR, "checkpoints", "Qwen3-TTS-12Hz-1.7B-Base")
+VOICEPRINT_DIR = os.path.join(ROOT, "tools", "voiceprint")  # 做音色时量声纹用的 CAM++：两个源码文件和一个权重，原是 IndexTTS 带的
+VOICEPRINT_MODEL = os.path.join(VOICEPRINT_DIR, "campplus_cn_common.bin")
+VOICE_DIR = os.path.join(DATA_DIR, "voices")  # 参考音频只在用户的数据目录里
+DEFAULT_VOICE = os.environ.get("LEARN_DEFAULT_VOICE", "my-voice")
+ENGINE = "qwen3-tts-1.7b"  # 记进缓存的指纹：换了模型，以前合成的句子都不算数
+SAMPLE_RATE = 24000
+LANGS = ("zh", "ja", "en")  # 配音语言。模型另外支持德、法、俄、葡、西、意、韩，本机没有试过
+LANGUAGE = {"zh": "Chinese", "ja": "Japanese", "en": "English"}  # 模型自己的叫法
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")     # 模型都在本地，启动时不联网检查
-os.environ.setdefault("USE_MODELSCOPE", "true")  # 万一需要补下载，走国内源
 os.environ.setdefault("TQDM_DISABLE", "1")       # 每合成一句就画一条进度条，日志里全是它
 os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")  # 加载时那几段"将来的版本会如何"的提醒不用看
-logging.getLogger("indextts").setLevel(logging.ERROR)     # 模型自带了一份 transformers 的代码，它的提醒走的是这个名字
-
-# 本机（RTX 5080 16GB）基准后选定的配置，依据见 tools/tts/README.md。
-# bf16 比 fp32 慢约 15%，但少占 2GB 显存和等量的系统提交内存，在页面文件调大之前更稳。
-# torch.compile 在本机不可用：自带的 ptxas 不认这代显卡。
-DEFAULTS = {"bf16": True, "compile": False}
 
 
-def _release_vram_cache_between_models():
-    """加载 w2v-bert 之前先归还闲置的显存缓存。
-
-    Windows 下显存占用同样计入系统的"提交内存"。GPT 转成 bf16 后有约 2GB 缓存闲置，
-    不归还的话，紧接着加载 w2v-bert 时系统提交内存可能耗尽，进程以 0xC0000005 崩溃。
-    """
-    import gc
-
-    import torch
-    from indextts import infer_v2_5
-
-    original = infer_v2_5.Wav2Vec2BertModel.from_pretrained
-    if getattr(original, "_learn_patched", False):
-        return
-
-    def from_pretrained(*args, **kwargs):
-        gc.collect()
-        torch.cuda.empty_cache()
-        return original(*args, **kwargs)
-
-    from_pretrained._learn_patched = True
-    infer_v2_5.Wav2Vec2BertModel.from_pretrained = from_pretrained
+ROOM_GB = 8    # 加载一次模型多用约 7GB 系统提交内存（2026-10-12 量到 6.8GB），留一点富余
+SLACK_GB = 9   # 加载期间尽量空着这么多。这个模型会一口气要六七个 GB，来不及一块一块地还：只留 6GB 时余量一度掉到 0
+SPARE_GB = 3   # 上面两样占住之后，离页面文件扩到头还要剩这么多。2026-10-14 剩不到 1GB 时崩了两次，2026-10-04 剩 3.4GB 时正常
 
 
-ROOM_GB = 11   # 加载一次模型多用 9 到 10GB 系统提交内存，留一点富余
-SLACK_GB = 6   # 加载期间尽量空着这么多。模型有时一口气要 3GB，来不及一块一块地还，所以留它的两倍
+class MemoryStatus(ctypes.Structure):  # GlobalMemoryStatusEx 填的表
+    _fields_ = [("size", ctypes.c_uint32), ("load", ctypes.c_uint32)] + [(name, ctypes.c_uint64) for name in (
+        "physical", "physical_free", "limit", "free", "virtual", "virtual_free", "extended")]
+
+
+def memory():
+    """系统内存现在的读数：（物理内存，提交上限，提交余量），单位 GB。"""
+    status = MemoryStatus(size=ctypes.sizeof(MemoryStatus))
+    ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status))
+    return status.physical / 2 ** 30, status.limit / 2 ** 30, status.free / 2 ** 30
+
+
+def top_limit(physical):
+    """页面文件扩到头时提交上限是多少 GB：物理内存加各个页面文件登记的最大值。
+    最大值读不到时是 None：页面文件交给系统管理的话，注册表里没有这个数，或者是 0。"""
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management") as key:
+            files = winreg.QueryValueEx(key, "PagingFiles")[0]  # 一个页面文件一行：路径、初始 MB、最大 MB
+        most = [int(line.split()[-1]) for line in files if line.strip()]
+    except (OSError, ValueError):
+        return None
+    return physical + sum(most) / 1024 if most and all(most) else None
+
+
+def refusal(others, top):
+    """别的程序占着 others GB 提交内存、上限最多到 top GB 时为什么不能加载：给界面的一句话。能加载是 None。"""
+    most = top - (ROOM_GB + SLACK_GB + SPARE_GB)
+    if others <= most:
+        return None
+    holds, allowed = round(others, 1), round(most, 1)  # 差多少按写出来的两个数算，免得三个数对不上
+    return f"别的程序占着 {holds:.1f}GB 提交内存，降到 {allowed:.1f}GB 以下才能加载，还差 {max(0.1, holds - allowed):.1f}GB。"
+
+
+def reserve(gb):
+    """向系统要 gb GB 提交额度：保留并提交，可读写；不写入就不占物理内存。要不到是 None。"""
+    alloc = ctypes.windll.kernel32.VirtualAlloc
+    alloc.restype, alloc.argtypes = ctypes.c_void_p, (ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint32, ctypes.c_uint32)
+    return alloc(None, int(gb * 2 ** 30), 0x3000, 4)
+
+
+def release(block):
+    free = ctypes.windll.kernel32.VirtualFree
+    free.argtypes = (ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint32)
+    free(block, 0, 0x8000)
 
 
 @contextlib.contextmanager
@@ -63,59 +88,51 @@ def room(step=0.5):
     占住提交额度（只占额度，不碰物理内存），把上限顶上去。
     占完不能一把全还回去再加载：实测还回去之后一两秒内上限就缩回去几个 GB。所以额度一直占着，
     另起一个线程盯着余量，模型一要内存、余量低于 SLACK_GB 就还一块，等于把额度交到模型手里。
+    占得到不等于加载得下去：上限顶到头才凑够的时候，模型一冲就没有再扩的余地，照样崩。所以占之前先算，
+    占住之后离页面文件扩到头剩不到 SPARE_GB 就报 MemoryError，一块也不占；占完再算一遍。
     """
     if os.name != "nt":
         yield
         return
-    import ctypes
     import threading
     import time
-    from ctypes import wintypes
 
-    class Status(ctypes.Structure):
-        _fields_ = [("size", wintypes.DWORD), ("load", wintypes.DWORD)] + [(name, ctypes.c_ulonglong) for name in (
-            "physical", "physical_free", "limit", "free", "virtual", "virtual_free", "extended")]
-
-    kernel = ctypes.windll.kernel32
-    kernel.VirtualAlloc.restype = ctypes.c_void_p
-    kernel.VirtualAlloc.argtypes = (ctypes.c_void_p, ctypes.c_size_t, wintypes.DWORD, wintypes.DWORD)
-    kernel.VirtualFree.argtypes = (ctypes.c_void_p, ctypes.c_size_t, wintypes.DWORD)
-
-    def now():
-        """（提交上限，余量），单位 GB。"""
-        status = Status(size=ctypes.sizeof(Status))
-        kernel.GlobalMemoryStatusEx(ctypes.byref(status))
-        return status.limit / 2 ** 30, status.free / 2 ** 30
-
-    limit, free = now()
+    physical, limit, free = memory()
+    top = top_limit(physical)
+    why = refusal(limit - free, top) if top else None
+    if why:
+        raise MemoryError(why)
     if free >= ROOM_GB + SLACK_GB:  # 本来就够，什么都不用做
         yield
         return
     blocks, failed = [], 0
     while len(blocks) * step < ROOM_GB + SLACK_GB and failed < 20:
-        block = kernel.VirtualAlloc(None, int(step * 2 ** 30), 0x3000, 4)  # 保留并提交，可读写；不写入就不占物理内存
+        block = reserve(step)
         if block:
             blocks.append(block)
         else:  # 页面文件正在扩，等一下再要
             failed += 1
             time.sleep(0.5)
+    _, raised, left = memory()
+    why = refusal(raised - left - len(blocks) * step, top) if top else None  # 占的这几秒里别的程序可能又涨了
     if failed >= 20:
+        why = f"系统提交内存的余量只有 {free:.1f}GB，页面文件也扩不出来，这时加载模型会崩。关掉一些占内存的程序再试。"
+    if why:
         for block in blocks:
-            kernel.VirtualFree(block, 0, 0x8000)
-        raise MemoryError(f"系统提交内存的余量只有 {free:.1f}GB，页面文件也扩不出来，这时加载模型会崩。关掉一些占内存的程序再试。")
-    raised = now()[0]
+            release(block)
+        raise MemoryError(why)
     print(f"系统提交内存的余量只有 {free:.1f}GB，先占住 {len(blocks) * step:.0f}GB 额度（上限 {limit:.1f} → {raised:.1f}GB），加载时交给模型", flush=True)
 
     done, seen = threading.Event(), {"lowest": None, "limit": raised}
 
     def hand_over():
         while not done.is_set():
-            ceiling, left = now()
+            _, ceiling, left = memory()
             seen["limit"] = min(seen["limit"], ceiling)
             if seen["lowest"] is not None:  # 刚占完时余量接近 0，先还到 SLACK_GB 再开始记
                 seen["lowest"] = min(seen["lowest"], left)
             if left < SLACK_GB and blocks:
-                kernel.VirtualFree(blocks.pop(), 0, 0x8000)
+                release(blocks.pop())
             else:
                 seen["lowest"] = left if seen["lowest"] is None else seen["lowest"]
                 time.sleep(0.01)
@@ -129,74 +146,57 @@ def room(step=0.5):
         feeder.join()
         kept = len(blocks) * step
         for block in blocks:
-            kernel.VirtualFree(block, 0, 0x8000)
-        ceiling, left = now()
-        print(f"模型加载完：系统提交内存多用了 {(ceiling - left) - (limit - free):.1f}GB；期间余量最低 {seen['lowest']:.1f}GB，"
+            release(block)
+        _, ceiling, left = memory()
+        lowest = left if seen["lowest"] is None else seen["lowest"]  # 一进去就出错时还没来得及记，这里再出错会把原来的错盖住
+        print(f"模型加载完：系统提交内存多用了 {(ceiling - left) - (limit - free):.1f}GB；期间余量最低 {lowest:.1f}GB，"
               f"上限最低 {seen['limit']:.1f}GB，占住的额度剩 {kept:.1f}GB 没用上", flush=True)
 
 
-class _Steps(io.TextIOBase):
-    """模型加载时自己打印的那十几行"某某权重已载入"不显示，只数：每打印完一行，就是又加载完一步。"""
-
-    def __init__(self, tick):
-        self.tick = tick
-
-    def write(self, text):
-        for _ in range(text.count("\n")):
-            self.tick()
-        return len(text)
-
-
-def load(bf16=None, compile=None, tick=None):
-    """加载模型。约需十几秒，一个进程里只加载一次。
-    tick 给一个函数，每加载完一步就叫它一次（十几次），朗读器的进度条靠它知道走到哪了。"""
+def load(tick=None):
+    """加载模型，并把每一步要做的显卡运算录成 CUDA 图（十秒上下），一个进程里只加载一次。
+    tick 给一个函数，每做完一步就叫它一次，朗读器的进度条靠它知道走到哪了。
+    原版的 Qwen3-TTS 每秒语音要由 Python 发起约 200 小步，显卡大半时间在等；录成图之后每一步只发一次，
+    本机实测合成 1 秒声音从 1.8 秒降到 0.3 秒，读出来的东西一样。"""
     tick = tick or (lambda: None)
-    from indextts.infer_v2_5 import IndexTTS2  # 慢的导入先做完，占住额度之后立刻加载
+    import torch
+    from faster_qwen3_tts import FasterQwen3TTS  # 慢的导入先做完，占住额度之后立刻加载
 
     tick()
-    _release_vram_cache_between_models()
-    with room(), contextlib.redirect_stdout(_Steps(tick)):  # room 的两行在这之外，照常打印
-        return IndexTTS2(
-            cfg_path=os.path.join(MODEL_DIR, "config.yaml"),
-            model_dir=MODEL_DIR,
-            use_bf16=DEFAULTS["bf16"] if bf16 is None else bf16,
-            use_torch_compile=DEFAULTS["compile"] if compile is None else compile,
-            use_cuda_kernel=False,  # 需要 MSVC 和 CUDA Toolkit 现场编译，本机没有
-        )
+    with room(), contextlib.redirect_stdout(io.StringIO()):  # room 的两行在这之外，照常打印
+        tts = FasterQwen3TTS.from_pretrained(MODEL_DIR, device="cuda", dtype=torch.bfloat16, attn_implementation="sdpa", local_files_only=True)
+        tick()
+        tts.warmup()
+        tick()
+    return tts
 
 
-CACHE_DIR = os.path.join(ROOT, "out", "tts-cache")
+CACHE_DIR = os.path.join(DATA_DIR, "out", "tts-cache")
+
+
+def reference_text(voice_path):
+    """参考音频里说的原话：和它同一个文件夹的 voice.json 里的 text。模型是照着这句话和它的声音接着往下说的，
+    所以要和音频一字不差。没写的音色只按声音的特征克隆，像的程度差一些。"""
+    try:
+        with open(os.path.join(os.path.dirname(voice_path), "voice.json"), encoding="utf-8") as f:
+            return str(json.load(f).get("text") or "").strip()
+    except (OSError, ValueError, AttributeError):
+        return ""
 
 
 def voice_id(voice_path):
-    """参考音色的指纹：换了音色文件，以前合成的句子就都不算数。"""
+    """参考音色的指纹：换了音色文件或者它的原话，以前合成的句子就都不算数。"""
     import hashlib
 
     with open(voice_path, "rb") as f:
-        return hashlib.sha256(f.read()).hexdigest()[:12]
+        return hashlib.sha256(f.read() + reference_text(voice_path).encode()).hexdigest()[:12]
 
 
-# 模型认的八种情感，顺序是它定的：happy, angry, sad, afraid, disgusted, melancholic, surprised, calm
-MOODS = ("欢快", "生气", "悲伤", "害怕", "厌恶", "低落", "惊讶", "平静")
-
-
-def mood_of(values):
-    """把请求里的情感权重理成八个 0 到 1 的数；没给或者全是 0 返回 None，表示照参考句原样读。"""
-    if not values:
-        return None
-    if len(values) != len(MOODS):
-        raise ValueError(f"情感要给 {len(MOODS)} 个数：{'、'.join(MOODS)}")
-    mood = [round(min(1.0, max(0.0, float(v))), 2) for v in values]
-    return mood if any(mood) else None
-
-
-def fingerprint(lang, spoken, voice, speed=1.0, mood=None):
-    """一句配音由语言、朗读文本、音色、语速、情感五样决定，都没变就可以复用。voice 是 voice_id 的结果。
-    没调情感的句子，指纹和加这一项之前算出来的一样，早先合成的不用重来。"""
+def fingerprint(lang, spoken, voice):
+    """一句配音由模型、语言、朗读文本、音色四样决定，都没变就可以复用。voice 是 voice_id 的结果。"""
     import hashlib
 
-    key = f"{lang}|{spoken}|{voice}|{float(speed)}" + (f"|{','.join(map(str, mood))}" if mood else "")
-    return hashlib.sha256(key.encode()).hexdigest()[:16]
+    return hashlib.sha256(f"{ENGINE}|{lang}|{respelt(spoken, lang)}|{voice}".encode()).hexdigest()[:16]
 
 
 def cached(fp, ext=".wav"):
@@ -219,15 +219,6 @@ def voice_info(name):
         return {}
 
 
-def voice_speed(name):
-    """这个音色读的时候时长乘几（模型的 duration_factor）：voice.json 的 speed，没写就是 1，小于 1 读得快。
-    克隆的语速跟着参考句走；有的人整套素材都说得慢（守岸人），换参考句也快不起来，就在这里调。"""
-    try:
-        return float(voice_info(name).get("speed") or 1.0)
-    except (TypeError, ValueError):
-        return 1.0
-
-
 def voices():
     """现有的音色名：voices/ 下带 voice.wav 的文件夹。加一个音色就是加一个这样的文件夹。
     出处相同（voice.json 的 group）的排在一起，默认音色所在的那一组排最前，没写出处的排最后。"""
@@ -248,86 +239,46 @@ def resolve_voice(voice):
         raise FileNotFoundError(f"找不到音色 {voice or DEFAULT_VOICE}：{path}")
     return path
 
+LOUDNESS = -18.0  # 每一句说话部分的响度（均方根，分贝）
+MARK = re.compile(r"<([^|>\n]+)\|[^>\n]+>")  # 读音标注 <字|读音>：这个模型不认，送进去之前只留字
+# 中文讲解里单独出现的字母，模型按英文读。用户点名说读得不对的，送进模型之前换成读音对的汉字，字幕不动。
+# N：句尾常往下掉，听着像“摁”，平常读的是“恩”（2026-10-12，大小写都换）。别的字母他听过讲解原句，定了不动。
+READ_AS = {"N": "恩", "n": "恩"}
+LETTER = re.compile(r"( ?)(?<![A-Za-z])([%s])(?![A-Za-z])( ?)" % "".join(READ_AS))
+# 讲稿里一个字母一个字母分开写的缩写，用户听着连起来写读得更自然的，送进模型之前去掉中间的空格。
+# A V L：分开写时 V 的读音不如连着写正常（2026-10-12）。R R、L R 这类他听过，分开写是对的，不收。
+JOINED = ("A V L",)
+APART = re.compile(r"(?<![A-Za-z])(?:%s)(?![A-Za-z])" % "|".join(re.escape(x) for x in JOINED))
 
-LOUDNESS = -18.0  # 每一句说话部分的响度（均方根，分贝）。咲来本来读出来就是这么响
+
+def respelt(text, lang):
+    """把 JOINED 里的缩写连起来，把 READ_AS 里的字母换成汉字，只对中文做。字母挨着汉字和标点的那一侧不留空格，
+    挨着英文和数字的那一侧留着：“所以 N 个节点”成“所以恩个节点”，“log N 的量级”成“log 恩的量级”。
+    夹在单词里的字母不算（NIL、rank）。缓存的指纹按换过的文字算，所以改这两张表只会让用到它们的句子重新合成。"""
+    if lang != "zh":
+        return text
+    text = APART.sub(lambda m: m.group().replace(" ", ""), text)
+
+    def swap(m):
+        left = m.group(1) if m.start() and text[m.start() - 1].isascii() and text[m.start() - 1].isalnum() else ""
+        right = m.group(3) if m.end() < len(text) and text[m.end()].isascii() and text[m.end()].isalnum() else ""
+        return left + READ_AS[m.group(2)] + right
+
+    return LETTER.sub(swap, text)
 
 
-def speak(tts, voice, text, lang, seen=None, **more):
-    """让模型读一句，返回 (采样率, int16 的单声道音频)：开口前的气声切掉了，响度调好了，淡入淡出也做了。
-    voice 是参考音频的路径，more 是另外交给模型的参数（情感、语速）。要模型出声的地方都走这里。
-    seen 给一个字典，就记下这一句出过什么毛病：breath 是切掉的气声有几秒，again 是不是因为没说完补读了一遍。"""
+def speak(tts, voice, text, lang, seen=None):
+    """让模型读一段，返回 (采样率, int16 的单声道音频)：响度调好了，两头做了淡入淡出。
+    voice 是参考音频的路径。要模型出声的地方都走这里。送进模型的文字去掉了读音标注，换过了 READ_AS 里的字母。
+    seen 给一个字典，就记下这一段出过什么毛病（breath、again）。这两样是旧模型的毛病，这个模型没有，恒为没有。"""
     import numpy as np
 
-    def take(**sampling):
-        rate, wav = tts.infer(spk_audio_prompt=voice, text=text, output_path=None, lang=lang, **{**sampling, **more})
-        pcm = np.ascontiguousarray(wav[:, 0] if wav.ndim == 2 else wav, dtype=np.int16)
-        cut = breath(pcm)
-        return rate, pcm[cut:], cut / rate
-
-    rate, pcm, cut = take()
-    again = ending(pcm) > -25
-    if again:
-        # 最后一个字还没落下去就停了：模型的采样偏向早点收尾。长度惩罚取 2 再读一遍，它会等这个字说完，
-        # 哪一遍收得干净用哪一遍。不能一上来就取 2：带气声的音色（咲来）会因此句句多吐一口气，而且更响。
-        second = take(length_penalty=2.0)
-        if ending(second[1]) < ending(pcm):
-            _, pcm, cut = second
+    said = reference_text(voice)
+    wavs, rate = tts.generate_voice_clone(text=respelt(MARK.sub(r"\1", text), lang), language=LANGUAGE[lang], ref_audio=voice, ref_text=said, xvec_only=not said)
+    pcm = np.round(np.clip(np.asarray(wavs[0], dtype=np.float32).reshape(-1), -1.0, 1.0) * 32767).astype(np.int16)
     if seen is not None:
-        seen.update(breath=cut, again=again)
+        seen.update(breath=0.0, again=False)
     return rate, soften(leveled(pcm))
-
-
-def breath(pcm):
-    """开口之前多出来的那段气声有多少个采样，没有就是 0。
-    有的参考句（咲来、结灯）会让模型在话前面先吐一口气：没有音高的"嘶"一声，一两百毫秒，有时和说话一样响，
-    从第一个采样就满幅冒出来，隔几十毫秒的静音才开口。连着播放时，这就是句子之间的电流声和爆破声。
-    只认最有把握的这一种：音频一开始就有声音（正常是等上几十毫秒才开口），持续 140 毫秒以上（清音声母
-    没有这么长），里面没有清楚的音高，重心不高（s、sh 这类齿音在 4.5kHz 以上），然后响度掉下去一截。
-    切到后面那句话之前 30 毫秒。说完之后的气声不切：它和轻声的最后一个字分不开，交给 soften 淡出。"""
-    import numpy as np
-
-    hop, size = SAMPLE_RATE // 100, 512  # 每 10 毫秒一格，音高和重心看以它为中心的 23 毫秒
-    x = pcm.astype(np.float32)
-    n = len(x) // hop
-    if n < 50:
-        return 0
-    db = 10 * np.log10((x[:n * hop].reshape(n, hop) ** 2).mean(axis=1) + 1e-3)
-    db -= np.percentile(db, 90)  # 相对这一句正常音量
-    if db[:3].max() < -42:
-        return 0
-    first, end = int(np.argmax(db > -42)), 0
-    for end in range(first + 5, min(n, first + 80)):
-        if db[end] < max(-42.0, np.median(db[first:end]) - 15):  # 掉下去了：这一段到此为止
-            break
-    else:
-        return 0
-    if end - first < 14:
-        return 0
-    frames = np.lib.stride_tricks.sliding_window_view(np.pad(x[:end * hop + size], ((size - hop) // 2, size)), size)[::hop][first:end]
-    frames = frames - frames.mean(axis=1, keepdims=True)
-    auto = np.fft.irfft(np.abs(np.fft.rfft(frames, 2 * size)) ** 2)[:, :size]
-    pitched = (auto[:, 49:245].max(axis=1) > 0.72 * auto[:, 0]) & (db[first:end] > -25)  # 90 到 450Hz 之间有清楚的周期
-    power = np.abs(np.fft.rfft(frames * np.hanning(size), 2 * size)) ** 2
-    centre = (power * np.fft.rfftfreq(2 * size, 1 / SAMPLE_RATE)).sum(axis=1) / (power.sum(axis=1) + 1e-9)
-    if pitched.mean() >= 0.3 or np.median(centre) >= 4500:
-        return 0
-    floor, resume = max(-42.0, np.median(db[first:end]) - 15), end
-    while resume < n and db[resume] < floor:
-        resume += 1
-    return max(end, resume - 3) * hop
-
-
-def ending(pcm):
-    """结尾前 80 到 40 毫秒里最响的地方，相对这一句正常音量的分贝。真人说完一句，从响到静要 150 毫秒上下；
-    这里还不到 -25，就是最后一个字没说完被掐断了。"""
-    import numpy as np
-
-    hop = SAMPLE_RATE // 200
-    n = len(pcm) // hop
-    if n < 40:
-        return -99.0
-    db = 10 * np.log10((pcm[len(pcm) - n * hop:].astype(np.float32).reshape(n, hop) ** 2).mean(axis=1) + 1e-3)
-    return float(db[-16:-8].max() - np.percentile(db, 90))
 
 
 def leveled(pcm):
@@ -347,9 +298,8 @@ def leveled(pcm):
 
 
 def soften(pcm):
-    """开头淡入、结尾淡出，各 12 毫秒。模型给的音频常常从波形中间直接开始（实测开头 3 毫秒就有满幅的
-    一到三成），播放时会"啪"地爆一声；真人录音的开头是 0。哪一头贴着边还有声音（没切掉的短气声，
-    没说完的最后一个字），那一头拉长到 40、60 毫秒，听起来是渐起渐收。凡是模型的输出都先过这里。"""
+    """开头淡入、结尾淡出，各 12 毫秒：音频要是从波形中间直接开始，播放时会"啪"地爆一声。
+    哪一头贴着边还有声音，那一头拉长到 40、60 毫秒，听起来是渐起渐收。凡是模型的输出都先过这里。"""
     import numpy as np
 
     out = pcm.astype(np.float32)

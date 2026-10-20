@@ -1,0 +1,7 @@
+# PyTorch is installed separately from the official cu128 wheel index.
+faster-qwen3-tts==0.5.4
+qwen-tts-hf==0.1.1.post1
+transformers==5.15.1
+av==18.1.0
+soundfile==0.14.0
+numpy==2.4.6

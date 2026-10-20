@@ -1,7 +1,8 @@
 /**
  * 插件页。结构照引擎自带的插件页：列表里一行一个插件（图标、名字、一句话、右边的开关），
  * 点进去是详情页。校园功能的开关存在档案服务里，通用工具的开关还是引擎的。
- * 第三组「技能」是应用自带的工作流和助手学到的做法，没有开关，点进去看全文；学到的可以删（Skills.tsx）。
+ * 插件按用途排成四类（pluginCatalog.ts 的 PLUGIN_GROUPS），校园功能和通用工具混在类里，各自的开关照旧。
+ * 最后一组「技能」是应用自带的工作流和助手学到的做法，没有开关，点进去看全文；学到的可以删（Skills.tsx）。
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
@@ -12,29 +13,31 @@ import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import { Button, IconChevronRightOutlineRegular, IconPluginPinwheelOutlineRegular, Switch, Tag, Toast } from '@deepseek-ai/dsh-client-ui-primitives'
 import { accountReady } from '../profile/catalog.mjs'
 import { AccountForm } from './AccountSettings.tsx'
+import { ChatSettings } from './ChatSettings.tsx'
+import { MailSettings, type MailStatus } from './MailSettings.tsx'
 import { WechatSettings } from './WechatSettings.tsx'
 import { LearnSettings } from './LearnSettings.tsx'
 import { NoticeFilterSettings } from './NoticeFilterSettings.tsx'
 import { errorText, profileApi, type AccountSnapshot } from './api.ts'
 import { BundleArtwork, CampusArtwork, SearchArtwork } from './artwork.tsx'
 import { Alert, Crumb } from './controls.tsx'
-import { APP_PLUGINS, GENERAL_PLUGINS, type AppPlugin, type GeneralPlugin } from './pluginCatalog.ts'
+import { APP_PLUGINS, GENERAL_PLUGINS, PLUGIN_GROUPS, type AppPlugin, type GeneralPlugin } from './pluginCatalog.ts'
 import { BuiltinTag, SkillArtwork, SkillDetail, skillId, skillName, useSkills } from './Skills.tsx'
 import { AUTOMATION_EXAMPLES } from './automations.ts'
 import { HandIconButton, handToAssistant } from './handoff.tsx'
+import { openSchedule } from './SchedulePage.tsx'
 
 type Slots = 'plugins.item' | 'plugins.bundle.config' | 'plugins.bundle.activation' | 'plugins.row.config' | 'plugins.detail.actions' | 'plugins.detail.badge' | 'plugins.detail.section'
 
 interface Face {
   navigation: { getSnapshot: () => string, subscribe: (listener: () => void) => () => void }
   select: (id: string) => void
-  openPanel: (id: string) => void
   list: () => Promise<BundleInfo[]>
   setEnabled: (name: string, enabled: boolean) => Promise<ChangeResult>
   subscribe: (listener: () => void) => () => void
 }
 
-interface Loaded { bundles: BundleInfo[], account: AccountSnapshot, disabled: readonly string[] }
+interface Loaded { bundles: BundleInfo[], account: AccountSnapshot, disabled: readonly string[], mail: MailStatus }
 
 /** 上一次读到的状态。再打开这一页时先照它画，开关不会先空着再跳出来。 */
 let lastLoaded: Loaded | null = null
@@ -112,10 +115,11 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
   const { list, subscribe } = props
   const load = useCallback(async () => {
     try {
-      const [bundles, account, switches] = await Promise.all([
+      const [bundles, account, switches, mail] = await Promise.all([
         list(), profileApi<AccountSnapshot>('account-read'), profileApi<{ disabled: string[] }>('plugins-read'),
+        profileApi<MailStatus>('mail-status'),
       ])
-      lastLoaded = { bundles, account, disabled: switches.disabled }
+      lastLoaded = { bundles, account, disabled: switches.disabled, mail }
       setData(lastLoaded); setError('')
     } catch (err) { setError(errorText(err)) }
   }, [list])
@@ -147,6 +151,7 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
     const { disabled } = await profileApi<{ disabled: string[] }>('plugins-set', { id: plugin.id, enabled })
     lastLoaded = lastLoaded && { ...lastLoaded, disabled }
     setData(old => old && { ...old, disabled })
+    await reloadSkills()
   })
   const setGeneral = (plugin: GeneralPlugin, enabled: boolean) => toggle(plugin.id, enabled, async () => {
     const result = await props.setEnabled(plugin.bundle, enabled)
@@ -167,7 +172,7 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
   const arrow = <IconChevronRightOutlineRegular size={16} className="campus-plugin-arrow" />
   const campusIcon = (plugin: AppPlugin) => <CampusArtwork kind={plugin.art} />
   const generalIcon = (plugin: GeneralPlugin) => plugin.bundle ? <BundleArtwork src={bundleOf(plugin)?.meta?.icon} /> : <SearchArtwork />
-  const campusTags = (plugin: AppPlugin) => missing(plugin) ? <Tag tone="warning">{plugin.base ? '待填写' : '待填账号'}</Tag> : null
+  const campusTags = (plugin: AppPlugin) => plugin.backend === 'mail' && data && campusOn(plugin) ? <Tag tone={data.mail.connected ? undefined : 'warning'}>{data.mail.connected ? '已连接' : '待连接'}</Tag> : missing(plugin) ? <Tag tone="warning">{plugin.base ? '待填写' : '待填账号'}</Tag> : null
   const generalTags = (plugin: GeneralPlugin) => bundleOf(plugin)?.error ? <Tag tone="danger">加载出错</Tag> : null
 
   // 开关改完要重开应用才生效时，在窗口顶上提示一下。
@@ -227,13 +232,19 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
             {campus?.id === 'campus.notices' && on && <NoticeFilterSettings />}
             {campus?.id === 'campus.notices' && <LinkRow title="定时检查新通知" action="自动化任务" onClick={() => { open('automation') }} />}
             {campus?.backend === 'wechat' && on && <WechatSettings />}
+            {campus?.backend === 'mail' && on && <MailSettings onStatus={mail => {
+              lastLoaded = lastLoaded && { ...lastLoaded, mail }
+              setData(old => old && { ...old, mail })
+            }} />}
+            {campus?.backend === 'wechat-chat' && on && <ChatSettings key="wechat" platform="wechat" />}
+            {campus?.backend === 'dingtalk' && on && <ChatSettings key="dingtalk" platform="dingtalk" />}
             {campus?.backend === 'learn' && on && <LearnSettings />}
             {general?.id === 'web-search' && (
               <section className="campus-section" data-plugin-config>
                 {props.renderSlot('plugins.item', { view: 'page' }, { only: 'web-search' })}
               </section>
             )}
-            {general?.id === 'automation' && <LinkRow title="任务列表" action="打开任务页" disabled={!on} onClick={() => { props.openPanel('schedules') }} />}
+            {general?.id === 'automation' && <LinkRow title="任务列表" action="打开任务页" disabled={!on} onClick={() => { openSchedule('tasks') }} />}
             {/* 几个现成的例子：点右边的图标开一个新对话，话先放进输入框，改好再发，任务由助手在那个对话里建。 */}
             {general?.id === 'automation' && (
               <section className="campus-section" aria-label="示例">
@@ -272,24 +283,27 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
       </header>
       {error && <Alert>{error}<Button size="sm" variant="outline" onClick={() => { void load() }}>重试</Button></Alert>}
       {restartToast}
-      <section className="campus-group" aria-label="校园功能">
-        <div className="campus-group-head"><h2 className="campus-group-title">校园功能</h2><span className="campus-count">{APP_PLUGINS.length}</span></div>
-        <ul className="campus-plugin-list" data-columns={columns}>
-          {APP_PLUGINS.map(plugin => (
-            <PluginRow key={plugin.id} id={plugin.id} icon={campusIcon(plugin)} title={plugin.title} description={plugin.description}
-              off={!campusOn(plugin)} tags={campusTags(plugin)} end={plugin.base ? arrow : campusSwitch(plugin)} onOpen={() => { open(plugin.id) }} />
-          ))}
-        </ul>
-      </section>
-      <section className="campus-group" aria-label="通用工具">
-        <div className="campus-group-head"><h2 className="campus-group-title">通用工具</h2><span className="campus-count">{GENERAL_PLUGINS.length}</span></div>
-        <ul className="campus-plugin-list" data-columns={columns}>
-          {GENERAL_PLUGINS.map(plugin => (
-            <PluginRow key={plugin.id} id={plugin.id} icon={generalIcon(plugin)} title={plugin.title} description={plugin.description}
-              off={!!data && !generalOn(plugin)} tags={generalTags(plugin)} end={plugin.bundle ? generalSwitch(plugin) : arrow} onOpen={() => { open(plugin.id) }} />
-          ))}
-        </ul>
-      </section>
+      {PLUGIN_GROUPS.map(group => (
+        <section className="campus-group" aria-label={group.title} key={group.id} data-plugin-group={group.id}>
+          <div className="campus-group-head"><h2 className="campus-group-title">{group.title}</h2><span className="campus-count">{group.plugins.length}</span></div>
+          <ul className="campus-plugin-list" data-columns={columns}>
+            {group.plugins.map((id) => {
+              const plugin = APP_PLUGINS.find(entry => entry.id === id)
+              if (plugin) {
+                return (
+                  <PluginRow key={id} id={id} icon={campusIcon(plugin)} title={plugin.title} description={plugin.description}
+                    off={!campusOn(plugin)} tags={campusTags(plugin)} end={plugin.base ? arrow : campusSwitch(plugin)} onOpen={() => { open(id) }} />
+                )
+              }
+              const tool = GENERAL_PLUGINS.find(entry => entry.id === id)
+              return tool && (
+                <PluginRow key={id} id={id} icon={generalIcon(tool)} title={tool.title} description={tool.description}
+                  off={!!data && !generalOn(tool)} tags={generalTags(tool)} end={tool.bundle ? generalSwitch(tool) : arrow} onOpen={() => { open(id) }} />
+              )
+            })}
+          </ul>
+        </section>
+      ))}
       {skills && (
         <section className="campus-group" aria-label="技能">
           <div className="campus-group-head"><h2 className="campus-group-title">技能</h2><span className="campus-count">{skills.length}</span></div>
@@ -322,7 +336,6 @@ export function installPluginsPage(ctx: Context): void {
   const face: Face = {
     navigation: { getSnapshot: () => selected, subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener) } } },
     select,
-    openPanel: (id) => { ctx.layout.selectPanel(id as MainPanelId) },
     list: async () => { const response = await ctx.remote.pluginManager.listBundles(); if (!response.ok) throw response.error; return response.value },
     setEnabled: async (name, enabled) => { const response = await ctx.remote.pluginManager.setBundleEnabled(name, enabled); if (!response.ok) throw response.error; return response.value },
     subscribe: (listener) => {

@@ -291,6 +291,22 @@ function answerLine(route: TurnRoute): string {
 
 const rowId = (row: RowModel): string => row.type === 'stop' ? row.stop.id : row.type
 
+/**
+ * 把一行带进视野：只上下滚这张图自己（.campus-trace，它自己是能滚的那一层，见 style.css），够露出这一行就停。
+ * 不用 scrollIntoView，它会把所有能滚的上级一起滚：右边栏收起时这张图还挂着，只是被引擎挪到了框架右边的外面，
+ * scrollIntoView 为了让这一行露出来，会把引擎的整个框架横着滚过去一个右边栏那么宽，对话被推到左边、右边空出一块，
+ * 之后也不会自己回来（2026-10-12 用户遇到的：问一句、收起右边栏、再问一句）。
+ * 行刚出现时还在从零长高，按一整行的高度留位置，不然它长完以后正好落在视野下面。
+ */
+function reveal(row: Element): void {
+  const scroller = row.closest('.campus-trace')
+  if (!scroller) return
+  const view = scroller.getBoundingClientRect(), box = row.getBoundingClientRect()
+  const bottom = Math.max(box.bottom, box.top + ROW)
+  if (box.top < view.top) scroller.scrollTop -= view.top - box.top
+  else if (bottom > view.bottom) scroller.scrollTop += bottom - view.bottom
+}
+
 /** 一轮的整条路线。memo 是这一轮在 trace/grown.ts 里的名字。 */
 function Route({ route, memo }: { route: TurnRoute, memo: string }) {
   const [opened, setOpened] = useState<string | undefined>()
@@ -303,7 +319,7 @@ function Route({ route, memo }: { route: TurnRoute, memo: string }) {
     if (!route.open) return
     const running = list.current?.querySelectorAll(':scope > [data-state="running"]')
     const target = running?.[running.length - 1] ?? list.current?.lastElementChild
-    target?.scrollIntoView({ block: 'nearest' })
+    if (target) reveal(target)
   }, [route.open, rows.length])
   const answer: RowState = route.open ? 'pending' : route.aborted ? 'stopped' : 'done'
   return (

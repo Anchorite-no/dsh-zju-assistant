@@ -1,14 +1,14 @@
 # 架构与接口
 
-更新：2026-10-12。当前进度见 [PLAN.md](PLAN.md)，验证范围见 [verification.md](verification.md)。
+更新：2026-10-16。验证范围见 [verification.md](verification.md)。
 
 ## 一条主线
 
-Local/Web 只查找公众号及文章链接。多种链接进入同一个浏览器取文入口，遇到验证后再按站点分派处理，最后统一转成带图片的 Markdown。
+微信读书负责查找公众号和文章链接，统一文章入口负责浏览器取文。
 
 主流程架构图集中维护在 [README](../README.md#架构)。调用顺序为 `cli.ts → sources.ts → article.ts → browser/runtime.ts → article/page.mjs`，具体模块边界如下。
 
-`--source` 优先于 `WEREAD_SOURCE`；两者都未指定时先 local，来源不可用或找不到公众号、文章时才换 web；名称有歧义时直接返回候选。`fromSources` 的范围到文章链接为止，正文加载、删除或验证错误不触发来源回退。
+公众号只使用微信读书，不提供本地来源或回退。
 
 保留链接站点，不强制将微信读书链接改成微信原文。list 返回的两种 `url` 都能直接交给 read/download，均通过浏览器导航取 HTML；Web 模块不再导出正文获取方法。
 
@@ -18,8 +18,7 @@ Local/Web 只查找公众号及文章链接。多种链接进入同一个浏览�
 |---|---|
 | scripts/weread.ts | 入口：解析命令，输出 JSON，结束时关闭浏览器 |
 | lib/cli.ts | 6 个命令和它们的参数 |
-| lib/sources.ts | 来源顺序与回退；list、read、track、new 四个操作；跟踪名单 tracked.json |
-| lib/local.ts | 调 scripts/local 读本机微信，一个命令只读一次 |
+| lib/sources.ts | 微信读书查找；list、read、track、new 四个操作；跟踪名单 tracked.json |
 | lib/web.ts | 微信读书列表请求（续期、验证码重发）、公众号查找、文章列表、登录 |
 | lib/article.ts | 链接规范化、统一取文入口、HTML → Markdown、导出文件和图片 |
 | lib/article/page.mjs | 浏览器导航、读取 HTML、按页面调用对应验证码处理器、恢复后继续提取 |
@@ -30,13 +29,6 @@ Local/Web 只查找公众号及文章链接。多种链接进入同一个浏览�
 | lib/captcha/electron.mjs | 验证码模块：观察官方 SDK、裁题图、输入答案、取回票据 |
 | lib/captcha/recognizer.mjs | 把题目交给识别模型 |
 | lib/config.ts、errors.mjs | .env、数据目录、识别模型配置；统一错误类型 |
-| scripts/local/ | PowerShell 入口、C# 取密钥与解密、Node 解析消息（`metadata.mjs`） |
-
-## 本地来源
-
-Node → 系统 PowerShell 5.1 → C#（.NET Framework 4.8）→ Node（跑技能的同一份，`process.execPath`；2026-10-12 以前这一步是 Python 3.14，输出不变）。PowerShell 找到唯一的微信进程和公众号消息库；C# 从进程内存取得该库的密钥，逐页校验后在内存里解密并合并 WAL；Node 从标准输入读入解密后的库（内置的 `node:sqlite` 载入内存，zstd 解开消息），解析公众号推送，输出全部公众号及其文章。密钥和明文只在内存和匿名管道里，不落盘。
-
-脚本不接收查询参数，一次读出全部，筛选在 Node 里做，所以同一命令里的多次查询共用一次读取。正文不在本地库里，找到链接后交给统一浏览器取文入口。
 
 ## Web 来源
 
@@ -50,7 +42,7 @@ Node → 系统 PowerShell 5.1 → C#（.NET Framework 4.8）→ Node（跑技�
 
 ## 自带浏览器
 
-固定依赖 Electron 44.0.0，装在项目自己的 node_modules 里。命令第一次需要 Web 列表或任意文章正文时启动，Local/Web/直接链接共用这个进程，结束时关闭并把 Cookie 落盘。Electron 是 GUI 程序，标准流不可靠，所以 Node 开一条随机命名的管道，双方一行一条 JSON；`.env` 里的密钥不进入浏览器进程的环境变量，识别模型配置经管道传入主进程，不进入网页。一个配置目录同时只允许一个进程，冲突时返回 `browser_busy`。
+固定依赖 Electron 44.0.0，装在项目自己的 node_modules 里。命令第一次需要 Web 列表或任意文章正文时启动，列表和直接链接共用这个进程，结束时关闭并把 Cookie 落盘。Electron 是 GUI 程序，标准流不可靠，所以 Node 开一条随机命名的管道，双方一行一条 JSON；`.env` 里的密钥不进入浏览器进程的环境变量，识别模型配置经管道传入主进程，不进入网页。一个配置目录同时只允许一个进程，冲突时返回 `browser_busy`。
 
 请求代发仅允许 weread.qq.com；文章导航仅接受两站的已支持文章链接。普通正文及已配置模型的自动验证窗口隐藏，扫码登录或未配置模型时显示窗口。窗口内禁止打开新窗口，主框架导航限制在微信读书、微信原文和微信登录站点。微信读书验证码回执经 preload 桥送回，主进程核对当前窗口、主框架和来源。
 
@@ -58,7 +50,7 @@ Node → 系统 PowerShell 5.1 → C#（.NET Framework 4.8）→ Node（跑技�
 
 应用自己就是 Electron 时不必再起一个：主进程引用 `lib/browser/service.cjs`，把自己的 `BrowserWindow`、`ipcMain` 和一个会话交给 `createBrowserService`，再开一条管道，每来一条连接调一次 `serve`。管道地址经 `WEREAD_BROWSER_ENDPOINT` 交给命令，runtime.ts 看到它就连过去，不启动自带的 Electron。两头说的是同一种话：一行一条 JSON，`{id, action, input, interactive}` 对 `{id, result}` 或 `{id, error}`。
 
-托管和独立运行的差别都在 `createBrowserService` 的三个可选参数里：`parent` 让验证和登录窗口挂在应用窗口下面；`vision` 用应用自己的识别模型配置替换命令带来的，密钥不必进命令的环境；`guard` 在每次调用前执行，应用里这项功能关着时抛 `plugin_disabled`。命令这一头另有 `WEREAD_DISABLED=1`：设了就一条命令都不执行，不用浏览器的本机来源也一样。
+托管和独立运行的差别都在 `createBrowserService` 的三个可选参数里：`parent` 让验证和登录窗口挂在应用窗口下面；`vision` 用应用自己的识别模型配置替换命令带来的，密钥不必进命令的环境；`guard` 在每次调用前执行，应用里这项功能关着时抛 `plugin_disabled`。命令这一头另有 `WEREAD_DISABLED=1`：设了就一条命令都不执行。
 
 宿主一直开着，所以和独立运行有三处不同。可以同时有几条命令连着，用到窗口的调用排队，一次一个，不再有 `browser_busy`。连接断开时它没做完的调用被打断，窗口收掉。命令带 `interactive: false`（`WEREAD_INTERACTIVE=0`，应用后台定时检查时用）时不开任何窗口：要扫码返回 `login_required`，要验证返回 `verification_required`，由应用在页面上请用户处理后再执行一次。
 
@@ -82,4 +74,4 @@ Node → 系统 PowerShell 5.1 → C#（.NET Framework 4.8）→ Node（跑技�
 
 ## 跟踪
 
-tracked.json 按公众号记录它在每个来源下已经见过的文章标识。两个来源的标识不同（本地是 biz:mid:idx，Web 是 reviewId），所以分开记：第一次经由某个来源检查时只建立基线，之后才报新增。new 全部检查成功后才写回，中途失败时下次会重新返回。
+tracked.json 记录每个公众号在微信读书见过的文章标识。首次只建立基线，new 全部成功后写回，中途失败则不推进进度。

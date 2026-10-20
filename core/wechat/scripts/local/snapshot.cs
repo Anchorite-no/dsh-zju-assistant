@@ -1,4 +1,4 @@
-// In-memory, read-only SQLCipher snapshot for the one official-account DB.
+// In-memory, read-only SQLCipher snapshots. Callers select the allowed databases.
 // Same constraint as runtime-key.cs: C# 5 syntax and .NET Framework 4.8 APIs only.
 namespace WeixinResearch {
 using System;
@@ -9,10 +9,10 @@ using System.Security.Cryptography;
 
 public static class BizSnapshot {
  static uint Be(byte[] b,int o){return (uint)(b[o]<<24|b[o+1]<<16|b[o+2]<<8|b[o+3]);}
- static byte[] ReadFile(string path,bool optional=false) {
+ static byte[] ReadFile(string path,int maxPages,bool optional=false) {
   if(optional&&!File.Exists(path))return new byte[0];
   using(var f=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete)){
-   if(f.Length>64*1024*1024)throw new Exception("Snapshot exceeds bounded size.");
+   if(f.Length>(long)maxPages*4120+32)throw new Exception("Snapshot exceeds bounded size.");
    byte[] b=new byte[(int)f.Length];
    for(int read=0;read<b.Length;){int n=f.Read(b,read,b.Length-read);if(n<=0)throw new EndOfStreamException();read+=n;}
    return b;
@@ -33,7 +33,7 @@ public static class BizSnapshot {
   public List<uint> Pages=new List<uint>();public List<int> Offsets=new List<int>();
   public int LastCommit=-1;public uint CommitPageCount;
  }
- static WalState ReadWal(byte[] wal){
+ static WalState ReadWal(byte[] wal,int maxPages){
   var result=new WalState();
   if(wal.Length==0)return result;
   if(wal.Length<32)throw new Exception("Incomplete WAL header.");
@@ -43,20 +43,19 @@ public static class BizSnapshot {
    if(Be(wal,o+8)!=Be(wal,16)||Be(wal,o+12)!=Be(wal,20))break; // stale tail left by an earlier WAL generation
    uint t0=s0,t1=s1;Sum(wal,o,8,little,ref t0,ref t1);Sum(wal,o+24,4096,little,ref t0,ref t1);
    if(t0!=Be(wal,o+16)||t1!=Be(wal,o+20))throw new Exception("WAL frame checksum failed; latest metadata cannot be verified.");s0=t0;s1=t1;
-   uint number=Be(wal,o);if(number==0||number>16384)throw new Exception("Invalid WAL page number.");
+   uint number=Be(wal,o);if(number==0||number>maxPages)throw new Exception("Invalid WAL page number.");
    result.Pages.Add(number);result.Offsets.Add(o+24);uint commitSize=Be(wal,o+4);if(commitSize!=0){result.LastCommit=result.Pages.Count-1;result.CommitPageCount=commitSize;}
   }
   return result;
  }
  // Windows paths cannot contain a double quote, so quoting the whole argument is sufficient.
  static string Quote(string path){if(path.IndexOf('"')>=0||path.EndsWith("\\"))throw new Exception("Unsupported path.");return "\""+path+"\"";}
- // Returns the helper's stdout: the JSON it derives from the decrypted image piped to its stdin.
- public static string Inspect(byte[] key,string path,string node,string helper){
-  if(Path.GetFileName(path)!="biz_message_0.db")throw new Exception("Only the official-account database is allowed.");
+ // The caller owns the returned plaintext and must clear it after use.
+ internal static byte[] Decrypt(byte[] key,string path,int maxPages){
   byte[] db=null,wal=null,plain=null,macKey=null;
   try{
    for(int attempt=0;attempt<3;attempt++){
-    db=ReadFile(path);wal=ReadFile(path+"-wal",true);byte[] again=ReadFile(path);byte[] walAgain=ReadFile(path+"-wal",true);
+    db=ReadFile(path,maxPages);wal=ReadFile(path+"-wal",maxPages,true);byte[] again=ReadFile(path,maxPages);byte[] walAgain=ReadFile(path+"-wal",maxPages,true);
     bool stable=Same(db,again)&&Same(wal,walAgain);Array.Clear(again,0,again.Length);Array.Clear(walAgain,0,walAgain.Length);
     if(stable)break;Array.Clear(db,0,db.Length);Array.Clear(wal,0,wal.Length);db=null;wal=null;
    }
@@ -64,9 +63,9 @@ public static class BizSnapshot {
    if(db.Length<4096||db.Length%4096!=0)throw new Exception("Unexpected database size.");
    byte[] salt=new byte[16];Array.Copy(db,salt,16);for(int i=0;i<16;i++)salt[i]^=0x3a;macKey=global::WeixinBizDbProbe.Pbkdf2(key,salt,2);
    byte[] first=Page(db,0,1,key,macKey);uint pageCount=Be(first,28);Array.Clear(first,0,first.Length);
-   var walState=ReadWal(wal);
+   var walState=ReadWal(wal,maxPages);
    if(walState.CommitPageCount>0)pageCount=walState.CommitPageCount;
-   if(pageCount==0||pageCount>16384)throw new Exception("Invalid final page count.");
+   if(pageCount==0||pageCount>maxPages)throw new Exception("Invalid final page count.");
    var latest=new Dictionary<uint,int>();for(int i=0;i<=walState.LastCommit;i++)latest[walState.Pages[i]]=walState.Offsets[i];
    plain=new byte[checked((int)pageCount*4096)];
    for(uint number=1;number<=pageCount;number++){
@@ -76,15 +75,22 @@ public static class BizSnapshot {
    // WAL has been merged into a private in-memory image. SQLite deserialize
    // requires rollback-journal header versions; the source files are untouched.
    plain[18]=1;plain[19]=1;
-   var info=new ProcessStartInfo(node){UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true};
-   // The environment is inherited, so an Electron binary acting as Node (ELECTRON_RUN_AS_NODE) keeps doing so.
-   info.Arguments="--no-warnings "+Quote(helper);
+   byte[] output=plain;plain=null;return output;
+  }finally{foreach(var b in new[]{db,wal,plain,macKey})if(b!=null)Array.Clear(b,0,b.Length);}
+ }
+ // Returns the helper's stdout: the JSON it derives from the decrypted image piped to its stdin.
+ public static string Inspect(byte[] key,string path,string python,string helper){
+  if(Path.GetFileName(path)!="biz_message_0.db")throw new Exception("Only the official-account database is allowed.");
+  byte[] plain=Decrypt(key,path,16384);
+  try{
+   var info=new ProcessStartInfo(python){UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true};
+   info.Arguments=Quote(helper);
    using(var p=Process.Start(info)){
     var stdout=p.StandardOutput.ReadToEndAsync();var stderr=p.StandardError.ReadToEndAsync();p.StandardInput.BaseStream.Write(plain,0,plain.Length);p.StandardInput.Close();
     if(!p.WaitForExit(30000)){p.Kill();throw new Exception("Local metadata parser timed out.");}if(p.ExitCode!=0)throw new Exception("Local metadata parser failed.");
     return stdout.Result.Trim();
    }
-  }finally{foreach(var b in new[]{db,wal,plain,macKey})if(b!=null)Array.Clear(b,0,b.Length);}
+  }finally{Array.Clear(plain,0,plain.Length);}
  }
 }
 }

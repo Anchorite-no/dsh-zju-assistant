@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "公众号双来源采集、正文与 Markdown 导出",
+  "description": "从微信读书查找公众号文章，读取正文并导出 Markdown",
   "engines": {
     "node": ">=24"
   },

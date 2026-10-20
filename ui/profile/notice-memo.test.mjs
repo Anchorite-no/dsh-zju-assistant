@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { NoticeMemo, deadlinesIn, inSource, linkOf, memoTitle, parseSummary } from './notice-memo.mjs'
 import { ProfileStore, noteTitle } from './store.mjs'
+import { memoEvents } from './calendar.mjs'
 
 const SCHOOL = { id: 'school:https://bksy.example/1', kind: 'school', title: '关于 2026 年秋冬学期第三轮选课的通知', from: '教务网', at: '2026-10-08T00:00:00+08:00', dated: false, url: 'https://bksy.example/1', foundAt: null }
 const ARTICLE = { id: 'wechat:a1', kind: 'wechat', title: '全明星校园行｜报名开始', from: '浙大体育与艺术', at: '2026-10-09T09:00:00.000Z', dated: true, url: 'https://mp.weixin.qq.com/s/x', foundAt: null }
@@ -194,4 +195,66 @@ test('同一条连点两下只加一次', async (t) => {
   assert.deepEqual(first, second)
   assert.equal(asks.length, 1)
   assert.equal(store.memos.list().notes.length, 1)
+})
+
+test('聊天原文没有 URL 也可独立加入备忘录，去重依据稳定编号', async t => {
+ const make = id => ({ id, kind:'chat', title:'同一标题', from:'年级群 · 辅导员', at:'2026-10-16T02:00:00Z', url:'', body:'原文\n  缩进', originals:[{id:'m'+id,text:'原文\n  缩进',sender:{name:'辅导员'},sentAt:'2026-10-16T02:00:00Z'}] })
+ const { memo, store, asks, runs } = fixture(t, { items:[make('chat:one'),make('chat:two')] })
+ const first=await memo.add({id:'chat:one'}); assert.equal(first.existed,false); assert.equal((await memo.add({id:'chat:one'})).existed,true)
+ assert.equal((await memo.add({id:'chat:two'})).existed,false); assert.equal(store.memos.list().notes.length,2);assert.equal(asks.length,0);assert.equal(runs.length,0)
+ assert.ok(store.memos.list().notes.every(n=>n.raw.includes('原文\n  缩进')))
+})
+
+test('邮件加到备忘录：直接添加不联网，不编链接，靠编号去重；AI 总结时只读地读正文', async t => {
+  const MAIL = { id: 'mail:0123456789abcdef:INBOX:9:7', kind: 'mail', title: '项目申请材料的修改建议', from: '张老师', address: 'teacher@example.com', at: '2026-10-17T01:00:00.000Z', dated: true, url: '', foundAt: null, accountId: '0123456789abcdef0000', mailbox: 'INBOX', uid: 7, uidValidity: '9' }
+  const answer = JSON.stringify({ 讲了什么: '老师请你补充项目进度。', 要做什么: '修改后回复邮件。', 截止: '10月22日前', 时间地点: '', 对象: '', 材料: '', 其他: '' })
+  const reader = (reads) => ({ idle: async () => {}, read: async (ref) => { reads.push(ref); return { text: '申请材料已收到，请补充项目进度安排，并在10月22日前回复此邮件。', attachments: [{ filename: '模板.docx' }] } } })
+  const plainReads = [], plain = fixture(t, { items: [MAIL], answer })
+  plain.memo.mail = reader(plainReads)
+  assert.equal((await plain.memo.add({ id: MAIL.id })).existed, false)
+  assert.deepEqual([plainReads.length, plain.asks.length], [0, 0])
+  const note = plain.store.memos.list().notes[0]
+  assert.match(note.raw, /<!-- notice:mail:0123456789abcdef:INBOX:9:7 -->/)
+  assert.doesNotMatch(note.raw, /\]\(/, '没有网页链接的不编一个')
+  assert.ok(note.properties.some(entry => entry.key === '来源' && entry.value === '邮箱 · 张老师'))
+  assert.equal((await plain.memo.add({ id: MAIL.id, summarize: true })).existed, true)
+  const reads = [], summary = fixture(t, { items: [MAIL], answer })
+  summary.memo.mail = reader(reads)
+  assert.equal((await summary.memo.add({ id: MAIL.id, summarize: true })).summarized, true)
+  assert.deepEqual(reads, [{ mailbox: 'INBOX', uid: 7, uidValidity: '9' }])
+  assert.match(summary.asks[0].text, /附件：模板\.docx/)
+  assert.ok(summary.store.memos.list().notes[0].properties.some(entry => entry.key === '截止' && entry.value === '10月22日前'))
+})
+
+test('CC98 的回复和 @ 指向同一楼也各加各的；私信抄下原话，不编链接', async t => {
+  const make = (kind, id, url) => ({ id: `cc98:alice:${kind}:${id}`, kind: 'cc98', cc98Kind: kind, title: `${kind} ${id}`, from: 'bob', at: '2026-10-18T01:00:00.000Z', dated: true, url, foundAt: null, body: '这门课作业每学期会调整' })
+  const floor = 'https://www.cc98.org/topic/100#3'
+  const { memo, store, runs } = fixture(t, { items: [make('reply', 1, floor), make('at', 2, floor), make('message', '42:2026-10-18T01:00:00.000Z', '')] })
+  for (const id of ['cc98:alice:reply:1', 'cc98:alice:at:2', 'cc98:alice:message:42:2026-10-18T01:00:00.000Z']) assert.equal((await memo.add({ id })).existed, false)
+  assert.equal((await memo.add({ id: 'cc98:alice:at:2' })).existed, true)
+  const notes = store.memos.list().notes
+  assert.equal(notes.length, 3)
+  assert.ok(notes.every(note => note.raw.includes('这门课作业每学期会调整')))
+  assert.ok(notes.find(note => note.raw.includes('message:42')).raw.match(/\]\(/) === null)
+  assert.equal(runs.length, 0)
+})
+
+test('AI 整理出来的聊天事项加到备忘录：直接用整理好的几项、截止进属性和日程表，不再问模型', async t => {
+  const original = { id: 'm1', text: '实验三报告周五下午五点前交到学在浙大', sender: { name: '李助教' }, sentAt: '2026-10-21T01:00:00.000Z' }
+  const matter = { 事项: '实验三报告提交', 要做什么: '在学在浙大提交实验三报告', 截止: '2026-10-23T17:00:00+08:00', 截止原文: '周五下午五点前', 时间地点: '', 发送者: '李助教' }
+  const item = { id: 'chat:wechat:k:summary:abc', kind: 'chat', mode: 'summary', title: '实验三报告提交 · 10月23日 17:00 截止', from: '课程群 · 李助教', at: original.sentAt, url: '', body: '在学在浙大提交实验三报告\n截止：10月23日 17:00（周五下午五点前）', originals: [original], matter, deadline: matter.截止 }
+  const dateOnly = { ...item, id: 'chat:wechat:k:summary:def', matter: { ...matter, 事项: '实验四报告提交', 截止: '2026-10-30' }, deadline: '2026-10-30' }
+  const { memo, store, asks, runs } = fixture(t, { items: [item, dateOnly] })
+  for (const summarize of [true, false]) assert.equal((await memo.add({ id: summarize ? item.id : dateOnly.id, summarize })).summarized, true)
+  assert.deepEqual([asks.length, runs.length], [0, 0])
+  const notes = store.memos.list().notes, note = notes.find(entry => entry.title === '实验三报告提交')
+  assert.ok(note, '标题是事项，不带截止')
+  assert.deepEqual(note.properties, [{ key: '来源', value: '课程群 · 李助教' }, { key: '日期', value: '2026-10-21' }, { key: '截止', value: '2026-10-23 17:00' }])
+  assert.match(note.raw, /\*\*要做的事\*\*：在学在浙大提交实验三报告/)
+  assert.match(note.raw, /- 截止：2026-10-23 17:00（原话「周五下午五点前」）/)
+  assert.match(note.raw, /实验三报告周五下午五点前交到学在浙大/)
+  assert.match(note.raw, /<!-- notice:chat:wechat:k:summary:abc -->/)
+  assert.ok(notes.find(entry => entry.title === '实验四报告提交').properties.some(entry => entry.key === '截止' && entry.value === '2026-10-30'))
+  // 「截止」属性日程表认得：排进那天的截止。
+  assert.deepEqual(memoEvents(notes).map(event => [event.kind, event.date, event.time ?? '', event.title]).sort(), [['due', '2026-10-23', '17:00', '实验三报告提交'], ['due', '2026-10-30', '', '实验四报告提交']])
 })

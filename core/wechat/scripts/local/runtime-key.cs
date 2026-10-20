@@ -7,7 +7,7 @@ using System.Text;
 
 // Compiled by Add-Type in the Windows PowerShell 5.1 that ships with Windows:
 // keep to C# 5 syntax and .NET Framework 4.8 APIs so the reader needs no extra runtime.
-public static class WeixinBizDbProbe {
+public static partial class WeixinBizDbProbe {
  [StructLayout(LayoutKind.Sequential)] struct Region {
   public IntPtr BaseAddress,AllocationBase;public uint AllocationProtect;public ushort PartitionId,Padding;
   public UIntPtr RegionSize;public uint State,Protect,Type,Padding2;
@@ -19,7 +19,7 @@ public static class WeixinBizDbProbe {
  public sealed class Result {public bool ProcessReadable,VerifiedDatabaseKey;internal byte[] VerifiedKey;}
  public static void Forget(Result result){if(result.VerifiedKey!=null){Array.Clear(result.VerifiedKey,0,result.VerifiedKey.Length);result.VerifiedKey=null;}}
  static void Confirm(Result result,byte[] key){result.VerifiedDatabaseKey=true;result.VerifiedKey=(byte[])key.Clone();}
- public static string ReadSnapshot(Result result,string path,string node,string helper){if(result.VerifiedKey==null)throw new Exception("No verified runtime key retained.");try{return WeixinResearch.BizSnapshot.Inspect(result.VerifiedKey,path,node,helper);}finally{Forget(result);}}
+ public static string ReadSnapshot(Result result,string path,string python,string helper){if(result.VerifiedKey==null)throw new Exception("No verified runtime key retained.");try{return WeixinResearch.BizSnapshot.Inspect(result.VerifiedKey,path,python,helper);}finally{Forget(result);}}
 
  internal static string Hex(byte[] value){return BitConverter.ToString(value).Replace("-","");}
  internal static byte[] FromHex(string text){

@@ -1,0 +1,11 @@
+# 本地读取
+
+同步自 `D:\Code\Projects\dingtalk-skill` 的 2026-10-16 工作区。保留其只读查询行为，Python 数据库、消息和内容解析已改写为 Node。全局数据库密钥按已知 x64 CPU vendor 格式生成候选并以数据库页头校验，不需要本机编译器或 PowerShell 7。
+
+默认数据根目录 `%APPDATA%/DingTalk`。桌面壳用 Windows 应用数据目录补齐缺失的 APPDATA；独立命令缺少 APPDATA 时使用当前用户的 `AppData/Roaming`，不会相对工作目录查找。开发诊断可用 `--data-dir` 或 `DINGTALK_DATA_DIR` 指定包含 `globalStorage` 的目录。只从全局库选取 UID，不读取令牌字段。逐个账号验证数据库页头，多账号必须明确选择。
+
+AES-128-ECB 解密后在内存中检查页结构，校验 WAL header 和 frame checksum，只应用已提交帧。重复读取文件以检测并发写入；不一致或格式不兼容时明确失败，不改源库、不写明文副本。
+
+消息 ID 为 `会话ID/服务端ID`；没有服务端 ID 时使用本地标识。保留大于 JavaScript 安全整数范围的 ID。历史分表与最后消息缓存先按最新版本去重，再执行内容筛选，避免旧缓存重新暴露已撤回消息。
+
+消息含 `chatId/chatName/sender/sentAt/text/type/contentStatus`。`contentStatus` 可为 parsed、summary_only、metadata_only、recalled、shielded、encrypted、empty_or_unsupported。普通查询无网络访问。AI 整理由应用的监控服务在用户选中该模式后调用当前模型。

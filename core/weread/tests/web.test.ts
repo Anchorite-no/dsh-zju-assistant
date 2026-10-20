@@ -39,7 +39,7 @@ test('a captcha in the middle of paging is solved once and only the challenged p
   assert.equal(solved, 1); assert.deepEqual(calls.map(call => call.query.offset), ['0', '1', '1'])
   assert.deepEqual([calls[2].headers['x-wr-ticket'], calls[2].headers['x-wr-randstr']], ['ticket', 'rand'])
   assert.deepEqual(articles.map(a => a.title), ['文章 & 4', '文章 & 3', '文章 & 2', '文章 & 1'])
-  assert.deepEqual(articles[0], { id: `${bookId}_token~4`, title: '文章 & 4', url: `https://weread.qq.com/web/mp/content?reviewId=${bookId}_token~4`, originalUrl: 'https://mp.weixin.qq.com/s/token_4', publishedAt: '2026-10-10T08:04:00+08:00', summary: '' })
+  assert.deepEqual(articles[0], { id: `${bookId}_token~4`, title: '文章 & 4', url: `https://weread.qq.com/web/mp/content?reviewId=${bookId}_token~4`, publishedAt: '2026-10-10T08:04:00+08:00', summary: '' })
 })
 
 test('paging stops at the limit, at the requested article, or when a page brings nothing new', async t => {

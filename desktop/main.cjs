@@ -4,7 +4,7 @@
  */
 const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, nativeTheme, safeStorage, screen, session, shell } = require('electron')
 const { autoUpdater } = require('electron-updater')
-const { createTray } = require('./tray.cjs')
+const { APP_ID, createTray } = require('./tray.cjs')
 const { windowSize } = require('./size.cjs')
 const { createUpdater, githubToken } = require('./update.cjs')
 const { createWereadBridge } = require('./weread.cjs')
@@ -34,9 +34,10 @@ if (customData) {
   app.setPath('userData', customData)
 }
 
-// Windows 的系统通知认的是应用标识（AppUserModelID）。装好的应用用 build.appId：安装程序给开始菜单里的快捷方式写的就是它，
+// Windows 的系统通知认的是应用标识（AppUserModelID）。装好的应用用 APP_ID（就是 build.appId）：安装程序给开始菜单里的快捷方式写的就是它，
 // 通知上显示应用的名字和图标；没装（npm start）时没有那个快捷方式，用程序路径，Windows 才肯弹。
-if (process.platform === 'win32') app.setAppUserModelId(app.isPackaged ? require('../package.json').build.appId : process.execPath)
+// 成品里的 package.json 没有 build 那一段，所以不在这里读它（见 tray.cjs 的 APP_ID）。
+if (process.platform === 'win32') app.setAppUserModelId(app.isPackaged ? APP_ID : process.execPath)
 
 // 同一份数据目录只开一个。窗口隐藏在托盘里时再打开一次应用，是把原来的窗口叫回来（见 main 里的 second-instance），不是再起一个引擎。
 const first = app.requestSingleInstanceLock()

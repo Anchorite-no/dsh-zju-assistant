@@ -92,6 +92,8 @@ async function main() {
     minWidth: MIN_WIDTH,
     minHeight: 600,
     title: TITLE,
+    // 应用自己的图标（书和星，源文件在 比赛/视频/icon/）；装好的程序 exe 里也是它（build/icon.ico）。
+    icon: path.join(__dirname, 'icon.ico'),
     show: false,
     backgroundColor: fill,
     // 藏掉系统标题栏，界面顶到窗口边缘，只留右上角三个原生按钮。
@@ -158,7 +160,8 @@ async function main() {
     window.focus()
   }
   // 用程序自己的图标，和任务栏上的是同一个。有新消息时它和一张同样大小的空白图来回换，看着就是在闪。
-  const trayIcon = await app.getFileIcon(process.execPath, { size: 'normal' })
+  // 开发时跑的是 electron.exe，它的图标不是我们的，直接用 desktop/icon-32.png。
+  const trayIcon = app.isPackaged ? await app.getFileIcon(process.execPath, { size: 'normal' }) : nativeImage.createFromPath(path.join(__dirname, 'icon-32.png'))
   const { width: iconWidth, height: iconHeight } = trayIcon.getSize()
   /** 托盘上点了一条消息以后，页面来取的「要打开哪里」（一个对话，或者侧栏上的一页）。 */
   let opening

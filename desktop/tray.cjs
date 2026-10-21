@@ -20,6 +20,12 @@ const KEEP = 20, TIP_LINES = 3, MENU_LINES = 5
 /** Windows 的托盘提示最多 127 个字，多了会被截掉甚至整条不显示。 */
 const TIP_MAX = 127
 const LIMIT = { title: 30, text: 80 }
+/**
+ * 装好的应用在 Windows 上的应用标识（AppUserModelID），系统通知靠它认是谁发的。要和 package.json 的 build.appId 一样：
+ * 安装程序给开始菜单里的快捷方式写的是那一个。不能在运行时去读 build.appId，electron-builder 打包时把 build 那一段删了，
+ * 成品里读到的是 undefined（0.1.7 第一次打出来就是这样，一启动主进程就报错）。tray.test.mjs 核对两边一样。
+ */
+const APP_ID = 'cn.campusagent.desktop'
 
 /** 存着的几样选择。文件不在、读不出来时都按默认：藏进托盘、弹系统通知、还没提示过；只有明确写着 false 的才算关。 */
 function readShell(file) {
@@ -183,4 +189,4 @@ function createTray({ Tray, Menu, Notification, file, title, icon, blank, show, 
   }
 }
 
-module.exports = { createTray, readShell, readCloseToTray, cleanAlert, BLINK_MS, HINT }
+module.exports = { createTray, readShell, readCloseToTray, cleanAlert, BLINK_MS, HINT, APP_ID }

@@ -6,7 +6,11 @@ import { join, resolve, sep } from 'node:path'
 import test from 'node:test'
 
 const require = createRequire(import.meta.url)
-const { createTray, readShell, readCloseToTray, cleanAlert, BLINK_MS, HINT } = require('./tray.cjs')
+const { createTray, readShell, readCloseToTray, cleanAlert, BLINK_MS, HINT, APP_ID } = require('./tray.cjs')
+
+test('应用标识和安装程序写进快捷方式的 build.appId 一样', () => {
+  assert.equal(APP_ID, require('../package.json').build.appId)
+})
 
 /** 假的托盘和菜单：只记下壳对它们做了什么。icons 是现在还在托盘上的那些。 */
 function fakes() {

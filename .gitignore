@@ -15,3 +15,7 @@ __pycache__/
 计划/钉钉公众号调研/dws/
 计划/钉钉公众号调研/qwen-extracted/
 计划/钉钉公众号调研/qwen-package/
+
+# 交比赛的最终提交包（约 180 MB，由 比赛/支撑材料/tools/finalize.py 打出来）和它试跑的输出，不进仓库。
+比赛/Anchorite+校园智能体.zip
+比赛/支撑材料/tools/finalize-dry/

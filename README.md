@@ -1,6 +1,6 @@
 # 校园智能体（桌面端）
 
-自己写的 Electron 壳加自己的界面包，引擎用 DeepSeek Harness（`@deepseek-ai/dsh`，锁在 0.2.0-rc.2，不改它的代码）。产品名和图标是占位的。
+自己写的 Electron 壳加自己的界面包，引擎用 DeepSeek Harness（`@deepseek-ai/dsh`，锁在 0.2.0-rc.2，不改它的代码）。产品名是占位的。图标是自己的（2026-10-21 定：打开的书上升起一颗星，品牌蓝底、校园橙的星）：侧栏和新会话首页的在 `ui/client/Brand.tsx`，窗口、任务栏和托盘用 `desktop/icon.ico`、`desktop/icon-32.png`，exe 和安装程序用 `build/icon.ico`（electron-builder 默认从 `build/` 取）；源文件和各尺寸 PNG 在 `比赛/视频/icon/`。
 
 ## 浙大邮箱
 

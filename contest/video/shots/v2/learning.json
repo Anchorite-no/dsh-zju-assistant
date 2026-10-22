@@ -1,0 +1,246 @@
+{
+  "image": "learning.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "学习页（智云）：左栏本学期有录播的课，按最近上课排；右栏是点好的第一门课",
+  "elements": [
+    {
+      "name": "page.title",
+      "id": "page-title",
+      "kind": "page.title",
+      "text": "学习",
+      "x": 457.5,
+      "y": 68,
+      "w": 40,
+      "h": 28
+    },
+    {
+      "name": "learn.course[0]",
+      "id": "learn-course-0",
+      "kind": "learn.course",
+      "text": "大学物理（乙）Ⅱ",
+      "x": 449.5,
+      "y": 168,
+      "w": 430,
+      "h": 60
+    },
+    {
+      "name": "learn.course[1]",
+      "id": "learn-course-1",
+      "kind": "learn.course",
+      "text": "离散数学及其应用",
+      "x": 449.5,
+      "y": 228,
+      "w": 430,
+      "h": 60
+    },
+    {
+      "name": "learn.course[2]",
+      "id": "learn-course-2",
+      "kind": "learn.course",
+      "text": "概率论与数理统计",
+      "x": 449.5,
+      "y": 288,
+      "w": 430,
+      "h": 60
+    },
+    {
+      "name": "learn.course[3]",
+      "id": "learn-course-3",
+      "kind": "learn.course",
+      "text": "计算机组成",
+      "x": 449.5,
+      "y": 348,
+      "w": 430,
+      "h": 60
+    },
+    {
+      "name": "learn.course[4]",
+      "id": "learn-course-4",
+      "kind": "learn.course",
+      "text": "心理学及应用",
+      "x": 449.5,
+      "y": 408,
+      "w": 430,
+      "h": 60
+    },
+    {
+      "name": "learn.course[5]",
+      "id": "learn-course-5",
+      "kind": "learn.course",
+      "text": "数据结构基础",
+      "x": 449.5,
+      "y": 468,
+      "w": 430,
+      "h": 60
+    },
+    {
+      "name": "learn.course[6]",
+      "id": "learn-course-6",
+      "kind": "learn.course",
+      "text": "总结与讲解",
+      "x": 449.5,
+      "y": 540,
+      "w": 430,
+      "h": 40
+    },
+    {
+      "name": "learn.lesson[0]",
+      "id": "learn-lesson-0",
+      "kind": "learn.lesson",
+      "text": "第 10 次 10月21日 周三 10:00 已下载 总结 讲解",
+      "x": 903.5,
+      "y": 197,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[1]",
+      "id": "learn-lesson-1",
+      "kind": "learn.lesson",
+      "text": "第 9 次 10月19日 周一 13:25 已下载",
+      "x": 903.5,
+      "y": 257,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[2]",
+      "id": "learn-lesson-2",
+      "kind": "learn.lesson",
+      "text": "第 8 次 10月14日 周三 10:00 已下载 总结",
+      "x": 903.5,
+      "y": 317,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[3]",
+      "id": "learn-lesson-3",
+      "kind": "learn.lesson",
+      "text": "第 7 次 10月12日 周一 13:25 已下载",
+      "x": 903.5,
+      "y": 377,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[4]",
+      "id": "learn-lesson-4",
+      "kind": "learn.lesson",
+      "text": "第 6 次 9月30日 周三 10:00 已下载 总结",
+      "x": 903.5,
+      "y": 437,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[5]",
+      "id": "learn-lesson-5",
+      "kind": "learn.lesson",
+      "text": "第 5 次 9月28日 周一 13:25 已下载",
+      "x": 903.5,
+      "y": 497,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[6]",
+      "id": "learn-lesson-6",
+      "kind": "learn.lesson",
+      "text": "第 4 次 9月23日 周三 10:00",
+      "x": 903.5,
+      "y": 557,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[7]",
+      "id": "learn-lesson-7",
+      "kind": "learn.lesson",
+      "text": "第 3 次 9月21日 周一 13:25",
+      "x": 903.5,
+      "y": 617,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[8]",
+      "id": "learn-lesson-8",
+      "kind": "learn.lesson",
+      "text": "第 2 次 9月16日 周三 10:00",
+      "x": 903.5,
+      "y": 677,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[9]",
+      "id": "learn-lesson-9",
+      "kind": "learn.lesson",
+      "text": "第 1 次 9月14日 周一 13:25",
+      "x": 903.5,
+      "y": 737,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "learn.made",
+      "id": "learn-made",
+      "kind": "learn.made",
+      "text": "总结与讲解 10",
+      "x": 449.5,
+      "y": 540,
+      "w": 430,
+      "h": 40
+    },
+    {
+      "name": "learn.source[0]",
+      "id": "learn-source-0",
+      "kind": "learn.source",
+      "text": "智云",
+      "x": 517.5,
+      "y": 68,
+      "w": 58,
+      "h": 28
+    },
+    {
+      "name": "learn.source[1]",
+      "id": "learn-source-1",
+      "kind": "learn.source",
+      "text": "超星",
+      "x": 577.5,
+      "y": 68,
+      "w": 58,
+      "h": 28
+    },
+    {
+      "name": "section[0]",
+      "id": "section-0",
+      "kind": "section",
+      "text": "课程 6 大学物理（乙）Ⅱ 张老师 第 10 次 · 10月21日 周三 离散数学及其应用 周老师 第 5 次 · 10月21日 周三 概率论与数理统计 王老师 第 9 次 · 10月20日 周二 计算机组成 李老师 第 7 次 · 10月20日 周二 心理学及应用 吴老师 第 5 次 · 10月20日 周二 数据结构",
+      "x": 457.5,
+      "y": 128,
+      "w": 414,
+      "h": 452
+    },
+    {
+      "name": "section[1]",
+      "id": "section-1",
+      "kind": "section",
+      "text": "大学物理（乙）Ⅱ 张老师 · 2026-2027 秋冬 智云 学在浙大 第 10 次 10月21日 周三 10:00 已下载 总结 讲解 第 9 次 10月19日 周一 13:25 已下载 第 8 次 10月14日 周三 10:00 已下载 总结 第 7 次 10月12日 周一 13:25 已下载 第 6 次 9月30",
+      "x": 911.5,
+      "y": 128,
+      "w": 506,
+      "h": 699
+    }
+  ]
+}

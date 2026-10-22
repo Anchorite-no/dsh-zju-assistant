@@ -1,0 +1,236 @@
+{
+  "image": "schedule-tasks.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "日程表 →「定时任务」页签：今日安排（每天 7:30）、作业快截止（每天 21:00）、成绩出了（每 2 小时）、盯教学班余量（每 10 分钟，概率论 王老师）、下周一览（每周日 20:00）",
+  "elements": [
+    {
+      "name": "tasks.tab[0]",
+      "id": "tasks-tab-0",
+      "kind": "tasks.tab",
+      "text": "日程",
+      "x": 460,
+      "y": 60,
+      "w": 40,
+      "h": 28
+    },
+    {
+      "name": "tasks.tab[1]",
+      "id": "tasks-tab-1",
+      "kind": "tasks.tab",
+      "text": "定时任务",
+      "x": 520,
+      "y": 60,
+      "w": 80,
+      "h": 28
+    },
+    {
+      "name": "tasks.filter[0]",
+      "id": "tasks-filter-0",
+      "kind": "tasks.filter",
+      "text": "全部 已开启 已结束",
+      "x": 455.5,
+      "y": 108,
+      "w": 196,
+      "h": 28
+    },
+    {
+      "name": "tasks.filter[1]",
+      "id": "tasks-filter-1",
+      "kind": "tasks.filter",
+      "text": "全部",
+      "x": 455.5,
+      "y": 108,
+      "w": 48,
+      "h": 28
+    },
+    {
+      "name": "tasks.filter[2]",
+      "id": "tasks-filter-2",
+      "kind": "tasks.filter",
+      "text": "已开启",
+      "x": 515.5,
+      "y": 108,
+      "w": 62,
+      "h": 28
+    },
+    {
+      "name": "tasks.filter[3]",
+      "id": "tasks-filter-3",
+      "kind": "tasks.filter",
+      "text": "已结束",
+      "x": 589.5,
+      "y": 108,
+      "w": 62,
+      "h": 28
+    },
+    {
+      "name": "tasks.list",
+      "id": "tasks-list",
+      "kind": "tasks.list",
+      "text": "盯教学班余量 每 10 分钟下次计划时间：10月21日 15:47 (8分钟后) 成绩出了 每 2 小时下次计划时间：10月21日 17:37 (2小时后) 作业快截止 每天 21:00（UTC+08:00 · 中国标准时间）下次计划时间：10月21日 21:00 (6小时后) 今日安排 每天 07:30（UTC+08",
+      "x": 455.5,
+      "y": 204,
+      "w": 960,
+      "h": 318
+    },
+    {
+      "name": "task.row[0]",
+      "id": "task-row-0",
+      "kind": "task.row",
+      "text": "盯教学班余量 每 10 分钟下次计划时间：10月21日 15:47 (8分钟后)",
+      "x": 455.5,
+      "y": 204,
+      "w": 960,
+      "h": 62
+    },
+    {
+      "name": "task.row[1]",
+      "id": "task-row-1",
+      "kind": "task.row",
+      "text": "成绩出了 每 2 小时下次计划时间：10月21日 17:37 (2小时后)",
+      "x": 455.5,
+      "y": 268,
+      "w": 960,
+      "h": 62
+    },
+    {
+      "name": "task.row[2]",
+      "id": "task-row-2",
+      "kind": "task.row",
+      "text": "作业快截止 每天 21:00（UTC+08:00 · 中国标准时间）下次计划时间：10月21日 21:00 (6小时后)",
+      "x": 455.5,
+      "y": 332,
+      "w": 960,
+      "h": 62
+    },
+    {
+      "name": "task.row[3]",
+      "id": "task-row-3",
+      "kind": "task.row",
+      "text": "今日安排 每天 07:30（UTC+08:00 · 中国标准时间）下次计划时间：10月22日 07:30 (16小时后)",
+      "x": 455.5,
+      "y": 396,
+      "w": 960,
+      "h": 62
+    },
+    {
+      "name": "task.row[4]",
+      "id": "task-row-4",
+      "kind": "task.row",
+      "text": "下周一览 每周日 20:00（UTC+08:00 · 中国标准时间）下次计划时间：10月25日 20:00 (5天后)",
+      "x": 455.5,
+      "y": 460,
+      "w": 960,
+      "h": 62
+    },
+    {
+      "name": "task.title[0]",
+      "id": "task-title-0",
+      "kind": "task.title",
+      "text": "盯教学班余量",
+      "x": 491.5,
+      "y": 212,
+      "w": 916,
+      "h": 23
+    },
+    {
+      "name": "task.title[1]",
+      "id": "task-title-1",
+      "kind": "task.title",
+      "text": "成绩出了",
+      "x": 491.5,
+      "y": 276,
+      "w": 916,
+      "h": 23
+    },
+    {
+      "name": "task.title[2]",
+      "id": "task-title-2",
+      "kind": "task.title",
+      "text": "作业快截止",
+      "x": 491.5,
+      "y": 340,
+      "w": 916,
+      "h": 23
+    },
+    {
+      "name": "task.title[3]",
+      "id": "task-title-3",
+      "kind": "task.title",
+      "text": "今日安排",
+      "x": 491.5,
+      "y": 404,
+      "w": 916,
+      "h": 23
+    },
+    {
+      "name": "task.title[4]",
+      "id": "task-title-4",
+      "kind": "task.title",
+      "text": "下周一览",
+      "x": 491.5,
+      "y": 468,
+      "w": 916,
+      "h": 23
+    },
+    {
+      "name": "task.when[0]",
+      "id": "task-when-0",
+      "kind": "task.when",
+      "text": "每 10 分钟下次计划时间：10月21日 15:47 (8分钟后)",
+      "x": 491.5,
+      "y": 237,
+      "w": 916,
+      "h": 21
+    },
+    {
+      "name": "task.when[1]",
+      "id": "task-when-1",
+      "kind": "task.when",
+      "text": "每 2 小时下次计划时间：10月21日 17:37 (2小时后)",
+      "x": 491.5,
+      "y": 301,
+      "w": 916,
+      "h": 21
+    },
+    {
+      "name": "task.when[2]",
+      "id": "task-when-2",
+      "kind": "task.when",
+      "text": "每天 21:00（UTC+08:00 · 中国标准时间）下次计划时间：10月21日 21:00 (6小时后)",
+      "x": 491.5,
+      "y": 365,
+      "w": 916,
+      "h": 21
+    },
+    {
+      "name": "task.when[3]",
+      "id": "task-when-3",
+      "kind": "task.when",
+      "text": "每天 07:30（UTC+08:00 · 中国标准时间）下次计划时间：10月22日 07:30 (16小时后)",
+      "x": 491.5,
+      "y": 429,
+      "w": 916,
+      "h": 21
+    },
+    {
+      "name": "task.when[4]",
+      "id": "task-when-4",
+      "kind": "task.when",
+      "text": "每周日 20:00（UTC+08:00 · 中国标准时间）下次计划时间：10月25日 20:00 (5天后)",
+      "x": 491.5,
+      "y": 493,
+      "w": 916,
+      "h": 21
+    }
+  ]
+}

@@ -1,0 +1,666 @@
+{
+  "image": "chat-trace-3.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "执行过程长到第 4 步之前（前面的工具都跑完了，模型在想下一步）",
+  "elements": [
+    {
+      "name": "composer",
+      "id": "composer",
+      "kind": "composer",
+      "text": "",
+      "x": 370.5,
+      "y": 880,
+      "w": 708,
+      "h": 36
+    },
+    {
+      "name": "trace.pane",
+      "id": "trace-pane",
+      "kind": "trace.pane",
+      "text": "学在浙大、教务网、钉钉聊天 等 6 个网站，共 9 步 你的问题 大物最近有什么要做的？作业、考试、实验都帮我理一下 读取个人档案 学在浙大 汇总还没交的作业和测验 8 条 教务网 查考试时间、考场和座位 4 条 钉钉聊天 读取聊天 4 条 学在浙大 读取作业要求和提交记录大学物理（乙）Ⅱ · 第三次作业 智云课堂 列",
+      "x": 1181,
+      "y": 78,
+      "w": 419,
+      "h": 922
+    },
+    {
+      "name": "trace.summary",
+      "id": "trace-summary",
+      "kind": "trace.summary",
+      "text": "学在浙大、教务网、钉钉聊天 等 6 个网站，共 9 步",
+      "x": 1197,
+      "y": 92,
+      "w": 387,
+      "h": 18
+    },
+    {
+      "name": "trace.graph[0]",
+      "id": "trace-graph-0",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 116,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[1]",
+      "id": "trace-graph-1",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 146,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[2]",
+      "id": "trace-graph-2",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 176,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[3]",
+      "id": "trace-graph-3",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 206,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[4]",
+      "id": "trace-graph-4",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 236,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[5]",
+      "id": "trace-graph-5",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 266,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[6]",
+      "id": "trace-graph-6",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 296,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[7]",
+      "id": "trace-graph-7",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 326,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[8]",
+      "id": "trace-graph-8",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 356,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[9]",
+      "id": "trace-graph-9",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 386,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[10]",
+      "id": "trace-graph-10",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 416,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.node[0]",
+      "id": "trace-node-0",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1282,
+      "y": 127.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[1]",
+      "id": "trace-node-1",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1283.5,
+      "y": 159,
+      "w": 4,
+      "h": 4
+    },
+    {
+      "name": "trace.node[2]",
+      "id": "trace-node-2",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1310,
+      "y": 187.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[3]",
+      "id": "trace-node-3",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1310,
+      "y": 217.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[4]",
+      "id": "trace-node-4",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1310,
+      "y": 247.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[5]",
+      "id": "trace-node-5",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1310,
+      "y": 277.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[6]",
+      "id": "trace-node-6",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1310,
+      "y": 307.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[7]",
+      "id": "trace-node-7",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1310,
+      "y": 337.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[8]",
+      "id": "trace-node-8",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1310,
+      "y": 367.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[9]",
+      "id": "trace-node-9",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1310,
+      "y": 397.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[10]",
+      "id": "trace-node-10",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1282,
+      "y": 427.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.row[0]",
+      "id": "trace-row-0",
+      "kind": "trace.row",
+      "text": "你的问题 大物最近有什么要做的？作业、考试、实验都帮我理一下",
+      "x": 1181,
+      "y": 116,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[1]",
+      "id": "trace-row-1",
+      "kind": "trace.row",
+      "text": "读取个人档案",
+      "x": 1181,
+      "y": 146,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[2]",
+      "id": "trace-row-2",
+      "kind": "trace.row",
+      "text": "学在浙大 汇总还没交的作业和测验 8 条",
+      "x": 1181,
+      "y": 176,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[3]",
+      "id": "trace-row-3",
+      "kind": "trace.row",
+      "text": "教务网 查考试时间、考场和座位 4 条",
+      "x": 1181,
+      "y": 206,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[4]",
+      "id": "trace-row-4",
+      "kind": "trace.row",
+      "text": "钉钉聊天 读取聊天 4 条",
+      "x": 1181,
+      "y": 236,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[5]",
+      "id": "trace-row-5",
+      "kind": "trace.row",
+      "text": "学在浙大 读取作业要求和提交记录大学物理（乙）Ⅱ · 第三次作业",
+      "x": 1181,
+      "y": 266,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[6]",
+      "id": "trace-row-6",
+      "kind": "trace.row",
+      "text": "智云课堂 列出课次和能不能回放大学物理（乙）Ⅱ 6 条",
+      "x": 1181,
+      "y": 296,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[7]",
+      "id": "trace-row-7",
+      "kind": "trace.row",
+      "text": "在录播字幕里搜关键词大学物理（乙）Ⅱ · 期中 2 条",
+      "x": 1181,
+      "y": 326,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[8]",
+      "id": "trace-row-8",
+      "kind": "trace.row",
+      "text": "大物实验课 查看已选的实验 2 条",
+      "x": 1181,
+      "y": 356,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[9]",
+      "id": "trace-row-9",
+      "kind": "trace.row",
+      "text": "超星学习通 列出各章节的课件和视频大学物理实验 5 条",
+      "x": 1181,
+      "y": 386,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[10]",
+      "id": "trace-row-10",
+      "kind": "trace.row",
+      "text": "回答 还没有回答",
+      "x": 1181,
+      "y": 416,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.site[0]",
+      "id": "trace-site-0",
+      "kind": "trace.site",
+      "text": "你的问题",
+      "x": 1181,
+      "y": 116,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[1]",
+      "id": "trace-site-1",
+      "kind": "trace.site",
+      "text": "",
+      "x": 1181,
+      "y": 146,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[2]",
+      "id": "trace-site-2",
+      "kind": "trace.site",
+      "text": "学在浙大",
+      "x": 1181,
+      "y": 176,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[3]",
+      "id": "trace-site-3",
+      "kind": "trace.site",
+      "text": "教务网",
+      "x": 1181,
+      "y": 206,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[4]",
+      "id": "trace-site-4",
+      "kind": "trace.site",
+      "text": "钉钉聊天",
+      "x": 1181,
+      "y": 236,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[5]",
+      "id": "trace-site-5",
+      "kind": "trace.site",
+      "text": "学在浙大",
+      "x": 1181,
+      "y": 266,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[6]",
+      "id": "trace-site-6",
+      "kind": "trace.site",
+      "text": "智云课堂",
+      "x": 1181,
+      "y": 296,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[7]",
+      "id": "trace-site-7",
+      "kind": "trace.site",
+      "text": "",
+      "x": 1181,
+      "y": 326,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[8]",
+      "id": "trace-site-8",
+      "kind": "trace.site",
+      "text": "大物实验课",
+      "x": 1181,
+      "y": 356,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[9]",
+      "id": "trace-site-9",
+      "kind": "trace.site",
+      "text": "超星学习通",
+      "x": 1181,
+      "y": 386,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[10]",
+      "id": "trace-site-10",
+      "kind": "trace.site",
+      "text": "回答",
+      "x": 1181,
+      "y": 416,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.what[0]",
+      "id": "trace-what-0",
+      "kind": "trace.what",
+      "text": "大物最近有什么要做的？作业、考试、实验都帮我理一下",
+      "x": 1328,
+      "y": 121,
+      "w": 244,
+      "h": 20
+    },
+    {
+      "name": "trace.what[1]",
+      "id": "trace-what-1",
+      "kind": "trace.what",
+      "text": "读取个人档案",
+      "x": 1328,
+      "y": 151,
+      "w": 244,
+      "h": 20
+    },
+    {
+      "name": "trace.what[2]",
+      "id": "trace-what-2",
+      "kind": "trace.what",
+      "text": "汇总还没交的作业和测验",
+      "x": 1328,
+      "y": 181,
+      "w": 222.2,
+      "h": 20
+    },
+    {
+      "name": "trace.what[3]",
+      "id": "trace-what-3",
+      "kind": "trace.what",
+      "text": "查考试时间、考场和座位",
+      "x": 1328,
+      "y": 211,
+      "w": 222.2,
+      "h": 20
+    },
+    {
+      "name": "trace.what[4]",
+      "id": "trace-what-4",
+      "kind": "trace.what",
+      "text": "读取聊天",
+      "x": 1328,
+      "y": 241,
+      "w": 222.2,
+      "h": 20
+    },
+    {
+      "name": "trace.what[5]",
+      "id": "trace-what-5",
+      "kind": "trace.what",
+      "text": "读取作业要求和提交记录大学物理（乙）Ⅱ · 第三次作业",
+      "x": 1328,
+      "y": 271,
+      "w": 244,
+      "h": 20
+    },
+    {
+      "name": "trace.what[6]",
+      "id": "trace-what-6",
+      "kind": "trace.what",
+      "text": "列出课次和能不能回放大学物理（乙）Ⅱ",
+      "x": 1328,
+      "y": 301,
+      "w": 222.2,
+      "h": 20
+    },
+    {
+      "name": "trace.what[7]",
+      "id": "trace-what-7",
+      "kind": "trace.what",
+      "text": "在录播字幕里搜关键词大学物理（乙）Ⅱ · 期中",
+      "x": 1328,
+      "y": 331,
+      "w": 222.2,
+      "h": 20
+    },
+    {
+      "name": "trace.what[8]",
+      "id": "trace-what-8",
+      "kind": "trace.what",
+      "text": "查看已选的实验",
+      "x": 1328,
+      "y": 361,
+      "w": 222.2,
+      "h": 20
+    },
+    {
+      "name": "trace.what[9]",
+      "id": "trace-what-9",
+      "kind": "trace.what",
+      "text": "列出各章节的课件和视频大学物理实验",
+      "x": 1328,
+      "y": 391,
+      "w": 222.2,
+      "h": 20
+    },
+    {
+      "name": "trace.what[10]",
+      "id": "trace-what-10",
+      "kind": "trace.what",
+      "text": "还没有回答",
+      "x": 1328,
+      "y": 421,
+      "w": 244,
+      "h": 20
+    },
+    {
+      "name": "trace.result[0]",
+      "id": "trace-result-0",
+      "kind": "trace.result",
+      "text": "8 条",
+      "x": 1562.2,
+      "y": 181,
+      "w": 21.8,
+      "h": 20
+    },
+    {
+      "name": "trace.result[1]",
+      "id": "trace-result-1",
+      "kind": "trace.result",
+      "text": "4 条",
+      "x": 1562.2,
+      "y": 211,
+      "w": 21.8,
+      "h": 20
+    },
+    {
+      "name": "trace.result[2]",
+      "id": "trace-result-2",
+      "kind": "trace.result",
+      "text": "4 条",
+      "x": 1562.2,
+      "y": 241,
+      "w": 21.8,
+      "h": 20
+    },
+    {
+      "name": "trace.result[3]",
+      "id": "trace-result-3",
+      "kind": "trace.result",
+      "text": "6 条",
+      "x": 1562.2,
+      "y": 301,
+      "w": 21.8,
+      "h": 20
+    },
+    {
+      "name": "trace.result[4]",
+      "id": "trace-result-4",
+      "kind": "trace.result",
+      "text": "2 条",
+      "x": 1562.2,
+      "y": 331,
+      "w": 21.8,
+      "h": 20
+    },
+    {
+      "name": "trace.result[5]",
+      "id": "trace-result-5",
+      "kind": "trace.result",
+      "text": "2 条",
+      "x": 1562.2,
+      "y": 361,
+      "w": 21.8,
+      "h": 20
+    },
+    {
+      "name": "trace.result[6]",
+      "id": "trace-result-6",
+      "kind": "trace.result",
+      "text": "5 条",
+      "x": 1562.2,
+      "y": 391,
+      "w": 21.8,
+      "h": 20
+    }
+  ]
+}

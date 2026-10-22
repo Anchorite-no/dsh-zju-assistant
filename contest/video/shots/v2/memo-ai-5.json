@@ -1,0 +1,106 @@
+{
+  "image": "memo-ai-5.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "打开 AI 整理好的备忘：时间、截止、来源排进属性，正文是要点",
+  "elements": [
+    {
+      "name": "page.title",
+      "id": "page-title",
+      "kind": "page.title",
+      "text": "体质健康测试",
+      "x": 460,
+      "y": 104,
+      "w": 120,
+      "h": 28
+    },
+    {
+      "name": "memo.title",
+      "id": "memo-title",
+      "kind": "memo.title",
+      "text": "体质健康测试",
+      "x": 460,
+      "y": 104,
+      "w": 120,
+      "h": 28
+    },
+    {
+      "name": "memo.props",
+      "id": "memo-props",
+      "kind": "memo.props",
+      "text": "标签 事务 时间 2026-10-29 13:30 截止 2026-10-27 17:00 来源 学工部",
+      "x": 460,
+      "y": 152,
+      "w": 960,
+      "h": 127
+    },
+    {
+      "name": "memo.prop[0]",
+      "id": "memo-prop-0",
+      "kind": "memo.prop",
+      "text": "标签 事务",
+      "x": 460,
+      "y": 152,
+      "w": 960,
+      "h": 22
+    },
+    {
+      "name": "memo.prop[1]",
+      "id": "memo-prop-1",
+      "kind": "memo.prop",
+      "text": "时间 2026-10-29 13:30",
+      "x": 460,
+      "y": 180,
+      "w": 960,
+      "h": 22
+    },
+    {
+      "name": "memo.prop[2]",
+      "id": "memo-prop-2",
+      "kind": "memo.prop",
+      "text": "截止 2026-10-27 17:00",
+      "x": 460,
+      "y": 208,
+      "w": 960,
+      "h": 22
+    },
+    {
+      "name": "memo.prop[3]",
+      "id": "memo-prop-3",
+      "kind": "memo.prop",
+      "text": "来源 学工部",
+      "x": 460,
+      "y": 236,
+      "w": 960,
+      "h": 22
+    },
+    {
+      "name": "memo.body[0]",
+      "id": "memo-body-0",
+      "kind": "memo.body",
+      "text": "AI 总结 2025 级在 10 月 29 日（周四）下午 13:30 到紫金港东田径场测试 项目：50 米、800/1000 米、立定跳远、坐位体前屈、引体向上/仰卧起坐 10 月 27 日 17:00 前在体测系统里确认测试时段，过时不能改 穿运动鞋，带校园卡；身体不适的提前找辅导员办缓测 原文",
+      "x": 460,
+      "y": 299,
+      "w": 720,
+      "h": 194
+    },
+    {
+      "name": "memo.body[1]",
+      "id": "memo-body-1",
+      "kind": "memo.body",
+      "text": "AI 总结 2025 级在 10 月 29 日（周四）下午 13:30 到紫金港东田径场测试 项目：50 米、800/1000 米、立定跳远、坐位体前屈、引体向上/仰卧起坐 10 月 27 日 17:00 前在体测系统里确认测试时段，过时不能改 穿运动鞋，带校园卡；身体不适的提前找辅导员办缓测 原文",
+      "x": 460,
+      "y": 299,
+      "w": 720,
+      "h": 194
+    }
+  ]
+}

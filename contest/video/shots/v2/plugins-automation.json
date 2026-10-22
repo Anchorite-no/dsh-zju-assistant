@@ -1,0 +1,186 @@
+{
+  "image": "plugins-automation.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "插件 → 自动化任务：可以让它定时做的几件事，每行「交给助手」把那段话放进新对话的输入框",
+  "elements": [
+    {
+      "name": "page.title",
+      "id": "page-title",
+      "kind": "page.title",
+      "text": "自动化任务",
+      "x": 460,
+      "y": 186,
+      "w": 100,
+      "h": 28
+    },
+    {
+      "name": "automation.example[0]",
+      "id": "automation-example-0",
+      "kind": "automation.example",
+      "text": "CC98 新消息 每 30 分钟，有新的私信、回复和 @ 就提醒",
+      "x": 460,
+      "y": 368,
+      "w": 960,
+      "h": 52
+    },
+    {
+      "name": "automation.example[1]",
+      "id": "automation-example-1",
+      "kind": "automation.example",
+      "text": "今日安排 每天 7:30，今天的课、要交的作业、考试和新通知",
+      "x": 460,
+      "y": 420,
+      "w": 960,
+      "h": 53
+    },
+    {
+      "name": "automation.example[2]",
+      "id": "automation-example-2",
+      "kind": "automation.example",
+      "text": "作业快截止 每天 21:00，48 小时内要交、还没交的作业",
+      "x": 460,
+      "y": 473,
+      "w": 960,
+      "h": 53
+    },
+    {
+      "name": "automation.example[3]",
+      "id": "automation-example-3",
+      "kind": "automation.example",
+      "text": "成绩出了 每 2 小时，有新出成绩的课就提醒",
+      "x": 460,
+      "y": 526,
+      "w": 960,
+      "h": 53
+    },
+    {
+      "name": "automation.example[4]",
+      "id": "automation-example-4",
+      "kind": "automation.example",
+      "text": "盯教学班余量 每 10 分钟，想选的班有余量了就提醒，只查不选",
+      "x": 460,
+      "y": 579,
+      "w": 960,
+      "h": 53
+    },
+    {
+      "name": "automation.example[5]",
+      "id": "automation-example-5",
+      "kind": "automation.example",
+      "text": "场馆空场 每天 12:05，三天后晚上有没有空的羽毛球场，只查不约",
+      "x": 460,
+      "y": 632,
+      "w": 960,
+      "h": 53
+    },
+    {
+      "name": "automation.example[6]",
+      "id": "automation-example-6",
+      "kind": "automation.example",
+      "text": "下周一览 每周日 20:00，下周每天的课、要交的作业和考试",
+      "x": 460,
+      "y": 685,
+      "w": 960,
+      "h": 53
+    },
+    {
+      "name": "automation.hand[0]",
+      "id": "automation-hand-0",
+      "kind": "automation.hand",
+      "text": "",
+      "x": 1392,
+      "y": 380,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "automation.hand[1]",
+      "id": "automation-hand-1",
+      "kind": "automation.hand",
+      "text": "",
+      "x": 1392,
+      "y": 433,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "automation.hand[2]",
+      "id": "automation-hand-2",
+      "kind": "automation.hand",
+      "text": "",
+      "x": 1392,
+      "y": 486,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "automation.hand[3]",
+      "id": "automation-hand-3",
+      "kind": "automation.hand",
+      "text": "",
+      "x": 1392,
+      "y": 539,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "automation.hand[4]",
+      "id": "automation-hand-4",
+      "kind": "automation.hand",
+      "text": "",
+      "x": 1392,
+      "y": 592,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "automation.hand[5]",
+      "id": "automation-hand-5",
+      "kind": "automation.hand",
+      "text": "",
+      "x": 1392,
+      "y": 645,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "automation.hand[6]",
+      "id": "automation-hand-6",
+      "kind": "automation.hand",
+      "text": "",
+      "x": 1392,
+      "y": 698,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "detail.title",
+      "id": "detail-title",
+      "kind": "detail.title",
+      "text": "自动化任务",
+      "x": 460,
+      "y": 186,
+      "w": 100,
+      "h": 28
+    },
+    {
+      "name": "linkrow[0]",
+      "id": "linkrow-0",
+      "kind": "linkrow",
+      "text": "任务列表 打开任务页",
+      "x": 460,
+      "y": 276,
+      "w": 960,
+      "h": 28
+    }
+  ]
+}

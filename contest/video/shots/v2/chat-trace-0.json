@@ -1,0 +1,26 @@
+{
+  "image": "chat-trace-0.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "新会话里打好了问题，还没发",
+  "elements": [
+    {
+      "name": "composer",
+      "id": "composer",
+      "kind": "composer",
+      "text": "大物最近有什么要做的？作业、考试、实验都帮我理一下",
+      "x": 580.5,
+      "y": 522,
+      "w": 708,
+      "h": 52
+    }
+  ]
+}

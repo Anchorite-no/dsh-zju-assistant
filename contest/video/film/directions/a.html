@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>A · 白底产品片</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  #film { background: radial-gradient(1400px 900px at 22% 8%, #ffffff 0%, #f7f8fa 48%, #eceff3 100%); }
+  .kicker { position: absolute; left: 140px; top: 300px; font-size: 24px; font-weight: 500; letter-spacing: .22em; color: var(--blue); }
+  .h { position: absolute; left: 136px; top: 346px; font-size: 82px; line-height: 1.18; font-weight: 700; letter-spacing: -.01em; }
+  .sub { position: absolute; left: 140px; top: 580px; font-size: 30px; line-height: 1.6; color: var(--n700); }
+  .win { left: 790px; top: 150px; width: 1060px; height: 680px; box-shadow: 0 0 0 1px var(--n200), 0 40px 90px rgba(15,17,21,.10), 0 12px 30px rgba(15,17,21,.06); }
+  .win::after { content: ''; position: absolute; inset: 0; background: rgba(249,250,251,.55); }
+  .ghost { position: absolute; left: 1446px; top: 364px; width: 370px; height: 48px; border-radius: 10px; box-shadow: 0 0 0 2.5px var(--blue); background: rgba(65,118,230,.06); }
+  .notice.lift { left: 700px; top: 470px; width: 900px; box-shadow: 0 0 0 1px var(--n200), 0 34px 70px rgba(15,17,21,.16), 0 8px 18px rgba(15,17,21,.08); }
+  .notice.lift .add { border-color: var(--blue); background: var(--blue50); }
+  .ripple { left: 1531px; top: 498px; width: 64px; height: 64px; opacity: .55; }
+  .cursor { left: 1556px; top: 522px; }
+  .memo { position: absolute; left: 1010px; top: 700px; width: 760px; padding: 22px 26px; background: var(--white); border-radius: 18px; box-shadow: 0 0 0 1px var(--n200), 0 26px 60px rgba(15,17,21,.12); }
+  .memo .hd { display: flex; justify-content: space-between; font-size: 18px; color: var(--n700); }
+  .memo .t { margin-top: 12px; font-size: 27px; font-weight: 500; }
+  .memo .row { margin-top: 14px; display: flex; gap: 12px; align-items: center; }
+  .due { padding: 6px 14px; border-radius: 10px; background: var(--blue50); color: var(--blue); font-size: 20px; font-weight: 500; }
+  .ok { font-size: 18px; color: var(--n700); }
+  .ok i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--green); margin-right: 8px; }
+  svg.path { position: absolute; inset: 0; }
+</style></head>
+<body><div id="film">
+  <div class="kicker">01 · 校园事务</div>
+  <div class="h">一条通知，<br>一键变成待办</div>
+  <div class="sub">模型读出截止时间，<br>再和原文逐字核对</div>
+  <div class="win"><img src="../assets/shots/affairs.png"></div>
+  <div class="ghost"></div>
+  <svg class="path" viewBox="0 0 1920 1080"><path d="M1600,560 C1720,600 1720,660 1660,700" fill="none" stroke="#4176e6" stroke-width="3" stroke-dasharray="2 10" stroke-linecap="round"/></svg>
+  <div class="notice lift"><div><div class="t">关于做好2026-2027学年秋冬学期第三轮选课工作的通知</div><div class="m"><b>教务网</b>今天</div></div>
+    <div class="add"><svg viewBox="0 0 24 24" fill="none" stroke="#4176e6" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg></div></div>
+  <div class="ripple"></div>
+  <svg class="cursor" viewBox="0 0 24 24"><path d="M5 3l14 8-6.5 1.6L9.6 19z" fill="#0f1115" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+  <div class="memo"><div class="hd"><span>备忘录 · 刚刚加入</span><span>来自 教务网</span></div>
+    <div class="t">第三轮选课：在教务网提交选课</div>
+    <div class="row"><span class="due">10月24日 周五 17:00 截止</span><span class="ok"><i></i>和原文一致</span></div></div>
+</div></body></html>

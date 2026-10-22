@@ -1,0 +1,29 @@
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("../assets/fonts/HarmonyOS_Sans_SC_Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("../assets/fonts/HarmonyOS_Sans_SC_Medium.ttf"); font-weight: 500; }
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("../assets/fonts/HarmonyOS_Sans_SC_Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Inter"; src: url("../assets/fonts/Inter-var.woff") format("woff"); font-weight: 100 900; }
+@font-face { font-family: "LXGW WenKai"; src: url("../assets/fonts/LXGWWenKai-500.woff") format("woff"); font-weight: 500; }
+
+:root {
+  /* 应用自己的设计变量（@deepseek-ai/dsh 的 dsw-static-*） */
+  --white: #ffffff; --n50: #f9fafb; --n100: #ebeef2; --n200: #e1e5ee; --n300: #cfd3d6; --n700: #61666b; --ink: #0f1115;
+  --blue: #4176e6; --blue450: #5686fe; --blue50: #edf3fe; --blue100: #e4edfd; --orange: #f0700f; --green: #22c55e; --red: #ef4444;
+  --sans: "Inter", "HarmonyOS Sans SC", sans-serif;
+}
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+* { box-sizing: border-box; }
+#film { position: relative; width: 1920px; height: 1080px; overflow: hidden; font-family: var(--sans); color: var(--ink); }
+
+/* 照应用样式重建的一条通知 */
+.notice { position: absolute; display: flex; align-items: center; gap: 18px; padding: 20px 22px 20px 26px; background: var(--white); border-radius: 18px; }
+.notice .t { font-size: 25px; font-weight: 500; letter-spacing: .01em; white-space: nowrap; }
+.notice .m { margin-top: 8px; font-size: 19px; color: var(--n700); white-space: nowrap; }
+.notice .m b { font-weight: 400; margin-right: 14px; }
+.notice .add { flex: none; width: 44px; height: 44px; margin-left: auto; border-radius: 12px; border: 1.5px solid var(--n200); display: grid; place-items: center; background: var(--white); }
+.notice .add svg { width: 22px; height: 22px; }
+.tag { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--n200); font-size: 16px; color: var(--n700); }
+
+.cursor { position: absolute; width: 40px; height: 40px; filter: drop-shadow(0 4px 6px rgba(15,17,21,.25)); }
+.ripple { position: absolute; border-radius: 50%; border: 3px solid var(--blue); }
+.win { position: absolute; border-radius: 16px; overflow: hidden; background: var(--white); }
+.win img { display: block; width: 100%; height: 100%; }

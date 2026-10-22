@@ -1,0 +1,256 @@
+{
+  "image": "learning-lesson.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "数据结构基础的课次列表（左）和最近一次课（右）：回放、课件、截图、字幕，下面是课后总结",
+  "elements": [
+    {
+      "name": "page.title",
+      "id": "page-title",
+      "kind": "page.title",
+      "text": "学习",
+      "x": 457.5,
+      "y": 68,
+      "w": 40,
+      "h": 28
+    },
+    {
+      "name": "learn.lesson[0]",
+      "id": "learn-lesson-0",
+      "kind": "learn.lesson",
+      "text": "第 5 次 10月19日 周一 10:00 已下载 总结 讲解",
+      "x": 449.5,
+      "y": 168,
+      "w": 430,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[1]",
+      "id": "learn-lesson-1",
+      "kind": "learn.lesson",
+      "text": "第 4 次 10月12日 周一 10:00 已下载",
+      "x": 449.5,
+      "y": 228,
+      "w": 430,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[2]",
+      "id": "learn-lesson-2",
+      "kind": "learn.lesson",
+      "text": "第 3 次 9月28日 周一 10:00 已下载 总结",
+      "x": 449.5,
+      "y": 288,
+      "w": 430,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[3]",
+      "id": "learn-lesson-3",
+      "kind": "learn.lesson",
+      "text": "第 2 次 9月21日 周一 10:00 已下载",
+      "x": 449.5,
+      "y": 348,
+      "w": 430,
+      "h": 60
+    },
+    {
+      "name": "learn.lesson[4]",
+      "id": "learn-lesson-4",
+      "kind": "learn.lesson",
+      "text": "第 1 次 9月14日 周一 10:00 已下载 总结",
+      "x": 449.5,
+      "y": 408,
+      "w": 430,
+      "h": 60
+    },
+    {
+      "name": "learn.source[0]",
+      "id": "learn-source-0",
+      "kind": "learn.source",
+      "text": "智云",
+      "x": 517.5,
+      "y": 68,
+      "w": 58,
+      "h": 28
+    },
+    {
+      "name": "learn.source[1]",
+      "id": "learn-source-1",
+      "kind": "learn.source",
+      "text": "超星",
+      "x": 577.5,
+      "y": 68,
+      "w": 58,
+      "h": 28
+    },
+    {
+      "name": "section[0]",
+      "id": "section-0",
+      "kind": "section",
+      "text": "课程 数据结构基础 5 第 5 次 10月19日 周一 10:00 已下载 总结 讲解 第 4 次 10月12日 周一 10:00 已下载 第 3 次 9月28日 周一 10:00 已下载 总结 第 2 次 9月21日 周一 10:00 已下载 第 1 次 9月14日 周一 10:00 已下载 总结",
+      "x": 457.5,
+      "y": 128,
+      "w": 414,
+      "h": 340
+    },
+    {
+      "name": "section[1]",
+      "id": "section-1",
+      "kind": "section",
+      "text": "第 5 次 10月19日 周一 10:00 · 陈老师 资料 4 回放 数据结构基础-第5次-回放.mp4 · 1.2 GB 课件 第5讲.pdf · 38 页 课堂截图 46 张 字幕 智云语音转写 · 2 小时 23 分 总结 10月19日（周一）10:00 · 陈老师 · 紫金港东1A-301 · 根据智云回放字",
+      "x": 911.5,
+      "y": 128,
+      "w": 506,
+      "h": 825
+    },
+    {
+      "name": "section[2]",
+      "id": "section-2",
+      "kind": "section",
+      "text": "资料 4 回放 数据结构基础-第5次-回放.mp4 · 1.2 GB 课件 第5讲.pdf · 38 页 课堂截图 46 张 字幕 智云语音转写 · 2 小时 23 分",
+      "x": 911.5,
+      "y": 197,
+      "w": 501,
+      "h": 243
+    },
+    {
+      "name": "section[3]",
+      "id": "section-3",
+      "kind": "section",
+      "text": "总结 10月19日（周一）10:00 · 陈老师 · 紫金港东1A-301 · 根据智云回放字幕和课件整理 00:02:10 复习：二叉搜索树的退化 按有序序列插入时，BST 退化成链表，查找变成 O(n) 引出「平衡」：让任意结点左右子树的高度差受控 00:11:35 AVL 树的定义 平衡因子 BF = 左子树高度",
+      "x": 911.5,
+      "y": 468,
+      "w": 501,
+      "h": 1001
+    },
+    {
+      "name": "resource[0]",
+      "id": "resource-0",
+      "kind": "resource",
+      "text": "回放 数据结构基础-第5次-回放.mp4 · 1.2 GB",
+      "x": 911.5,
+      "y": 229,
+      "w": 501,
+      "h": 53
+    },
+    {
+      "name": "resource[1]",
+      "id": "resource-1",
+      "kind": "resource",
+      "text": "课件 第5讲.pdf · 38 页",
+      "x": 911.5,
+      "y": 282,
+      "w": 501,
+      "h": 53
+    },
+    {
+      "name": "resource[2]",
+      "id": "resource-2",
+      "kind": "resource",
+      "text": "课堂截图 46 张",
+      "x": 911.5,
+      "y": 335,
+      "w": 501,
+      "h": 53
+    },
+    {
+      "name": "resource[3]",
+      "id": "resource-3",
+      "kind": "resource",
+      "text": "字幕 智云语音转写 · 2 小时 23 分",
+      "x": 911.5,
+      "y": 388,
+      "w": 501,
+      "h": 52
+    },
+    {
+      "name": "summary",
+      "id": "summary",
+      "kind": "summary",
+      "text": "10月19日（周一）10:00 · 陈老师 · 紫金港东1A-301 · 根据智云回放字幕和课件整理 00:02:10 复习：二叉搜索树的退化 按有序序列插入时，BST 退化成链表，查找变成 O(n) 引出「平衡」：让任意结点左右子树的高度差受控 00:11:35 AVL 树的定义 平衡因子 BF = 左子树高度 − ",
+      "x": 911.5,
+      "y": 508,
+      "w": 501,
+      "h": 961
+    },
+    {
+      "name": "summary.h2[0]",
+      "id": "summary-h2-0",
+      "kind": "summary.h2",
+      "text": "00:02:10 复习：二叉搜索树的退化",
+      "x": 911.5,
+      "y": 580,
+      "w": 501,
+      "h": 22
+    },
+    {
+      "name": "summary.h2[1]",
+      "id": "summary-h2-1",
+      "kind": "summary.h2",
+      "text": "00:11:35 AVL 树的定义",
+      "x": 911.5,
+      "y": 696,
+      "w": 501,
+      "h": 22
+    },
+    {
+      "name": "summary.h2[2]",
+      "id": "summary-h2-2",
+      "kind": "summary.h2",
+      "text": "00:28:50 四种旋转",
+      "x": 911.5,
+      "y": 836,
+      "w": 501,
+      "h": 22
+    },
+    {
+      "name": "row[0]",
+      "id": "row-0",
+      "kind": "row",
+      "text": "回放 数据结构基础-第5次-回放.mp4 · 1.2 GB",
+      "x": 911.5,
+      "y": 229,
+      "w": 501,
+      "h": 53
+    },
+    {
+      "name": "row[1]",
+      "id": "row-1",
+      "kind": "row",
+      "text": "课件 第5讲.pdf · 38 页",
+      "x": 911.5,
+      "y": 282,
+      "w": 501,
+      "h": 53
+    },
+    {
+      "name": "row[2]",
+      "id": "row-2",
+      "kind": "row",
+      "text": "课堂截图 46 张",
+      "x": 911.5,
+      "y": 335,
+      "w": 501,
+      "h": 53
+    },
+    {
+      "name": "row[3]",
+      "id": "row-3",
+      "kind": "row",
+      "text": "字幕 智云语音转写 · 2 小时 23 分",
+      "x": 911.5,
+      "y": 388,
+      "w": 501,
+      "h": 52
+    }
+  ]
+}

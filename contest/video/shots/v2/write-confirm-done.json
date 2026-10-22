@@ -1,0 +1,356 @@
+{
+  "image": "write-confirm-done.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "用户点了「确认提交」以后：执行过程里多了一步带写操作标记的「提交个人作业」，回答里是回查到的提交记录",
+  "elements": [
+    {
+      "name": "composer",
+      "id": "composer",
+      "kind": "composer",
+      "text": "",
+      "x": 370.5,
+      "y": 880,
+      "w": 708,
+      "h": 36
+    },
+    {
+      "name": "trace.pane",
+      "id": "trace-pane",
+      "kind": "trace.pane",
+      "text": "学在浙大，共 4 步 你的问题 把计算机组成 Lab 3 的实验报告交到学在浙大，文件是 对话 文件夹里的 Lab3-实验报告.pdf 学在浙大 读取作业要求和提交记录计算机组成 · Lab 3 把文档转成文字Lab3-实验报告.pdf 向你提问 学在浙大 提交作业计算机组成 · Lab 3 1 条 回答 用了 8 秒",
+      "x": 1181,
+      "y": 78,
+      "w": 419,
+      "h": 922
+    },
+    {
+      "name": "trace.summary",
+      "id": "trace-summary",
+      "kind": "trace.summary",
+      "text": "学在浙大，共 4 步",
+      "x": 1197,
+      "y": 92,
+      "w": 387,
+      "h": 18
+    },
+    {
+      "name": "trace.graph[0]",
+      "id": "trace-graph-0",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 116,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[1]",
+      "id": "trace-graph-1",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 146,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[2]",
+      "id": "trace-graph-2",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 176,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[3]",
+      "id": "trace-graph-3",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 206,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[4]",
+      "id": "trace-graph-4",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 236,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.graph[5]",
+      "id": "trace-graph-5",
+      "kind": "trace.graph",
+      "text": "",
+      "x": 1273,
+      "y": 266,
+      "w": 53,
+      "h": 30
+    },
+    {
+      "name": "trace.node[0]",
+      "id": "trace-node-0",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1282,
+      "y": 127.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[1]",
+      "id": "trace-node-1",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1310,
+      "y": 157.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[2]",
+      "id": "trace-node-2",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1283.5,
+      "y": 189,
+      "w": 4,
+      "h": 4
+    },
+    {
+      "name": "trace.node[3]",
+      "id": "trace-node-3",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1283.5,
+      "y": 219,
+      "w": 4,
+      "h": 4
+    },
+    {
+      "name": "trace.node[4]",
+      "id": "trace-node-4",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1310,
+      "y": 247.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.node[5]",
+      "id": "trace-node-5",
+      "kind": "trace.node",
+      "text": "",
+      "x": 1282,
+      "y": 277.5,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "name": "trace.row[0]",
+      "id": "trace-row-0",
+      "kind": "trace.row",
+      "text": "你的问题 把计算机组成 Lab 3 的实验报告交到学在浙大，文件是 对话 文件夹里的 Lab3-实验报告.pdf",
+      "x": 1181,
+      "y": 116,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[1]",
+      "id": "trace-row-1",
+      "kind": "trace.row",
+      "text": "学在浙大 读取作业要求和提交记录计算机组成 · Lab 3",
+      "x": 1181,
+      "y": 146,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[2]",
+      "id": "trace-row-2",
+      "kind": "trace.row",
+      "text": "把文档转成文字Lab3-实验报告.pdf",
+      "x": 1181,
+      "y": 176,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[3]",
+      "id": "trace-row-3",
+      "kind": "trace.row",
+      "text": "向你提问",
+      "x": 1181,
+      "y": 206,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[4]",
+      "id": "trace-row-4",
+      "kind": "trace.row",
+      "text": "学在浙大 提交作业计算机组成 · Lab 3 1 条",
+      "x": 1181,
+      "y": 236,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.row[5]",
+      "id": "trace-row-5",
+      "kind": "trace.row",
+      "text": "回答 用了 8 秒",
+      "x": 1181,
+      "y": 266,
+      "w": 419,
+      "h": 30
+    },
+    {
+      "name": "trace.site[0]",
+      "id": "trace-site-0",
+      "kind": "trace.site",
+      "text": "你的问题",
+      "x": 1181,
+      "y": 116,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[1]",
+      "id": "trace-site-1",
+      "kind": "trace.site",
+      "text": "学在浙大",
+      "x": 1181,
+      "y": 146,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[2]",
+      "id": "trace-site-2",
+      "kind": "trace.site",
+      "text": "",
+      "x": 1181,
+      "y": 176,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[3]",
+      "id": "trace-site-3",
+      "kind": "trace.site",
+      "text": "",
+      "x": 1181,
+      "y": 206,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[4]",
+      "id": "trace-site-4",
+      "kind": "trace.site",
+      "text": "学在浙大",
+      "x": 1181,
+      "y": 236,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.site[5]",
+      "id": "trace-site-5",
+      "kind": "trace.site",
+      "text": "回答",
+      "x": 1181,
+      "y": 266,
+      "w": 92,
+      "h": 30
+    },
+    {
+      "name": "trace.what[0]",
+      "id": "trace-what-0",
+      "kind": "trace.what",
+      "text": "把计算机组成 Lab 3 的实验报告交到学在浙大，文件是 对话 文件夹里的 Lab3-实验报告.pdf",
+      "x": 1328,
+      "y": 121,
+      "w": 244,
+      "h": 20
+    },
+    {
+      "name": "trace.what[1]",
+      "id": "trace-what-1",
+      "kind": "trace.what",
+      "text": "读取作业要求和提交记录计算机组成 · Lab 3",
+      "x": 1328,
+      "y": 151,
+      "w": 244,
+      "h": 20
+    },
+    {
+      "name": "trace.what[2]",
+      "id": "trace-what-2",
+      "kind": "trace.what",
+      "text": "把文档转成文字Lab3-实验报告.pdf",
+      "x": 1328,
+      "y": 181,
+      "w": 244,
+      "h": 20
+    },
+    {
+      "name": "trace.what[3]",
+      "id": "trace-what-3",
+      "kind": "trace.what",
+      "text": "向你提问",
+      "x": 1328,
+      "y": 211,
+      "w": 244,
+      "h": 20
+    },
+    {
+      "name": "trace.what[4]",
+      "id": "trace-what-4",
+      "kind": "trace.what",
+      "text": "提交作业计算机组成 · Lab 3",
+      "x": 1328,
+      "y": 241,
+      "w": 222.2,
+      "h": 20
+    },
+    {
+      "name": "trace.what[5]",
+      "id": "trace-what-5",
+      "kind": "trace.what",
+      "text": "用了 8 秒",
+      "x": 1328,
+      "y": 271,
+      "w": 244,
+      "h": 20
+    },
+    {
+      "name": "trace.result[0]",
+      "id": "trace-result-0",
+      "kind": "trace.result",
+      "text": "1 条",
+      "x": 1562.2,
+      "y": 241,
+      "w": 21.8,
+      "h": 20
+    }
+  ]
+}

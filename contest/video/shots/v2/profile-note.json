@@ -1,0 +1,96 @@
+{
+  "image": "profile-note.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "记忆「计算机组成」：Lab 报告的提交方式待核实",
+  "elements": [
+    {
+      "name": "page.title[0]",
+      "id": "page-title-0",
+      "kind": "page.title",
+      "text": "校园事务",
+      "x": 460,
+      "y": 68,
+      "w": 80,
+      "h": 28
+    },
+    {
+      "name": "page.title[1]",
+      "id": "page-title-1",
+      "kind": "page.title",
+      "text": "计算机组成",
+      "x": 612,
+      "y": 190,
+      "w": 100,
+      "h": 28
+    },
+    {
+      "name": "note.title",
+      "id": "note-title",
+      "kind": "note.title",
+      "text": "计算机组成",
+      "x": 612,
+      "y": 190,
+      "w": 100,
+      "h": 28
+    },
+    {
+      "name": "note.prop[0]",
+      "id": "note-prop-0",
+      "kind": "note.prop",
+      "text": "标签 课程",
+      "x": 612,
+      "y": 278,
+      "w": 564,
+      "h": 22
+    },
+    {
+      "name": "note.prop[1]",
+      "id": "note-prop-1",
+      "kind": "note.prop",
+      "text": "老师 李老师",
+      "x": 612,
+      "y": 306,
+      "w": 564,
+      "h": 22
+    },
+    {
+      "name": "note.prop[2]",
+      "id": "note-prop-2",
+      "kind": "note.prop",
+      "text": "状态 待核实",
+      "x": 612,
+      "y": 334,
+      "w": 564,
+      "h": 22
+    },
+    {
+      "name": "note.body[0]",
+      "id": "note-body-0",
+      "kind": "note.body",
+      "text": "Lab 报告：模板在学在浙大，提交方式待核实（课程群说交学在浙大，助教私聊说的是发邮件） PTA 每章练习题 单周周四晚加一次习题课",
+      "x": 612,
+      "y": 397,
+      "w": 564,
+      "h": 108
+    },
+    {
+      "name": "note.body[1]",
+      "id": "note-body-1",
+      "kind": "note.body",
+      "text": "Lab 报告：模板在学在浙大，提交方式待核实（课程群说交学在浙大，助教私聊说的是发邮件） PTA 每章练习题 单周周四晚加一次习题课",
+      "x": 612,
+      "y": 397,
+      "w": 564,
+      "h": 108
+    }
+  ]
+}

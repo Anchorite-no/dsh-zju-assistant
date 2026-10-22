@@ -1,0 +1,136 @@
+{
+  "image": "film.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "学习页点「播放」以后另开的讲解窗口：数据结构基础「AVL 树的四种旋转」",
+  "elements": [
+    {
+      "name": "h1[0]",
+      "id": "h1-0",
+      "kind": "h1",
+      "text": "AVL 树的四种旋转",
+      "x": 50,
+      "y": 50.59375,
+      "w": 204.96875,
+      "h": 32.390625
+    },
+    {
+      "name": "button.chapter[1]",
+      "id": "button-chapter-1",
+      "kind": "button.chapter",
+      "text": "00:00\n二叉搜索树会退化",
+      "x": 40,
+      "y": 102.984375,
+      "w": 210,
+      "h": 37
+    },
+    {
+      "name": "button.chapter[2]",
+      "id": "button-chapter-2",
+      "kind": "button.chapter",
+      "text": "00:11\n四种失衡和对应的旋转",
+      "x": 40,
+      "y": 140.984375,
+      "w": 210,
+      "h": 37
+    },
+    {
+      "name": "canvas[3]",
+      "id": "canvas-3",
+      "kind": "canvas",
+      "text": "",
+      "x": 271,
+      "y": 103.984375,
+      "w": 1278,
+      "h": 718.875
+    },
+    {
+      "name": "div.controls[4]",
+      "id": "div-controls-4",
+      "kind": "div.controls",
+      "text": "播放进度，秒\n播放\n重播\n00:20\n播放速度\n0.75×\n1×\n1.25×\n1.5×\n2×\n字幕\n网页全屏\n全屏",
+      "x": 271,
+      "y": 822.859375,
+      "w": 1278,
+      "h": 91
+    },
+    {
+      "name": "div.control-row[5]",
+      "id": "div-control-row-5",
+      "kind": "div.control-row",
+      "text": "播放\n重播\n00:20\n播放速度\n0.75×\n1×\n1.25×\n1.5×\n2×\n字幕\n网页全屏\n全屏",
+      "x": 293,
+      "y": 863.859375,
+      "w": 1234,
+      "h": 34
+    },
+    {
+      "name": "button.play[6]",
+      "id": "button-play-6",
+      "kind": "button.play",
+      "text": "播放",
+      "x": 293,
+      "y": 864.453125,
+      "w": 74,
+      "h": 32.796875
+    },
+    {
+      "name": "svg[7]",
+      "id": "svg-7",
+      "kind": "svg",
+      "text": "",
+      "x": 306,
+      "y": 874.34375,
+      "w": 13,
+      "h": 13
+    },
+    {
+      "name": "button.quiet[8]",
+      "id": "button-quiet-8",
+      "kind": "button.quiet",
+      "text": "重播",
+      "x": 382,
+      "y": 866.265625,
+      "w": 32,
+      "h": 29.1875
+    },
+    {
+      "name": "button.quiet[9]",
+      "id": "button-quiet-9",
+      "kind": "button.quiet",
+      "text": "字幕",
+      "x": 1377,
+      "y": 866.265625,
+      "w": 32,
+      "h": 29.1875
+    },
+    {
+      "name": "button.quiet[10]",
+      "id": "button-quiet-10",
+      "kind": "button.quiet",
+      "text": "网页全屏",
+      "x": 1424,
+      "y": 866.265625,
+      "w": 56,
+      "h": 29.1875
+    },
+    {
+      "name": "button.quiet[11]",
+      "id": "button-quiet-11",
+      "kind": "button.quiet",
+      "text": "全屏",
+      "x": 1495,
+      "y": 866.265625,
+      "w": 32,
+      "h": 29.1875
+    }
+  ]
+}

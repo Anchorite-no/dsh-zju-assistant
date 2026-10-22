@@ -1,0 +1,576 @@
+{
+  "image": "affairs-personal.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "右栏切到「个人消息」：私聊、浙大邮箱的新来信、CC98 的回复和私信",
+  "elements": [
+    {
+      "name": "page.title",
+      "id": "page-title",
+      "kind": "page.title",
+      "text": "校园事务",
+      "x": 460,
+      "y": 68,
+      "w": 80,
+      "h": 28
+    },
+    {
+      "name": "affairs.todo",
+      "id": "affairs-todo",
+      "kind": "affairs.todo",
+      "text": "作业 10 两周内 全部 HW4 书面作业：AVL 树与伸展树 数据结构基础 学在浙大 今天 23:59 还有 8 小时 第 4 章 处理器 练习题 计算机组成 PTA 答了 12/20 题 明天 12:00 还有 20 小时 习题四：随机变量的数字特征 概率论与数理统计 学在浙大 明天 21:00 还有 1 天 第三",
+      "x": 460,
+      "y": 128,
+      "w": 414,
+      "h": 767
+    },
+    {
+      "name": "affairs.feed",
+      "id": "affairs-feed",
+      "kind": "affairs.feed",
+      "text": "通知 校园通知 51 个人消息 12 筛选 晚上去不去紫金港健身房？顺便帮我带一下快递 微信 室友小周 今天 14:50 有人回复了你的帖子《大二数据结构怎么准备期中》 CC98 计算机系的小透明 今天 13:12 作业批改通知：数据结构基础 HW3 已批改 邮箱 学在浙大 今天 10:02 您借阅的图书即将到期（2 ",
+      "x": 914,
+      "y": 128,
+      "w": 506,
+      "h": 612.5
+    },
+    {
+      "name": "task[0]",
+      "id": "task-0",
+      "kind": "task",
+      "text": "HW4 书面作业：AVL 树与伸展树",
+      "x": 460,
+      "y": 176,
+      "w": 414,
+      "h": 63
+    },
+    {
+      "name": "task[1]",
+      "id": "task-1",
+      "kind": "task",
+      "text": "第 4 章 处理器 练习题",
+      "x": 460,
+      "y": 247,
+      "w": 414,
+      "h": 63
+    },
+    {
+      "name": "task[2]",
+      "id": "task-2",
+      "kind": "task",
+      "text": "习题四：随机变量的数字特征",
+      "x": 460,
+      "y": 318,
+      "w": 414,
+      "h": 63
+    },
+    {
+      "name": "task[3]",
+      "id": "task-3",
+      "kind": "task",
+      "text": "第三次作业：电磁感应",
+      "x": 460,
+      "y": 389,
+      "w": 414,
+      "h": 63
+    },
+    {
+      "name": "task[4]",
+      "id": "task-4",
+      "kind": "task",
+      "text": "预习报告：霍尔效应测磁场",
+      "x": 460,
+      "y": 460,
+      "w": 414,
+      "h": 63
+    },
+    {
+      "name": "task.due[0]",
+      "id": "task-due-0",
+      "kind": "task.due",
+      "text": "今天 23:59 还有 8 小时",
+      "x": 760,
+      "y": 188.5,
+      "w": 61,
+      "h": 38
+    },
+    {
+      "name": "task.due[1]",
+      "id": "task-due-1",
+      "kind": "task.due",
+      "text": "明天 12:00 还有 20 小时",
+      "x": 753.5,
+      "y": 259.5,
+      "w": 67.5,
+      "h": 38
+    },
+    {
+      "name": "task.due[2]",
+      "id": "task-due-2",
+      "kind": "task.due",
+      "text": "明天 21:00 还有 1 天",
+      "x": 760.6,
+      "y": 330.5,
+      "w": 60.4,
+      "h": 38
+    },
+    {
+      "name": "task.due[3]",
+      "id": "task-due-3",
+      "kind": "task.due",
+      "text": "后天 23:59 还有 2 天",
+      "x": 760.6,
+      "y": 401.5,
+      "w": 60.4,
+      "h": 38
+    },
+    {
+      "name": "task.due[4]",
+      "id": "task-due-4",
+      "kind": "task.due",
+      "text": "明天 22:00 还有 1 天",
+      "x": 760.6,
+      "y": 472.5,
+      "w": 60.4,
+      "h": 38
+    },
+    {
+      "name": "task.hand[0]",
+      "id": "task-hand-0",
+      "kind": "task.hand",
+      "text": "",
+      "x": 833,
+      "y": 193.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "task.hand[1]",
+      "id": "task-hand-1",
+      "kind": "task.hand",
+      "text": "",
+      "x": 833,
+      "y": 264.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "task.hand[2]",
+      "id": "task-hand-2",
+      "kind": "task.hand",
+      "text": "",
+      "x": 833,
+      "y": 335.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "task.hand[3]",
+      "id": "task-hand-3",
+      "kind": "task.hand",
+      "text": "",
+      "x": 833,
+      "y": 406.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "task.hand[4]",
+      "id": "task-hand-4",
+      "kind": "task.hand",
+      "text": "",
+      "x": 833,
+      "y": 477.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "tasks.range",
+      "id": "tasks-range",
+      "kind": "tasks.range",
+      "text": "两周内 全部",
+      "x": 722,
+      "y": 128,
+      "w": 152,
+      "h": 36
+    },
+    {
+      "name": "tasks.more",
+      "id": "tasks-more",
+      "kind": "tasks.more",
+      "text": "展开其余 5 项",
+      "x": 460,
+      "y": 535,
+      "w": 113,
+      "h": 28
+    },
+    {
+      "name": "memo[0]",
+      "id": "memo-0",
+      "kind": "memo",
+      "text": "大物第三次作业延后到周五 10月20日",
+      "x": 452,
+      "y": 635,
+      "w": 430,
+      "h": 44
+    },
+    {
+      "name": "memo[1]",
+      "id": "memo-1",
+      "kind": "memo",
+      "text": "周五下午找辅导员签字 10月19日",
+      "x": 452,
+      "y": 679,
+      "w": 430,
+      "h": 44
+    },
+    {
+      "name": "memo[2]",
+      "id": "memo-2",
+      "kind": "memo",
+      "text": "大物实验带预习报告 10月18日",
+      "x": 452,
+      "y": 723,
+      "w": 430,
+      "h": 44
+    },
+    {
+      "name": "memo[3]",
+      "id": "memo-3",
+      "kind": "memo",
+      "text": "四六级报名 10月19日",
+      "x": 452,
+      "y": 767,
+      "w": 430,
+      "h": 44
+    },
+    {
+      "name": "memo[4]",
+      "id": "memo-4",
+      "kind": "memo",
+      "text": "羽毛球场预约 10月20日",
+      "x": 452,
+      "y": 811,
+      "w": 430,
+      "h": 44
+    },
+    {
+      "name": "memo.new",
+      "id": "memo-new",
+      "kind": "memo.new",
+      "text": "新建",
+      "x": 808,
+      "y": 595,
+      "w": 66,
+      "h": 28
+    },
+    {
+      "name": "memos.more",
+      "id": "memos-more",
+      "kind": "memos.more",
+      "text": "展开其余 5 条",
+      "x": 460,
+      "y": 867,
+      "w": 113,
+      "h": 28
+    },
+    {
+      "name": "feed.tab[0]",
+      "id": "feed-tab-0",
+      "kind": "feed.tab",
+      "text": "校园通知 51",
+      "x": 914,
+      "y": 168,
+      "w": 75.1,
+      "h": 40
+    },
+    {
+      "name": "feed.tab[1]",
+      "id": "feed-tab-1",
+      "kind": "feed.tab",
+      "text": "个人消息 12",
+      "x": 1009.1,
+      "y": 168,
+      "w": 75.1,
+      "h": 40
+    },
+    {
+      "name": "feed.filter",
+      "id": "feed-filter",
+      "kind": "feed.filter",
+      "text": "筛选",
+      "x": 1368,
+      "y": 173.8,
+      "w": 52,
+      "h": 28
+    },
+    {
+      "name": "notice[0]",
+      "id": "notice-0",
+      "kind": "notice",
+      "text": "晚上去不去紫金港健身房？顺便帮我带一下快递",
+      "x": 906,
+      "y": 220.5,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "notice[1]",
+      "id": "notice-1",
+      "kind": "notice",
+      "text": "有人回复了你的帖子《大二数据结构怎么准备期中》",
+      "x": 906,
+      "y": 280.5,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "notice[2]",
+      "id": "notice-2",
+      "kind": "notice",
+      "text": "作业批改通知：数据结构基础 HW3 已批改",
+      "x": 906,
+      "y": 340.5,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "notice[3]",
+      "id": "notice-3",
+      "kind": "notice",
+      "text": "您借阅的图书即将到期（2 册）",
+      "x": 906,
+      "y": 400.5,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "notice[4]",
+      "id": "notice-4",
+      "kind": "notice",
+      "text": "在《概率论期中复习资料汇总》中提到了你",
+      "x": 906,
+      "y": 460.5,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "notice[5]",
+      "id": "notice-5",
+      "kind": "notice",
+      "text": "Re: Lab 2 报告格式问题",
+      "x": 906,
+      "y": 520.5,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "notice[6]",
+      "id": "notice-6",
+      "kind": "notice",
+      "text": "你的 Lab 2 报告图表编号重复了，改一下重新交就行",
+      "x": 906,
+      "y": 580.5,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "notice[7]",
+      "id": "notice-7",
+      "kind": "notice",
+      "text": "2026秋季学期期中教学调查问卷邀请",
+      "x": 906,
+      "y": 640.5,
+      "w": 522,
+      "h": 60
+    },
+    {
+      "name": "notice.meta[0]",
+      "id": "notice-meta-0",
+      "kind": "notice.meta",
+      "text": "微信 室友小周 今天 14:50",
+      "x": 914,
+      "y": 252.5,
+      "w": 462,
+      "h": 18
+    },
+    {
+      "name": "notice.meta[1]",
+      "id": "notice-meta-1",
+      "kind": "notice.meta",
+      "text": "CC98 计算机系的小透明 今天 13:12",
+      "x": 914,
+      "y": 312.5,
+      "w": 462,
+      "h": 18
+    },
+    {
+      "name": "notice.meta[2]",
+      "id": "notice-meta-2",
+      "kind": "notice.meta",
+      "text": "邮箱 学在浙大 今天 10:02",
+      "x": 914,
+      "y": 372.5,
+      "w": 462,
+      "h": 18
+    },
+    {
+      "name": "notice.meta[3]",
+      "id": "notice-meta-3",
+      "kind": "notice.meta",
+      "text": "邮箱 浙江大学图书馆 今天 08:30",
+      "x": 914,
+      "y": 432.5,
+      "w": 462,
+      "h": 18
+    },
+    {
+      "name": "notice.meta[4]",
+      "id": "notice-meta-4",
+      "kind": "notice.meta",
+      "text": "CC98 概率不挂科 昨天",
+      "x": 914,
+      "y": 492.5,
+      "w": 462,
+      "h": 18
+    },
+    {
+      "name": "notice.meta[5]",
+      "id": "notice-meta-5",
+      "kind": "notice.meta",
+      "text": "邮箱 计算机组成 助教 昨天",
+      "x": 914,
+      "y": 552.5,
+      "w": 462,
+      "h": 18
+    },
+    {
+      "name": "notice.meta[6]",
+      "id": "notice-meta-6",
+      "kind": "notice.meta",
+      "text": "钉钉 计算机组成 助教 昨天",
+      "x": 914,
+      "y": 612.5,
+      "w": 462,
+      "h": 18
+    },
+    {
+      "name": "notice.meta[7]",
+      "id": "notice-meta-7",
+      "kind": "notice.meta",
+      "text": "邮箱 本科生院 昨天",
+      "x": 914,
+      "y": 672.5,
+      "w": 462,
+      "h": 18
+    },
+    {
+      "name": "notice.memo[0]",
+      "id": "notice-memo-0",
+      "kind": "notice.memo",
+      "text": "",
+      "x": 1392,
+      "y": 236.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "notice.memo[1]",
+      "id": "notice-memo-1",
+      "kind": "notice.memo",
+      "text": "",
+      "x": 1392,
+      "y": 296.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "notice.memo[2]",
+      "id": "notice-memo-2",
+      "kind": "notice.memo",
+      "text": "",
+      "x": 1392,
+      "y": 356.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "notice.memo[3]",
+      "id": "notice-memo-3",
+      "kind": "notice.memo",
+      "text": "",
+      "x": 1392,
+      "y": 416.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "notice.memo[4]",
+      "id": "notice-memo-4",
+      "kind": "notice.memo",
+      "text": "",
+      "x": 1392,
+      "y": 476.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "notice.memo[5]",
+      "id": "notice-memo-5",
+      "kind": "notice.memo",
+      "text": "",
+      "x": 1392,
+      "y": 536.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "notice.memo[6]",
+      "id": "notice-memo-6",
+      "kind": "notice.memo",
+      "text": "",
+      "x": 1392,
+      "y": 596.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "notice.memo[7]",
+      "id": "notice-memo-7",
+      "kind": "notice.memo",
+      "text": "",
+      "x": 1392,
+      "y": 656.5,
+      "w": 28,
+      "h": 28
+    },
+    {
+      "name": "feed.more",
+      "id": "feed-more",
+      "kind": "feed.more",
+      "text": "展开其余 4 条",
+      "x": 914,
+      "y": 712.5,
+      "w": 113,
+      "h": 28
+    },
+    {
+      "name": "refresh",
+      "id": "refresh",
+      "kind": "refresh",
+      "text": "",
+      "x": 1392,
+      "y": 68,
+      "w": 28,
+      "h": 28
+    }
+  ]
+}

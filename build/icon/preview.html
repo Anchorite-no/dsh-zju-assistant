@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><style>
+body{margin:0;font:14px/1.4 "Microsoft YaHei",system-ui;background:#fff;color:#0F1115;width:1500px}
+.row{display:flex;align-items:center;gap:22px;padding:14px 24px;border-bottom:1px solid #eee}
+.tag{width:40px;font-weight:700;font-size:26px}
+.dark{display:flex;align-items:center;gap:18px;background:#1b1b1c;padding:14px 18px;border-radius:12px}
+.side{display:flex;align-items:center;gap:8px;background:#F9FAFB;padding:10px 14px;border-radius:10px;font-weight:700;font-size:17px;border:1px solid #eee}
+img{display:block}
+</style>
+<body>
+<script>
+for (const k of ['a','b','c']) {
+  const row = document.createElement('div'); row.className = 'row'
+  row.innerHTML = `<span class="tag">${k.toUpperCase()}</span>` + [160,64,32,24,16].map(s => `<img src="${k}.svg" width="${s}" height="${s}">`).join('') +
+    `<span class="dark">${[64,32,16].map(s => `<img src="${k}.svg" width="${s}" height="${s}">`).join('')}</span><span class="side"><img src="${k}.svg" width="28" height="28">校园智能体</span>`
+  document.body.append(row)
+}
+</script>

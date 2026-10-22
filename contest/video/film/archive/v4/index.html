@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="zh-CN" data-composition-variables='[
+  {"id":"product","type":"string","label":"产品名","default":"校园智能体"},
+  {"id":"tagline","type":"string","label":"一句话","default":"把散在各处的校园信息，串成你自己的日常"},
+  {"id":"blue","type":"color","label":"品牌蓝","default":"#4176e6"},
+  {"id":"ground","type":"color","label":"底色","default":"#f9fafb"},
+  {"id":"ink","type":"color","label":"文字色","default":"#0f1115"}
+]'>
+<head>
+<meta charset="utf-8">
+<title>校园智能体 · 演示片</title>
+<script src="vendor/gsap.min.js"></script>
+<script src="vendor/om.js"></script>
+<style id="om-fonts">
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("assets/fonts/HarmonyOS_Sans_SC_Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("assets/fonts/HarmonyOS_Sans_SC_Medium.ttf"); font-weight: 500; }
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("assets/fonts/HarmonyOS_Sans_SC_Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Inter"; src: url("assets/fonts/Inter-var.woff") format("woff"); font-weight: 100 900; }
+@font-face { font-family: "LXGW WenKai"; src: url("assets/fonts/LXGWWenKai-500.woff") format("woff"); font-weight: 500; }
+</style>
+<style>
+  :root {
+    --white: #fff; --n50: #f9fafb; --n100: #ebeef2; --n150: #e9ecf2; --n200: #e1e5ee; --n300: #cfd3d6; --n700: #61666b; --ink0: #0f1115;
+    --blue: #4176e6; --blueText: #2f5fcc; --blue450: #5686fe; --blue300: #b7c8fe; --blue100: #e4edfd; --blue50: #edf3fe; --orange: #f0700f; --green: #22c55e; --red: #ef4444; --amber: #f59e0b;
+    --sans: "Inter", "HarmonyOS Sans SC", sans-serif;
+  }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+  * { box-sizing: border-box; }
+  #film { position: relative; overflow: hidden; background: var(--ground); color: var(--ink); font-family: var(--sans); }
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; overflow: hidden; }
+
+  /* 底：应用自己的浅灰白，左上来一点光，四角略收 */
+  #ground { position: absolute; inset: 0; background:
+      radial-gradient(1500px 1000px at 18% 0%, #ffffff 0%, rgba(255,255,255,0) 60%),
+      radial-gradient(1400px 900px at 100% 100%, #eceff4 0%, rgba(236,239,244,0) 70%),
+      var(--ground); }
+  #grain { position: absolute; inset: 0; opacity: .5; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .32  0 0 0 0 .36  0 0 0 .05 0'/></filter><rect width='256' height='256' filter='url(%23n)'/></svg>"); }
+  /* 品牌蓝色场：开场和数据段 */
+  .flood { position: absolute; inset: 0; background: radial-gradient(1500px 1000px at 18% 0%, #5c8bff 0%, var(--blue) 46%, #2f5fcc 100%); }
+
+  .scene { position: absolute; inset: 0; visibility: hidden; }
+  .cam, .tilt, .dev { position: absolute; left: 0; top: 0; }
+  .tilt { transform-style: flat; }
+  .tilt { filter: drop-shadow(0 30px 50px rgba(15,17,21,.10)) drop-shadow(0 6px 14px rgba(15,17,21,.06)); }
+  .dev { overflow: hidden; background: #fff; }
+  .vstate { position: absolute; inset: 0; }
+  .vstate video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  .dev > img.shot { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  .layer { position: absolute; inset: 0; }
+  .ink { position: absolute; left: 0; top: 0; overflow: visible; z-index: 6; }
+  .hole { position: absolute; z-index: 2; box-shadow: 0 0 0 3000px rgba(249,250,251,0); }
+  .hbar { position: absolute; z-index: 1; background: rgba(65,118,230,.10); box-shadow: inset 3px 0 0 var(--blue); }
+  .piece { position: absolute; z-index: 5; background-repeat: no-repeat; background-color: #fff; border-radius: 8px; }
+  .cursor { position: absolute; left: 0; top: 0; width: 24px; height: 24px; z-index: 20; filter: drop-shadow(0 2px 3px rgba(15,17,21,.28)); }
+  .ripple { position: absolute; width: 36px; height: 36px; border-radius: 50%; border: 2.5px solid var(--blue); z-index: 19; }
+
+  .mask { display: inline-block; overflow: hidden; vertical-align: top; padding: .04em .02em .14em; margin: -.04em -.02em -.14em; }
+  .ch { display: inline-block; }
+  .hot { color: var(--blueText); }
+  .on-blue .hot { color: #fff; opacity: .72; }
+
+  .cap { position: absolute; }
+  .cap-k { font-size: 22px; font-weight: 500; letter-spacing: .2em; color: var(--blueText); margin-bottom: 18px; white-space: nowrap; }
+  .cap-t { font-weight: 700; line-height: 1.16; letter-spacing: -.005em; white-space: nowrap; }
+  .cap-b { margin-top: 24px; font-size: 27px; line-height: 1.62; color: var(--n700); }
+  .cap-b b { color: var(--ink); font-weight: 500; }
+
+  .label { position: absolute; padding: 12px 18px; border-radius: 12px; background: var(--ink); color: #fff; font-size: 21px; font-weight: 500; white-space: nowrap; box-shadow: 0 14px 30px rgba(15,17,21,.18); }
+  .label.blue { background: var(--blueText); box-shadow: 0 14px 30px rgba(65,118,230,.3); }
+  .label.light { background: #fff; color: var(--ink); box-shadow: 0 0 0 1px var(--n200), 0 14px 30px rgba(15,17,21,.10); }
+  .label small { display: block; font-size: 16px; font-weight: 400; opacity: .78; margin-top: 3px; }
+  .label.src { display: flex; align-items: center; gap: 10px; padding: 9px 15px; font-size: 19px; }
+  .label.src i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .label .tag { margin-left: 4px; padding: 2px 8px; border-radius: 6px; background: #fff1e6; color: #b45309; font-size: 15px; font-weight: 500; }
+  .label.ok { background: #eafaf0; color: #15803d; box-shadow: 0 0 0 1px #bbf0cf, 0 10px 24px rgba(21,128,61,.12); padding: 8px 14px; font-size: 18px; }
+
+  .orig { position: absolute; left: 110px; top: 250px; width: 590px; height: 470px; border-radius: 18px; background: #fff; box-shadow: 0 0 0 1px var(--n200), 0 30px 60px rgba(15,17,21,.10); }
+  .orig-h { position: absolute; left: 30px; right: 30px; top: 26px; display: grid; gap: 8px; }
+  .orig-h span:first-child { font-size: 18px; font-weight: 500; color: var(--blueText); letter-spacing: .1em; }
+  .orig-h span:last-child { font-size: 20px; font-weight: 500; line-height: 1.4; }
+  .orig-q { position: absolute; left: 30px; right: 30px; height: 100px; padding: 16px 20px; border-radius: 12px; background: var(--n50); font-size: 21px; line-height: 1.65; color: #2c3138; }
+  #q1 { top: 110px; } #q2 { top: 230px; }
+  .orig-q mark { background: var(--blue50); color: var(--blueText); font-weight: 500; padding: 1px 4px; border-radius: 4px; box-shadow: inset 0 -2px 0 var(--blue300); }
+  .orig-f { position: absolute; left: 30px; bottom: 30px; font-size: 22px; font-weight: 500; color: var(--n700); }
+  .label.dark { background: var(--ink0); }
+  .label.amber { background: #b45309; box-shadow: 0 14px 30px rgba(180,83,9,.25); }
+  .nowdot { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--red); z-index: 7; }
+  .cover { position: absolute; background: #fff; z-index: 4; }
+  .caret { position: absolute; width: 2px; height: 22px; background: var(--blue); z-index: 6; }
+  .rail { position: absolute; display: grid; gap: 10px; }
+  .chip { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 500; white-space: nowrap; }
+  .chip b { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--blue50); color: var(--blueText); font: 600 16px "Inter"; }
+  .stat3 { position: absolute; left: 50%; top: 34px; transform: translateX(-50%); display: flex; gap: 90px; white-space: nowrap; }
+  .stat3 div { display: flex; align-items: baseline; gap: 10px; }
+  .stat3 b { font: 700 84px/1 "Inter"; letter-spacing: -.03em; color: var(--ink0); font-variant-numeric: tabular-nums; }
+  .stat3 span { font-size: 30px; font-weight: 500; color: var(--n700); }
+  /* 第一段 */
+  .field { position: absolute; inset: 0; }
+  .mcard { position: absolute; width: 460px; padding: 16px 20px 18px; border-radius: 18px; background: #fff; color: var(--ink0); box-shadow: 0 24px 60px rgba(10,30,90,.28); }
+  .mc-h { display: flex; align-items: center; gap: 9px; font-size: 17px; color: var(--n700); white-space: nowrap; }
+  .mc-h i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .mc-h em { margin-left: auto; font-style: normal; font-size: 16px; }
+  .mc-t { margin-top: 8px; font-size: 22px; font-weight: 500; line-height: 1.42; }
+  .kt { position: absolute; left: 50%; top: 440px; transform: translateX(-50%); font-size: 112px; font-weight: 700; color: #fff; white-space: nowrap; letter-spacing: -.01em; line-height: 1.15; }
+  .kt.dark { color: var(--ink0); top: 420px; font-size: 96px; }
+  .kt-k { position: absolute; left: 50%; top: 380px; transform: translateX(-50%); font-size: 30px; font-weight: 500; color: rgba(255,255,255,.85); letter-spacing: .3em; white-space: nowrap; }
+  .kt-sub { position: absolute; left: 50%; top: 570px; transform: translateX(-50%); font-size: 32px; color: var(--n700); white-space: nowrap; }
+  .hub { position: absolute; left: 960px; top: 540px; padding: 16px 30px; border-radius: 40px; background: #fff; color: var(--blueText); font-size: 30px; font-weight: 700; white-space: nowrap; box-shadow: 0 18px 50px rgba(10,30,90,.3); }
+  .clash { position: absolute; left: 960px; top: 370px; width: 76px; height: 76px; border-radius: 50%; background: #ff8a3d; color: #fff; font: 800 48px/76px "Inter"; text-align: center; box-shadow: 0 0 0 10px rgba(255,138,61,.25); }
+  .clash-say { position: absolute; left: 50%; top: 985px; transform: translateX(-50%); font-size: 30px; color: #fff; white-space: nowrap; }
+  .clash-say b { color: #ffd2b0; }
+  .wipe { position: absolute; left: 960px; top: 540px; width: 4400px; height: 4400px; border-radius: 50%; background: var(--n50); }
+  .why-col { position: absolute; width: 760px; height: 700px; }
+  .why-t { position: absolute; left: 0; top: 0; font-size: 60px; font-weight: 700; white-space: nowrap; }
+  .gate { position: absolute; left: 0; display: flex; align-items: center; gap: 18px; font-size: 32px; font-weight: 500; color: var(--ink0); white-space: nowrap; }
+  .gate svg { color: var(--blueText); }
+  .why-say { position: absolute; left: 0; font-size: 26px; line-height: 1.6; color: var(--n700); white-space: nowrap; }
+  .why-ov { position: absolute; left: 0; top: 0; }
+  .why-hub { position: absolute; padding: 14px 24px; border-radius: 30px; background: var(--ink0); color: #fff; font-size: 24px; font-weight: 700; white-space: nowrap; }
+  .why-tile { position: absolute; width: 190px; padding: 14px 16px; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1px var(--n200), 0 16px 34px rgba(15,17,21,.08); text-align: center; }
+  .why-tile b { display: block; font-size: 24px; } .why-tile span { font-size: 18px; color: var(--n700); }
+  .why-q { position: absolute; width: 40px; height: 40px; border-radius: 50%; background: #fff1e6; color: #c2410c; font: 800 24px/40px "Inter"; text-align: center; box-shadow: 0 0 0 2px #fdba74; }
+  .burst { position: absolute; left: 1340px; top: 560px; width: 120px; height: 120px; border-radius: 50%; border: 3px solid var(--blue300); }
+  .hero-t { position: absolute; left: 110px; top: 300px; font-size: 128px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+  .hero-s { position: absolute; left: 116px; top: 500px; font-size: 44px; font-weight: 500; color: #3a3f47; white-space: nowrap; }
+  .hero-stats { position: absolute; left: 116px; top: 690px; display: grid; gap: 14px; }
+  .hs { display: flex; align-items: baseline; gap: 12px; font-size: 26px; color: var(--n700); white-space: nowrap; }
+  .hs b { font: 700 46px/1 "Inter"; color: var(--ink0); min-width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
+  .layer-t { position: absolute; font-size: 44px; font-weight: 700; white-space: nowrap; }
+  .lchip { position: absolute; padding: 7px 16px; border-radius: 10px; background: #fff; box-shadow: 0 0 0 1px var(--n200); font-size: 20px; font-weight: 500; white-space: nowrap; }
+  .term { position: absolute; width: 600px; padding: 22px 24px; border-radius: 16px; background: #0f1115; color: #e6e9ef; font-family: Consolas, "HarmonyOS Sans SC", monospace; box-shadow: 0 30px 60px rgba(15,17,21,.22); }
+  .term-h { font-family: var(--sans); font-size: 18px; color: #9aa3b2; margin-bottom: 14px; }
+  .term-l { display: flex; gap: 10px; align-items: baseline; font-size: 19px; line-height: 2.0; white-space: nowrap; }
+  .term-l .pr { color: #7aaaff; } .term-l .res { margin-left: auto; color: #6ee7a0; font-family: var(--sans); font-size: 17px; }
+  .layer-note { position: absolute; font-size: 22px; line-height: 1.6; color: var(--n700); white-space: nowrap; }
+  .rule { position: absolute; width: 600px; display: flex; align-items: center; gap: 16px; padding: 18px 22px; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1.5px var(--blue300), 0 14px 30px rgba(65,118,230,.10); font-size: 24px; font-weight: 500; white-space: nowrap; }
+  .rule b { font: 700 18px "Inter"; color: var(--blueText); }
+  .graph { position: absolute; inset: 0; }
+  .graph-svg { position: absolute; left: 0; top: 0; }
+  .g-hub { position: absolute; padding: 20px 34px; border-radius: 40px; background: var(--blueText); color: #fff; font-size: 34px; font-weight: 700; white-space: nowrap; box-shadow: 0 20px 50px rgba(47,95,204,.35); }
+  .g-node { position: absolute; padding: 14px 20px; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1px var(--n200), 0 14px 30px rgba(15,17,21,.08); text-align: center; white-space: nowrap; }
+  .g-node b { display: block; font-size: 24px; } .g-node span { font-size: 18px; color: var(--n700); }
+  .g-node.hot { box-shadow: 0 0 0 2.5px var(--blue), 0 14px 30px rgba(65,118,230,.2); }
+  .g-note { position: absolute; left: 50%; top: 990px; transform: translateX(-50%); font-size: 24px; color: var(--n700); white-space: nowrap; }
+  /* 章节牌 */
+  .chapter-card { position: absolute; left: 160px; top: 330px; }
+  .cc-num { font: 700 120px/1 "Inter"; color: var(--blue); letter-spacing: -.02em; }
+  .cc-title { margin-top: 18px; font-size: 92px; font-weight: 700; white-space: nowrap; }
+  .cc-sub { margin-top: 26px; font-size: 34px; color: #3a3f47; }
+  .cc-note { margin-top: 18px; font-size: 22px; color: var(--n700); letter-spacing: .04em; }
+  .chapter-card.on-blue .cc-num { color: rgba(255,255,255,.7); }
+  .chapter-card.on-blue .cc-title, .chapter-card.on-blue .cc-sub { color: #fff; }
+  .film-win { position: absolute; left: 160px; top: 40px; width: 1600px; height: 1000px; border-radius: 14px; overflow: hidden; background: #1b1b1c; box-shadow: 0 50px 120px rgba(15,17,21,.35); }
+  .film-win video { width: 100%; height: 100%; display: block; }
+  .foot-note { position: absolute; left: 50%; top: 1000px; transform: translateX(-50%); font-size: 26px; color: var(--n700); white-space: nowrap; }
+  /* 第三段 */
+  .inkfield { position: absolute; inset: 0; background: radial-gradient(1500px 1000px at 18% 0%, #2a2f3a 0%, #0f1115 70%); }
+  .num-shot { position: absolute; left: 140px; top: 330px; color: #fff; }
+  .ns-big { display: flex; align-items: baseline; gap: 18px; }
+  .ns-big span { font: 800 200px/1 "Inter"; letter-spacing: -.04em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ns-big em { font-style: normal; font-size: 72px; font-weight: 700; }
+  .ns-line { margin-top: 40px; max-width: 960px; font-size: 44px; line-height: 1.3; font-weight: 700; }
+  .ns-small { margin-top: 18px; font-size: 28px; opacity: .78; white-space: nowrap; }
+  .rcard { position: absolute; width: 530px; height: 430px; padding: 34px 34px; border-radius: 22px; background: #fff; box-shadow: 0 0 0 1px var(--n200), 0 30px 60px rgba(15,17,21,.08); }
+  .rcard b { display: block; font-size: 34px; font-weight: 700; }
+  .rcard p { margin: 22px 0 0; font-size: 25px; line-height: 1.7; color: #3a3f47; }
+  .rcard.blue { box-shadow: inset 0 5px 0 var(--blue), 0 0 0 1px var(--n200), 0 30px 60px rgba(15,17,21,.08); }
+  .rcard.amber { box-shadow: inset 0 5px 0 var(--amber), 0 0 0 1px var(--n200), 0 30px 60px rgba(15,17,21,.08); }
+  .next { position: absolute; left: 120px; top: 760px; font-size: 28px; line-height: 1.7; color: #3a3f47; }
+  .next b { color: var(--blueText); }
+  .end-grid { position: absolute; left: 540px; top: 324px; width: 840px; height: 432px; }
+  .eg { position: absolute; width: 112px; height: 64px; border-radius: 10px; background: var(--n100); }
+  .eg.b1 { background: #c9d8fb; } .eg.b2 { background: #b9eacc; } .eg.b3 { background: #fde2c4; }
+  .end-t { position: absolute; left: 50%; top: 360px; transform: translateX(-50%); font-size: 150px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+  .end-s { position: absolute; left: 50%; top: 580px; transform: translateX(-50%); font-size: 44px; font-weight: 500; color: #3a3f47; white-space: nowrap; }
+  .viz { position: absolute; left: 1180px; top: 290px; width: 600px; height: 520px; }
+  .vcell { position: absolute; width: 58px; height: 58px; border-radius: 14px; background: #fff; box-shadow: 0 8px 20px rgba(10,30,90,.18); }
+  .vcheck { position: absolute; width: 84px; height: 84px; border-radius: 50%; background: #22c55e; color: #fff; font: 700 42px/84px "Inter"; text-align: center; box-shadow: 0 10px 24px rgba(0,0,0,.25); }
+  .vbar-l { font-size: 30px; color: rgba(255,255,255,.85); margin-top: 120px; }
+  .vbar { margin-top: 26px; width: 600px; height: 30px; border-radius: 15px; background: rgba(255,255,255,.18); overflow: hidden; }
+  .vbar i { display: block; height: 100%; background: #fff; border-radius: 15px; }
+  .vbar-r { margin-top: 20px; font-size: 30px; color: #fff; } .vbar-r b { font: 800 56px "Inter"; }
+  .vbar-n { margin-top: 18px; font-size: 30px; font-weight: 700; color: #fff; }
+  .vcmp { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 8px 18px; margin-top: 70px; color: #fff; font-size: 28px; }
+  .vcmp:first-child { margin-top: 150px; }
+  .vcmp div { height: 34px; } .vcmp i { display: block; height: 34px; border-radius: 10px; background: #fff; }
+  .vcmp b { grid-column: 2; font: 800 40px "Inter"; }
+  .vcmp.dim i { background: rgba(255,255,255,.45); } .vcmp.dim b, .vcmp.dim span { opacity: .65; }
+  .vdot { position: absolute; width: 40px; height: 40px; border-radius: 50%; background: #fff; box-shadow: 0 6px 14px rgba(10,30,90,.2); }
+  .rcard i { display: block; color: var(--blueText); margin-bottom: 18px; } .rcard.amber i { color: #b45309; }
+  .overlay { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; z-index: 30; }
+
+  .chapter { position: absolute; left: 120px; top: 74px; display: flex; gap: 16px; align-items: baseline; font-size: 20px; font-weight: 500; letter-spacing: .14em; color: var(--n700); white-space: nowrap; }
+  .chapter b { font: 600 20px "Inter"; color: var(--blue); letter-spacing: .04em; }
+</style>
+</head>
+<body>
+<div id="film" data-composition-id="film" data-width="2560" data-height="1440" data-fps="60">
+  <audio id="om-sound" src="assets/sound.wav" data-start="0" data-duration="464" data-track-index="8" data-volume="1"></audio>
+  <div id="stage">
+    <div id="ground"></div>
+    <div id="grain"></div>
+    <div id="world"></div>
+  </div>
+</div>
+
+<script src="assets/shots/rects.js"></script>
+<script src="lib/kit.js"></script>
+<script>window.SCENES = [];</script>
+<script src="scenes/s01-hook.js"></script>
+<script src="scenes/s02-why.js"></script>
+<script src="scenes/s03-reveal.js"></script>
+<script src="scenes/s04-layers.js"></script>
+<script src="scenes/s05-profile.js"></script>
+<script src="scenes/s07-affairs.js"></script>
+<script src="scenes/s08-memo.js"></script>
+<script src="scenes/s06-schedule.js"></script>
+<script src="scenes/s09-ask.js"></script>
+<script src="scenes/s10-confirm.js"></script>
+<script src="scenes/s11-learning.js"></script>
+<script src="scenes/s12-plugins.js"></script>
+<script src="scenes/s13-numbers.js"></script>
+<script src="scenes/s14-reflect.js"></script>
+<script src="scenes/s15-end.js"></script>
+<script type="text/vnd.abc" id="om-score">
+X:1
+T:校园智能体 · 演示片配乐
+M:4/4
+L:1/8
+Q:1/4=120
+K:C
+V:PNO inst=piano
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mp! =B,,2^F2=d2^F2 | =B,,2^F2=d2^F2 | =G,2=d2=b2=d2 | =G,2=d2=b2=d2 | =E,2=B2=g2=B2 | =E,2=B2=g2=B2 | =G,2=d2=b2=d2 | =A,2=e2^c'2=e2 | =B,,2^F2=d2^F2 | =E,2=B2=g2=B2 | =A,2=e2^c'2=e2 |
+!ff! [=D^F=A]3[=D^F=A]3[=D^F=A]2 | [=B,=D^F]3[=B,=D^F]3[=B,=D^F]2 | [=G=B=d]3[=G=B=d]3[=G=B=d]2 | [=A^c=e]3[=A^c=e]3[=A^c=e]2 | [=D^F=A]3[=D^F=A]3[=D^F=A]2 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mf! =D,=A,^f=d=a=d^f=A, | =G,=D=b=g=d'=g=b=D | =B,,^F,=d=B^f=B=d^F, | =A,=E^c'=a=e'=a^c'=E | =D,=A,^f=d=a=d^f=A, | =G,=D=b=g=d'=g=b=D | =B,,^F,=d=B^f=B=d^F, | =A,=E^c'=a=e'=a^c'=E | =D,=A,^f=d=a=d^f=A, | =G,=D=b=g=d'=g=b=D | =B,,^F,=d=B^f=B=d^F, | =A,=E^c'=a=e'=a^c'=E | =D,=A,^f=d=a=d^f=A, | =G,=D=b=g=d'=g=b=D | =B,,^F,=d=B^f=B=d^F, |
+!mp! [=D^F=A]2[=D^F=A]2[=D^F=A]2[=D^F=A]2 | [=A^c=e]2[=A^c=e]2[=A^c=e]2[=A^c=e]2 | [=B=d^f]2[=B=d^f]2[=B=d^f]2[=B=d^f]2 | [=G=B=d]2[=G=B=d]2[=G=B=d]2[=G=B=d]2 | [=D^F=A]2[=D^F=A]2[=D^F=A]2[=D^F=A]2 | [=A^c=e]2[=A^c=e]2[=A^c=e]2[=A^c=e]2 | [=B=d^f]2[=B=d^f]2[=B=d^f]2[=B=d^f]2 | [=G=B=d]2[=G=B=d]2[=G=B=d]2[=G=B=d]2 | [=D^F=A]2[=D^F=A]2[=D^F=A]2[=D^F=A]2 | [=A^c=e]2[=A^c=e]2[=A^c=e]2[=A^c=e]2 | [=B=d^f]2[=B=d^f]2[=B=d^f]2[=B=d^f]2 | [=G=B=d]2[=G=B=d]2[=G=B=d]2[=G=B=d]2 | [=D^F=A]2[=D^F=A]2[=D^F=A]2[=D^F=A]2 | [=A^c=e]2[=A^c=e]2[=A^c=e]2[=A^c=e]2 | [=B=d^f]2[=B=d^f]2[=B=d^f]2[=B=d^f]2 | [=G=B=d]2[=G=B=d]2[=G=B=d]2[=G=B=d]2 | [=D^F=A]2[=D^F=A]2[=D^F=A]2[=D^F=A]2 | [=A^c=e]2[=A^c=e]2[=A^c=e]2[=A^c=e]2 | [=B=d^f]2[=B=d^f]2[=B=d^f]2[=B=d^f]2 | [=G=B=d]2[=G=B=d]2[=G=B=d]2[=G=B=d]2 | [=D^F=A]2[=D^F=A]2[=D^F=A]2[=D^F=A]2 | [=A^c=e]2[=A^c=e]2[=A^c=e]2[=A^c=e]2 | [=B=d^f]2[=B=d^f]2[=B=d^f]2[=B=d^f]2 | [=G=B=d]2[=G=B=d]2[=G=B=d]2[=G=B=d]2 | [=D^F=A]2[=D^F=A]2[=D^F=A]2[=D^F=A]2 |
+!mp! [=G,=G=B=d]8 | [=D,=D^F=A]8 | [=A,,=A,^C=E]8 | [=B,,=B,=D^F]8 | [=G,=G=B=d]8 | [=D,=D^F=A]8 | [=A,,=A,^C=E]8 | [=B,,=B,=D^F]8 | [=G,=G=B=d]8 | [=D,=D^F=A]8 | [=A,,=A,^C=E]8 | [=B,,=B,=D^F]8 | [=G,=G=B=d]8 | [=D,=D^F=A]8 | [=A,,=A,^C=E]8 | [=B,,=B,=D^F]8 | [=G,=G=B=d]8 | [=D,=D^F=A]8 | [=A,,=A,^C=E]8 | [=B,,=B,=D^F]8 |
+!mp! [=D^F=A]2[=D^F=A]2[=D^F=A]2[=D^F=A]2 | [=B=d^f]2[=B=d^f]2[=B=d^f]2[=B=d^f]2 | [=G=B=d]2[=G=B=d]2[=G=B=d]2[=G=B=d]2 | [=A^c=e]2[=A^c=e]2[=A^c=e]2[=A^c=e]2 | [=D^F=A]2[=D^F=A]2[=D^F=A]2[=D^F=A]2 | [=B=d^f]2[=B=d^f]2[=B=d^f]2[=B=d^f]2 | [=G=B=d]2[=G=B=d]2[=G=B=d]2[=G=B=d]2 | [=A^c=e]2[=A^c=e]2[=A^c=e]2[=A^c=e]2 | [=D^F=A]2[=D^F=A]2[=D^F=A]2[=D^F=A]2 | [=B=d^f]2[=B=d^f]2[=B=d^f]2[=B=d^f]2 | [=G=B=d]2[=G=B=d]2[=G=B=d]2[=G=B=d]2 | [=A^c=e]2[=A^c=e]2[=A^c=e]2[=A^c=e]2 | [=D^F=A]2[=D^F=A]2[=D^F=A]2[=D^F=A]2 | [=B=d^f]2[=B=d^f]2[=B=d^f]2[=B=d^f]2 | [=G=B=d]2[=G=B=d]2[=G=B=d]2[=G=B=d]2 | [=A^c=e]2[=A^c=e]2[=A^c=e]2[=A^c=e]2 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mf! =G,2=d2=b2=d2 | =D,2=A2^f2=A2 | =E,2=B2=g2=B2 | =A,2=e2^c'2=e2 | =G,2=d2=b2=d2 | =D,2=A2^f2=A2 | =E,2=B2=g2=B2 | =A,2=e2^c'2=e2 | =G,2=d2=b2=d2 | =D,2=A2^f2=A2 | =E,2=B2=g2=B2 | =A,2=e2^c'2=e2 | =G,2=d2=b2=d2 | =D,2=A2^f2=A2 | =E,2=B2=g2=B2 |
+!mf! =D,=A,^f=d=a=d^f=A, | ^F,^C=a^f^c'^f=a^C | =G,=D=b=g=d'=g=b=D | =A,=E^c'=a=e'=a^c'=E | =D,=A,^f=d=a=d^f=A, | ^F,^C=a^f^c'^f=a^C | =G,=D=b=g=d'=g=b=D | =A,=E^c'=a=e'=a^c'=E | =D,=A,^f=d=a=d^f=A, | ^F,^C=a^f^c'^f=a^C | =G,=D=b=g=d'=g=b=D | =A,=E^c'=a=e'=a^c'=E | =D,=A,^f=d=a=d^f=A, | ^F,^C=a^f^c'^f=a^C | =G,=D=b=g=d'=g=b=D | =A,=E^c'=a=e'=a^c'=E | =D,=A,^f=d=a=d^f=A, | ^F,^C=a^f^c'^f=a^C | =G,=D=b=g=d'=g=b=D | =A,=E^c'=a=e'=a^c'=E | =D,=A,^f=d=a=d^f=A, | ^F,^C=a^f^c'^f=a^C | =G,=D=b=g=d'=g=b=D | =A,=E^c'=a=e'=a^c'=E | =D,=A,^f=d=a=d^f=A, | ^F,^C=a^f^c'^f=a^C | =G,=D=b=g=d'=g=b=D |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!ff! [=E^G=B]3[=E^G=B]3[=E^G=B]2 | [^C=E^G]3[^C=E^G]3[^C=E^G]2 | [=A^c=e]3[=A^c=e]3[=A^c=e]2 | [=B,^D^F]3[=B,^D^F]3[=B,^D^F]2 | [=E^G=B]3[=E^G=B]3[=E^G=B]2 | [^C=E^G]3[^C=E^G]3[^C=E^G]2 | [=A^c=e]3[=A^c=e]3[=A^c=e]2 | [=B,^D^F]3[=B,^D^F]3[=B,^D^F]2 | [=E^G=B]3[=E^G=B]3[=E^G=B]2 | [^C=E^G]3[^C=E^G]3[^C=E^G]2 | [=A^c=e]3[=A^c=e]3[=A^c=e]2 | [=B,^D^F]3[=B,^D^F]3[=B,^D^F]2 | [=E^G=B]3[=E^G=B]3[=E^G=B]2 | [^C=E^G]3[^C=E^G]3[^C=E^G]2 | [=A^c=e]3[=A^c=e]3[=A^c=e]2 | [=B,^D^F]3[=B,^D^F]3[=B,^D^F]2 | [=E^G=B]3[=E^G=B]3[=E^G=B]2 | [^C=E^G]3[^C=E^G]3[^C=E^G]2 | [=A^c=e]3[=A^c=e]3[=A^c=e]2 | [=B,^D^F]3[=B,^D^F]3[=B,^D^F]2 |
+!mf! =D,2=A2^f2=A2 | =B,,2^F2=d2^F2 | =G,2=d2=b2=d2 | =A,2=e2^c'2=e2 | =D,2=A2^f2=A2 | =B,,2^F2=d2^F2 | =G,2=d2=b2=d2 | =A,2=e2^c'2=e2 | =D,2=A2^f2=A2 | =B,,2^F2=d2^F2 | =G,2=d2=b2=d2 |
+!mf! [=G,=G=B=d]8 | [=A,,=A,^C=E]8 | [=D,=D^F=A]8 | [=D,=D^F=A]8 | [=G,=G=B=d]8 | !fermata![=A,,=A,^C=E]8 |]
+V:PLK inst=synpluck gain=0.55
+!mp! =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/ |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!f! =d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/ | =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/ |
+!mp! =d=a^f=a=d'=a^f=a | =a=e'^c'=e'=a'=e'^c'=e' | =B^f=d^f=b^f=d^f | =g=d'=b=d'=g'=d'=b=d' | =d=a^f=a=d'=a^f=a | =a=e'^c'=e'=a'=e'^c'=e' | =B^f=d^f=b^f=d^f | =g=d'=b=d'=g'=d'=b=d' | =d=a^f=a=d'=a^f=a | =a=e'^c'=e'=a'=e'^c'=e' | =B^f=d^f=b^f=d^f | =g=d'=b=d'=g'=d'=b=d' | =d=a^f=a=d'=a^f=a | =a=e'^c'=e'=a'=e'^c'=e' | =B^f=d^f=b^f=d^f | =g=d'=b=d'=g'=d'=b=d' | =d=a^f=a=d'=a^f=a |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!p! =d=a^f=a=d'=a^f=a | =a=e'^c'=e'=a'=e'^c'=e' | =B^f=d^f=b^f=d^f | =g=d'=b=d'=g'=d'=b=d' | =d=a^f=a=d'=a^f=a | =a=e'^c'=e'=a'=e'^c'=e' | =B^f=d^f=b^f=d^f | =g=d'=b=d'=g'=d'=b=d' | =d=a^f=a=d'=a^f=a | =a=e'^c'=e'=a'=e'^c'=e' | =B^f=d^f=b^f=d^f | =g=d'=b=d'=g'=d'=b=d' | =d=a^f=a=d'=a^f=a | =a=e'^c'=e'=a'=e'^c'=e' | =B^f=d^f=b^f=d^f | =g=d'=b=d'=g'=d'=b=d' | =d=a^f=a=d'=a^f=a | =a=e'^c'=e'=a'=e'^c'=e' | =B^f=d^f=b^f=d^f | =g=d'=b=d'=g'=d'=b=d' | =d=a^f=a=d'=a^f=a | =a=e'^c'=e'=a'=e'^c'=e' | =B^f=d^f=b^f=d^f | =g=d'=b=d'=g'=d'=b=d' | =d=a^f=a=d'=a^f=a |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!p! =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/=d/^f/=a/^f/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mf! =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/=g/=b/=d'/=b/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/=B/=d/^f/=d/ | =a4z4 |
+!f! =e/^g/=b/^g/=e/^g/=b/^g/=e/^g/=b/^g/=e/^g/=b/^g/ | ^c/=e/^g/=e/^c/=e/^g/=e/^c/=e/^g/=e/^c/=e/^g/=e/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/^d/^f/^d/=B/^d/^f/^d/=B/^d/^f/^d/=B/^d/^f/^d/ | =e/^g/=b/^g/=e/^g/=b/^g/=e/^g/=b/^g/=e/^g/=b/^g/ | ^c/=e/^g/=e/^c/=e/^g/=e/^c/=e/^g/=e/^c/=e/^g/=e/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/^d/^f/^d/=B/^d/^f/^d/=B/^d/^f/^d/=B/^d/^f/^d/ | =e/^g/=b/^g/=e/^g/=b/^g/=e/^g/=b/^g/=e/^g/=b/^g/ | ^c/=e/^g/=e/^c/=e/^g/=e/^c/=e/^g/=e/^c/=e/^g/=e/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/^d/^f/^d/=B/^d/^f/^d/=B/^d/^f/^d/=B/^d/^f/^d/ | =e/^g/=b/^g/=e/^g/=b/^g/=e/^g/=b/^g/=e/^g/=b/^g/ | ^c/=e/^g/=e/^c/=e/^g/=e/^c/=e/^g/=e/^c/=e/^g/=e/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/^d/^f/^d/=B/^d/^f/^d/=B/^d/^f/^d/=B/^d/^f/^d/ | =e/^g/=b/^g/=e/^g/=b/^g/=e/^g/=b/^g/=e/^g/=b/^g/ | ^c/=e/^g/=e/^c/=e/^g/=e/^c/=e/^g/=e/^c/=e/^g/=e/ | =a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/=a/^c'/=e'/^c'/ | =B/^d/^f/^d/=B/^d/^f/^d/=B/^d/^f/^d/=B/^d/^f/^d/ |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 |]
+V:MAR inst=marimba gain=0.6
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mf! =g=b=d'=b'=d'=b=g'=d' | =d^f=a^f'=a^f=d'=a | =A^c=e^c'=e^c=a=e | =B=d^f=d'^f=d=b^f | =g=b=d'=b'=d'=b=g'=d' | =d^f=a^f'=a^f=d'=a | =A^c=e^c'=e^c=a=e | =B=d^f=d'^f=d=b^f | =g=b=d'=b'=d'=b=g'=d' | =d^f=a^f'=a^f=d'=a | =A^c=e^c'=e^c=a=e | =B=d^f=d'^f=d=b^f | =g=b=d'=b'=d'=b=g'=d' | =d^f=a^f'=a^f=d'=a | =A^c=e^c'=e^c=a=e | =B=d^f=d'^f=d=b^f | =g=b=d'=b'=d'=b=g'=d' | =d^f=a^f'=a^f=d'=a | =A^c=e^c'=e^c=a=e | =B=d^f=d'^f=d=b^f |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 |]
+V:PIZ inst=pizz gain=0.7
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!f! =D,2=A2^F2=A2 | =B,,2^F2=D2^F2 | =G,,2=D2=B,2=D2 | =A,,2=E2^C2=E2 | =D,2=A2^F2=A2 | =B,,2^F2=D2^F2 | =G,,2=D2=B,2=D2 | =A,,2=E2^C2=E2 | =D,2=A2^F2=A2 | =B,,2^F2=D2^F2 | =G,,2=D2=B,2=D2 | =A,,2=E2^C2=E2 | =D,2=A2^F2=A2 | =B,,2^F2=D2^F2 | =G,,2=D2=B,2=D2 | =A,,2=E2^C2=E2 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 |]
+V:PAD inst=warmpad gain=0.25
+!mp! [=B,,=D,^F,]8 | [=G,=B,=D]8 | [=D,^F,=A,]8 | [=A,^C=E]8 | [=B,,=D,^F,]8 | [=G,=B,=D]8 | [=D,^F,=A,]8 | [=A,^C=E]8 | [=B,,=D,^F,]8 | [=G,=B,=D]8 | [=D,^F,=A,]8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!f! [=D^F=A]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D^F=A]8 |
+z8 | z8 | z8 | z8 | z8 | z8 | !mp! [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 |
+!mp! [=D^F=A]8 | [=G,=B,=D]8 | [=B,=D^F]8 | [=A,^C=E]8 | [=D^F=A]8 | [=G,=B,=D]8 | [=B,=D^F]8 | [=A,^C=E]8 | [=D^F=A]8 | [=G,=B,=D]8 | [=B,=D^F]8 | [=A,^C=E]8 | [=D^F=A]8 | [=G,=B,=D]8 | [=B,=D^F]8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mp! [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mp! [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=A,^C=E]8 | [=B,=D^F]8 |
+!mp! [=G,=B,=D]8 | [=D^F=A]8 | [=E=G=B]8 | [=A,^C=E]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=E=G=B]8 | [=A,^C=E]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=E=G=B]8 | [=A,^C=E]8 | [=G,=B,=D]8 | [=D^F=A]8 | [=E=G=B]8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mf! [=G,=B,=D]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=A,^C=E]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=B,=D^F]8 | [=A,^C=E]4z4 |
+!f! [=E^G=B]8 | [^C=E^G]8 | [=A,^C=E]8 | [=B,^D^F]8 | [=E^G=B]8 | [^C=E^G]8 | [=A,^C=E]8 | [=B,^D^F]8 | [=E^G=B]8 | [^C=E^G]8 | [=A,^C=E]8 | [=B,^D^F]8 | [=E^G=B]8 | [^C=E^G]8 | [=A,^C=E]8 | [=B,^D^F]8 | [=E^G=B]8 | [^C=E^G]8 | [=A,^C=E]8 | [=B,^D^F]8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 |]
+V:STR inst=strings gain=0.75
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | !p! [=E,=G,=B,]8 | [=E,=G,=B,]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=B,,=D,^F,]8 | [=E,=G,=B,]8 | [=A,^C=E]8 |
+!ff! =d2=e2^f2=a2 | =b6z2 | =b2=a2^f2=e2 | ^c6z2 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mf! [=D,^F,=A,]8 | [=B,,=D,^F,]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [=B,,=D,^F,]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [=B,,=D,^F,]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [=B,,=D,^F,]8 | [=G,=B,=D]8 | [=A,^C=E]8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mp! [=D,^F,=A,]8 | [^F,=A,^C]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [^F,=A,^C]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [^F,=A,^C]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [^F,=A,^C]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [^F,=A,^C]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [^F,=A,^C]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [^F,=A,^C]8 | [=G,=B,=D]8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!ff! =e2^f2^g2=b2 | ^c'6z2 | ^c'2=b2^g2^f2 | ^d6z2 | =e2^f2^g2=b2 | ^c'6z2 | ^c'2=b2^g2^f2 | ^d6z2 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mf! [=D,^F,=A,]8 | [=B,,=D,^F,]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [=B,,=D,^F,]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [=B,,=D,^F,]8 | [=G,=B,=D]8 |
+!mf! [=G,=B,=D]8 | [=A,^C=E]8 | [=D,^F,=A,]8 | [=D,^F,=A,]8 | [=G,=B,=D]8 | !fermata![=A,^C=E]8 |]
+V:GLK inst=glock gain=0.65 role=melody
+z8 | z8 | z8 | z8 | !mf! =B2^c2=d2^f2 | =g6z2 | =g2^f2=d2^c2 | =A6z2 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | !mf! =d2=e2^f2=a2 | =g6z2 | =b2=a2^f2=e2 | ^c6z2 | z8 | z8 | z8 |
+!mp! =d2=e2^f2=a2 | =g6z2 | =b2=a2^f2=e2 | ^c6z2 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | !mp! =d2=e2^f2=a2 | =b6z2 | =b2=a2^f2=e2 | ^c6z2 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | !mp! =d2=e2^f2=a2 | =a6z2 | =b2=a2^f2=e2 | ^c6z2 | =d2=e2^f2=a2 | =a6z2 | =b2=a2^f2=e2 | ^c6z2 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mf! =d2=e2^f2=a2 | =a6z2 | =b2=a2^f2=e2 | =d6z2 | z8 | z8 |]
+V:HRN inst=horn gain=0.55
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!f! [=D^F=A]8 | [=B,=D^F]8 | [=G,=B,=D]8 | [=A,^C=E]8 | [=D^F=A]8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!f! [=E^G=B]8 | [^C=E^G]8 | [=A,^C=E]8 | [=B,^D^F]8 | [=E^G=B]8 | [^C=E^G]8 | [=A,^C=E]8 | [=B,^D^F]8 | [=E^G=B]8 | [^C=E^G]8 | [=A,^C=E]8 | [=B,^D^F]8 | [=E^G=B]8 | [^C=E^G]8 | [=A,^C=E]8 | [=B,^D^F]8 | [=E^G=B]8 | [^C=E^G]8 | [=A,^C=E]8 | [=B,^D^F]8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mp! [=G,=B,=D]8 | [=A,^C=E]8 | [=D^F=A]8 | [=D^F=A]8 | [=G,=B,=D]8 | !fermata![=A,^C=E]8 |]
+V:FLT inst=flute gain=0.6 role=melody
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | !mp! =d2=e2^f2=a2 | =a6z2 | =b2=a2^f2=e2 | =d6z2 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | !mp! =d2=e2^f2=a2 | =a6z2 | =b2=a2^f2=e2 | ^c6z2 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | !mp! =d2=e2^f2=a2 | =a6z2 | =b2=a2^f2=e2 | =d6z2 | =d2=e2^f2=a2 | =a6z2 | =b2=a2^f2=e2 | =d6z2 |
+z8 | z8 | z8 | z8 | z8 | z8 |]
+V:BAS inst=bass gain=0.5
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | !mp! =E,,8 | =E,,8 | =G,,8 | =A,,8 | =B,,,8 | =E,,8 | =A,,8 |
+!ff! =D,,3=D,,3=D,,2 | =B,,,3=B,,,3=B,,,2 | =G,,3=G,,3=G,,2 | =A,,3=A,,3=A,,2 | =D,,3=D,,3=D,,2 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | !mf! =B,,,4=B,,,4 | =A,,4=A,,4 | =D,,4=D,,4 | =G,,4=G,,4 | =B,,,4=B,,,4 | =A,,4=A,,4 | =D,,4=D,,4 | =G,,4=G,,4 | =B,,,4=B,,,4 | =A,,4=A,,4 | =D,,4=D,,4 | =G,,4=G,,4 | =B,,,4=B,,,4 |
+!mp! =D,,4=D,,4 | =A,,4=A,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =D,,4=D,,4 | =A,,4=A,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =D,,4=D,,4 | =A,,4=A,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =D,,4=D,,4 | =A,,4=A,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =D,,4=D,,4 | =A,,4=A,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =D,,4=D,,4 | =A,,4=A,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =D,,4=D,,4 |
+!mf! =G,,4=G,,4 | =D,,4=D,,4 | =A,,4=A,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =D,,4=D,,4 | =A,,4=A,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =D,,4=D,,4 | =A,,4=A,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =D,,4=D,,4 | =A,,4=A,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =D,,4=D,,4 | =A,,4=A,,4 | =B,,,4=B,,,4 |
+!mf! =D,,4=D,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =A,,4=A,,4 | =D,,4=D,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =A,,4=A,,4 | =D,,4=D,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =A,,4=A,,4 | =D,,4=D,,4 | =B,,,4=B,,,4 | =G,,4=G,,4 | =A,,4=A,,4 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | !mp! =G,,8 | =D,,8 | =E,,8 | =A,,8 | =G,,8 | =D,,8 | =E,,8 |
+!mf! =D,,4=D,,4 | ^F,,4^F,,4 | =G,,4=G,,4 | =A,,4=A,,4 | =D,,4=D,,4 | ^F,,4^F,,4 | =G,,4=G,,4 | =A,,4=A,,4 | =D,,4=D,,4 | ^F,,4^F,,4 | =G,,4=G,,4 | =A,,4=A,,4 | =D,,4=D,,4 | ^F,,4^F,,4 | =G,,4=G,,4 | =A,,4=A,,4 | =D,,4=D,,4 | ^F,,4^F,,4 | =G,,4=G,,4 | =A,,4=A,,4 | =D,,4=D,,4 | ^F,,4^F,,4 | =G,,4=G,,4 | =A,,4=A,,4 | =D,,4=D,,4 | ^F,,4^F,,4 | =G,,4=G,,4 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!ff! =E,,3=E,,3=E,,2 | ^C,,3^C,,3^C,,2 | =A,,3=A,,3=A,,2 | =B,,,3=B,,,3=B,,,2 | =E,,3=E,,3=E,,2 | ^C,,3^C,,3^C,,2 | =A,,3=A,,3=A,,2 | =B,,,3=B,,,3=B,,,2 | =E,,3=E,,3=E,,2 | ^C,,3^C,,3^C,,2 | =A,,3=A,,3=A,,2 | =B,,,3=B,,,3=B,,,2 | =E,,3=E,,3=E,,2 | ^C,,3^C,,3^C,,2 | =A,,3=A,,3=A,,2 | =B,,,3=B,,,3=B,,,2 | =E,,3=E,,3=E,,2 | ^C,,3^C,,3^C,,2 | =A,,3=A,,3=A,,2 | =B,,,3=B,,,3=B,,,2 |
+!mp! =D,,8 | =B,,,8 | =G,,8 | =A,,8 | =D,,8 | =B,,,8 | =G,,8 | =A,,8 | =D,,8 | =B,,,8 | =G,,8 |
+!mf! =G,,8 | =A,,8 | =D,,8 | =D,,8 | =G,,8 | !fermata!=A,,8 |]
+V:SYB inst=synbass gain=0.38
+z8 | z8 | !mp! =D,,=D,,=D,,=D,,=D,,=D,,=A,,=D,, | =A,,=A,,=A,,=A,,=A,,=A,,=E,=A,, | =B,,,=B,,,=B,,,=B,,,=B,,,=B,,,^F,,=B,,, | =G,,=G,,=G,,=G,,=G,,=G,,=D,=G,, | =D,,=D,,=D,,=D,,=D,,=D,,=A,,=D,, | =A,,=A,,=A,,=A,,=A,,=A,,=E,=A,, | =B,,,=B,,,=B,,,=B,,,=B,,,=B,,,^F,,=B,,, | =G,,=G,,=G,,=G,,=G,,=G,,=D,=G,, | =D,,=D,,=D,,=D,,=D,,=D,,=A,,=D,, |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 |
+!mp! =D,,=D,,=D,,=D,,=D,,=D,,=A,,=D,, | =A,,=A,,=A,,=A,,=A,,=A,,=E,=A,, | =B,,,=B,,,=B,,,=B,,,=B,,,=B,,,^F,,=B,,, | =G,,=G,,=G,,=G,,=G,,=G,,=D,=G,, | =D,,=D,,=D,,=D,,=D,,=D,,=A,,=D,, | =A,,=A,,=A,,=A,,=A,,=A,,=E,=A,, | =B,,,=B,,,=B,,,=B,,,=B,,,=B,,,^F,,=B,,, | =G,,=G,,=G,,=G,,=G,,=G,,=D,=G,, | =D,,=D,,=D,,=D,,=D,,=D,,=A,,=D,, | =A,,=A,,=A,,=A,,=A,,=A,,=E,=A,, | =B,,,=B,,,=B,,,=B,,,=B,,,=B,,,^F,,=B,,, | =G,,=G,,=G,,=G,,=G,,=G,,=D,=G,, | =D,,=D,,=D,,=D,,=D,,=D,,=A,,=D,, | =A,,=A,,=A,,=A,,=A,,=A,,=E,=A,, | =B,,,=B,,,=B,,,=B,,,=B,,,=B,,,^F,,=B,,, | =G,,=G,,=G,,=G,,=G,,=G,,=D,=G,, | =D,,=D,,=D,,=D,,=D,,=D,,=A,,=D,, |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mp! =B,,,=B,,,=B,,=B,,,=B,,,=B,,,=B,,=B,,, | =G,,=G,,=G,=G,,=G,,=G,,=G,=G,, | =D,,=D,,=D,=D,,=D,,=D,,=D,=D,, | =A,,=A,,=A,=A,,=A,,=A,,=A,=A,, | =B,,,=B,,,=B,,=B,,,=B,,,=B,,,=B,,=B,,, | =G,,=G,,=G,=G,,=G,,=G,,=G,=G,, | =D,,=D,,=D,=D,,=D,,=D,,=D,=D,, | =A,,=A,,=A,=A,,=A,,=A,,=A,=A,, | =B,,,=B,,,=B,,=B,,,=B,,,=B,,,=B,,=B,,, | =G,,=G,,=G,=G,,=G,,=G,,=G,=G,, | =D,,=D,,=D,=D,,=D,,=D,,=D,=D,, | =A,,=A,,=A,=A,,=A,,=A,,=A,=A,, | =B,,,=B,,,=B,,=B,,,=B,,,=B,,,=B,,=B,,, | =G,,=G,,=G,=G,,=G,,=G,,=G,=G,, | =D,,=D,,=D,=D,,=D,,=D,,=D,=D,, | =A,,=A,,=A,=A,,=A,,=A,,=A,=A,, | =B,,,=B,,,=B,,=B,,,=B,,,=B,,,=B,,=B,,, | =G,,=G,,=G,=G,,=G,,=G,,=G,=G,, | =D,,=D,,=D,=D,,=D,,=D,,=D,=D,, | =A,,=A,,=A,=A,,=A,,=A,,=A,=A,, | =B,,,=B,,,=B,,=B,,,=B,,,=B,,,=B,,=B,,, | =G,,=G,,=G,=G,,=G,,=G,,=G,=G,, | =D,,=D,,=D,=D,,=D,,=D,,=D,=D,, | =A,,=A,,=A,=A,,=A,,=A,,=A,=A,, | =B,,,=B,,,=B,,=B,,,=B,,,=B,,,=B,,=B,,, |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mf! =G,,=G,,=G,,=G,,=G,,=G,,=D,=G,, | =A,,=A,,=A,,=A,,=A,,=A,,=E,=A,, | =B,,,=B,,,=B,,,=B,,,=B,,,=B,,,^F,,=B,,, | =A,,=A,,=A,,=A,,=A,,=A,,=E,=A,, | =G,,=G,,=G,,=G,,=G,,=G,,=D,=G,, | =A,,=A,,=A,,=A,,=A,,=A,,=E,=A,, | =B,,,=B,,,=B,,,=B,,,=B,,,=B,,,^F,,=B,,, | =A,,4z4 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 |]
+V:DR inst=drums kit=pop gain=0.78
+!mark:hook! !mp! [C,,^C,]2C,,2C,,2C,,2 | C,,2C,,2C,,2C,,2 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | !rise(! z8 !rise)! |
+!mark:why! z8 | z8 | z8 | z8 | z8 | z8 | !p! ^A^A^A^A^A^A^A^A | ^A^A^A^A^A^A^A^A | ^A^A^A^A^A^A^A^A | !rise(! ^A^A^A^A^A^A^A^A | ^A^A^A^A^A^A^A^A !rise)! |
+!mark:reveal! !ff! !hit! [C,,^C,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, |
+!mark:layers! !mp! [C,,^F,,]^F,,^F,,^F,,[D,,^F,,]^F,,^F,,^F,, | [C,,^F,,]^F,,^F,,^F,,[D,,^F,,]^F,,^F,,^F,, | [C,,^F,,]^F,,^F,,^F,,[D,,^F,,]^F,,^F,,^F,, | [C,,^F,,]^F,,^F,,^F,,[D,,^F,,]^F,,^F,,^F,, | [C,,^F,,]^F,,^F,,^F,,[D,,^F,,]^F,,^F,,^F,, | [C,,^F,,]^F,,^F,,^F,,[D,,^F,,]^F,,^F,,^F,, | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mark:profile! z8 | z8 | !mp! [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A |
+!mark:affairs! !mp! [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A |
+!mark:memo! !mf! [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A |
+!mark:schedule! !mf! [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A |
+!mark:ask! z8 | z8 | !mp! [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | [C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/[C,,^F,,]/^F,,/^F,,/^F,,/[C,,^D,,^F,,]/^F,,/^F,,/^F,,/ | z8 | z8 | z8 | z8 | z8 |
+!mark:confirm! z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mark:learning! z8 | z8 | z8 | z8 | !mp! [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A |
+!mark:plugins! !mf! !filter(! [C,,^C,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | !rise(! [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, !filter)! | z8 !rise)! |
+!mark:numbers! !ff! !hit! [C,,^C,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, |
+!mark:reflect! z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+!mark:end! z8 | z8 | z8 | z8 | z8 | z8 |]
+V:DR2 inst=drums kit=pop gain=0.78
+z8 | z8 | !mf! [C,,^C,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | !mp! [C,,^C,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | !rise(! [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, | [C,,^F,,]^F,,[C,,^D,,^F,,]^F,,[C,,^F,,]^F,,[C,,^D,,^F,,]^A,, !rise)! |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | !mp! [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A | [C,,^A]^A^A^A[C,,^A]^A[D,,^A]^A |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 |]
+V:DRF inst=drums kit=pop gain=0.78
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | !mf! D,,/D,,/D,,/D,,/A,,/A,,/A,,/A,,/D,,/D,,/D,,/D,,/[C,,^C,]2 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 | z8 | z8 |]
+</script>
+<script src="main.js"></script>
+</body>
+</html>

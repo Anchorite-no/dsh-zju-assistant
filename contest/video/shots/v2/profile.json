@@ -1,0 +1,226 @@
+{
+  "image": "profile.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "设置 → 个人档案：基础信息和记忆（课程、平台入口、偏好；计算机组成那条写着待核实）",
+  "elements": [
+    {
+      "name": "page.title",
+      "id": "page-title",
+      "kind": "page.title",
+      "text": "校园事务",
+      "x": 460,
+      "y": 68,
+      "w": 80,
+      "h": 28
+    },
+    {
+      "name": "identity",
+      "id": "identity",
+      "kind": "identity",
+      "text": "基础信息 从教务网读取 编辑 称呼 林同学 学院 计算机科学与技术学院 专业 计算机科学与技术080901 入学年份 2025 培养层次 本科 校区 紫金港校区",
+      "x": 612,
+      "y": 154,
+      "w": 559,
+      "h": 250
+    },
+    {
+      "name": "identity.field[0]",
+      "id": "identity-field-0",
+      "kind": "identity.field",
+      "text": "称呼 林同学",
+      "x": 614,
+      "y": 213,
+      "w": 261.5,
+      "h": 44
+    },
+    {
+      "name": "identity.field[1]",
+      "id": "identity-field-1",
+      "kind": "identity.field",
+      "text": "学院 计算机科学与技术学院",
+      "x": 907.5,
+      "y": 213,
+      "w": 261.5,
+      "h": 44
+    },
+    {
+      "name": "identity.field[2]",
+      "id": "identity-field-2",
+      "kind": "identity.field",
+      "text": "专业 计算机科学与技术080901",
+      "x": 614,
+      "y": 277,
+      "w": 261.5,
+      "h": 44
+    },
+    {
+      "name": "identity.field[3]",
+      "id": "identity-field-3",
+      "kind": "identity.field",
+      "text": "入学年份 2025",
+      "x": 907.5,
+      "y": 277,
+      "w": 261.5,
+      "h": 44
+    },
+    {
+      "name": "identity.field[4]",
+      "id": "identity-field-4",
+      "kind": "identity.field",
+      "text": "培养层次 本科",
+      "x": 614,
+      "y": 341,
+      "w": 261.5,
+      "h": 44
+    },
+    {
+      "name": "identity.field[5]",
+      "id": "identity-field-5",
+      "kind": "identity.field",
+      "text": "校区 紫金港校区",
+      "x": 907.5,
+      "y": 341,
+      "w": 261.5,
+      "h": 44
+    },
+    {
+      "name": "memory[0]",
+      "id": "memory-0",
+      "kind": "memory",
+      "text": "体质健康测试 10月21日",
+      "x": 452,
+      "y": 635,
+      "w": 430,
+      "h": 44
+    },
+    {
+      "name": "memory[1]",
+      "id": "memory-1",
+      "kind": "memory",
+      "text": "大物第三次作业延后到周五 10月20日",
+      "x": 452,
+      "y": 679,
+      "w": 430,
+      "h": 44
+    },
+    {
+      "name": "memory[2]",
+      "id": "memory-2",
+      "kind": "memory",
+      "text": "周五下午找辅导员签字 10月19日",
+      "x": 452,
+      "y": 723,
+      "w": 430,
+      "h": 44
+    },
+    {
+      "name": "memory[3]",
+      "id": "memory-3",
+      "kind": "memory",
+      "text": "大物实验带预习报告 10月18日",
+      "x": 452,
+      "y": 767,
+      "w": 430,
+      "h": 44
+    },
+    {
+      "name": "memory[4]",
+      "id": "memory-4",
+      "kind": "memory",
+      "text": "四六级报名 10月19日",
+      "x": 452,
+      "y": 811,
+      "w": 430,
+      "h": 44
+    },
+    {
+      "name": "memory[5]",
+      "id": "memory-5",
+      "kind": "memory",
+      "text": "大学物理（乙）Ⅱ 10月20日",
+      "x": 604,
+      "y": 684,
+      "w": 575,
+      "h": 44
+    },
+    {
+      "name": "memory[6]",
+      "id": "memory-6",
+      "kind": "memory",
+      "text": "数据结构基础 10月19日",
+      "x": 604,
+      "y": 728,
+      "w": 575,
+      "h": 44
+    },
+    {
+      "name": "memory[7]",
+      "id": "memory-7",
+      "kind": "memory",
+      "text": "计算机组成 10月20日",
+      "x": 604,
+      "y": 772,
+      "w": 575,
+      "h": 44
+    },
+    {
+      "name": "memory[8]",
+      "id": "memory-8",
+      "kind": "memory",
+      "text": "概率论与数理统计 10月20日",
+      "x": 604,
+      "y": 816,
+      "w": 575,
+      "h": 44
+    },
+    {
+      "name": "memory[9]",
+      "id": "memory-9",
+      "kind": "memory",
+      "text": "平台入口 10月12日",
+      "x": 604,
+      "y": 860,
+      "w": 575,
+      "h": 44
+    },
+    {
+      "name": "memory[10]",
+      "id": "memory-10",
+      "kind": "memory",
+      "text": "讲解偏好 10月8日",
+      "x": 604,
+      "y": 904,
+      "w": 575,
+      "h": 44
+    },
+    {
+      "name": "memory[11]",
+      "id": "memory-11",
+      "kind": "memory",
+      "text": "选课偏好 10月5日",
+      "x": 604,
+      "y": 948,
+      "w": 575,
+      "h": 44
+    },
+    {
+      "name": "memory[12]",
+      "id": "memory-12",
+      "kind": "memory",
+      "text": "大学物理实验 10月16日",
+      "x": 604,
+      "y": 992,
+      "w": 575,
+      "h": 44
+    }
+  ]
+}

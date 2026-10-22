@@ -1,0 +1,596 @@
+{
+  "image": "schedule.png",
+  "logical": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scale": 2,
+  "pixels": {
+    "width": 3200,
+    "height": 2000
+  },
+  "origin": "top-left, logical px (multiply by scale for image px)",
+  "note": "日程表这一周（第 6 周，双周）：课（含双周的上机和物理实验）、考试、作业截止、带时间的备忘",
+  "elements": [
+    {
+      "name": "grid",
+      "id": "grid",
+      "kind": "grid",
+      "text": "一 10/19 二 10/20 三 今天 四 10/22 五 10/23 六 10/24 日 10/25 08:00 1 08:50 2 10:00 3 10:50 4 11:40 5 13:25 6 14:15 7 15:05 8 16:15 9 17:05 10 18:50 11 19:40 12 20:30 13",
+      "x": 460,
+      "y": 100,
+      "w": 960,
+      "h": 782
+    },
+    {
+      "name": "grid.head[0]",
+      "id": "grid-head-0",
+      "kind": "grid.head",
+      "text": "一 10/19",
+      "x": 512,
+      "y": 102,
+      "w": 126.8,
+      "h": 44
+    },
+    {
+      "name": "grid.head[1]",
+      "id": "grid-head-1",
+      "kind": "grid.head",
+      "text": "二 10/20",
+      "x": 640.8,
+      "y": 102,
+      "w": 126.9,
+      "h": 44
+    },
+    {
+      "name": "grid.head[2]",
+      "id": "grid-head-2",
+      "kind": "grid.head",
+      "text": "三 今天",
+      "x": 769.7,
+      "y": 102,
+      "w": 126.9,
+      "h": 44
+    },
+    {
+      "name": "grid.head[3]",
+      "id": "grid-head-3",
+      "kind": "grid.head",
+      "text": "四 10/22",
+      "x": 898.6,
+      "y": 102,
+      "w": 126.9,
+      "h": 44
+    },
+    {
+      "name": "grid.head[4]",
+      "id": "grid-head-4",
+      "kind": "grid.head",
+      "text": "五 10/23",
+      "x": 1027.4,
+      "y": 102,
+      "w": 126.9,
+      "h": 44
+    },
+    {
+      "name": "grid.head[5]",
+      "id": "grid-head-5",
+      "kind": "grid.head",
+      "text": "六 10/24",
+      "x": 1156.3,
+      "y": 102,
+      "w": 126.9,
+      "h": 44
+    },
+    {
+      "name": "grid.head[6]",
+      "id": "grid-head-6",
+      "kind": "grid.head",
+      "text": "日 10/25",
+      "x": 1285.1,
+      "y": 102,
+      "w": 126.8,
+      "h": 44
+    },
+    {
+      "name": "grid.period[0]",
+      "id": "grid-period-0",
+      "kind": "grid.period",
+      "text": "08:00 1",
+      "x": 462,
+      "y": 146,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[1]",
+      "id": "grid-period-1",
+      "kind": "grid.period",
+      "text": "08:50 2",
+      "x": 462,
+      "y": 202,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[2]",
+      "id": "grid-period-2",
+      "kind": "grid.period",
+      "text": "10:00 3",
+      "x": 462,
+      "y": 258,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[3]",
+      "id": "grid-period-3",
+      "kind": "grid.period",
+      "text": "10:50 4",
+      "x": 462,
+      "y": 314,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[4]",
+      "id": "grid-period-4",
+      "kind": "grid.period",
+      "text": "11:40 5",
+      "x": 462,
+      "y": 370,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[5]",
+      "id": "grid-period-5",
+      "kind": "grid.period",
+      "text": "13:25 6",
+      "x": 462,
+      "y": 426,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[6]",
+      "id": "grid-period-6",
+      "kind": "grid.period",
+      "text": "14:15 7",
+      "x": 462,
+      "y": 482,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[7]",
+      "id": "grid-period-7",
+      "kind": "grid.period",
+      "text": "15:05 8",
+      "x": 462,
+      "y": 538,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[8]",
+      "id": "grid-period-8",
+      "kind": "grid.period",
+      "text": "16:15 9",
+      "x": 462,
+      "y": 594,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[9]",
+      "id": "grid-period-9",
+      "kind": "grid.period",
+      "text": "17:05 10",
+      "x": 462,
+      "y": 650,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[10]",
+      "id": "grid-period-10",
+      "kind": "grid.period",
+      "text": "18:50 11",
+      "x": 462,
+      "y": 706,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[11]",
+      "id": "grid-period-11",
+      "kind": "grid.period",
+      "text": "19:40 12",
+      "x": 462,
+      "y": 762,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.period[12]",
+      "id": "grid-period-12",
+      "kind": "grid.period",
+      "text": "20:30 13",
+      "x": 462,
+      "y": 818,
+      "w": 48,
+      "h": 56
+    },
+    {
+      "name": "grid.day[0]",
+      "id": "grid-day-0",
+      "kind": "grid.day",
+      "text": "数据结构基础 紫金港东1A-301 大学物理（乙）Ⅱ 紫金港东1B-201",
+      "x": 512,
+      "y": 146,
+      "w": 126.8,
+      "h": 728
+    },
+    {
+      "name": "grid.day[1]",
+      "id": "grid-day-1",
+      "kind": "grid.day",
+      "text": "概率论与数理统计 紫金港东2-202 计算机组成 紫金港东1A-405 心理学及应用 紫金港西1-203",
+      "x": 640.8,
+      "y": 146,
+      "w": 126.9,
+      "h": 728
+    },
+    {
+      "name": "grid.day[2]",
+      "id": "grid-day-2",
+      "kind": "grid.day",
+      "text": "大学物理（乙）Ⅱ 紫金港东1B-201 离散数学及其应用 紫金港东2-301 23:59 截止 HW4 书面作业：AVL 树与伸展树",
+      "x": 769.7,
+      "y": 146,
+      "w": 126.9,
+      "h": 728
+    },
+    {
+      "name": "grid.day[3]",
+      "id": "grid-day-3",
+      "kind": "grid.day",
+      "text": "概率论与数理统计 紫金港东2-202 数据结构基础 紫金港曹光彪西-503（机房） 18:00 羽毛球场预约 22:00 截止 预习报告：霍尔效应测磁场 21:00 截止 习题四：随机变量的数字特征 12:00 截止 第 4 章 处理器 练习题",
+      "x": 898.6,
+      "y": 146,
+      "w": 126.9,
+      "h": 728
+    },
+    {
+      "name": "grid.day[4]",
+      "id": "grid-day-4",
+      "kind": "grid.day",
+      "text": "大学物理实验 紫金港东四物理实验中心 体育Ⅲ（羽毛球） 紫金港风雨操场 15:30 周五下午找辅导员签字 23:59 截止 第三次作业：电磁感应 23:59 截止 大物第三次作业延后到周五",
+      "x": 1027.4,
+      "y": 146,
+      "w": 126.9,
+      "h": 728
+    },
+    {
+      "name": "grid.day[5]",
+      "id": "grid-day-5",
+      "kind": "grid.day",
+      "text": "10:30 考试 大学物理（乙）Ⅱ 期中考试 紫金港东1B-201 · 座位 37 19:00 社团技术部面试 22:00 截止 HW5 关系与偏序",
+      "x": 1156.3,
+      "y": 146,
+      "w": 126.9,
+      "h": 728
+    },
+    {
+      "name": "grid.day[6]",
+      "id": "grid-day-6",
+      "kind": "grid.day",
+      "text": "23:00 截止 HW5 树与二叉树",
+      "x": 1285.1,
+      "y": 146,
+      "w": 126.8,
+      "h": 728
+    },
+    {
+      "name": "block[0]",
+      "id": "block-0",
+      "kind": "block",
+      "text": "数据结构基础 紫金港东1A-301",
+      "x": 515,
+      "y": 261,
+      "w": 120.8,
+      "h": 162
+    },
+    {
+      "name": "block[1]",
+      "id": "block-1",
+      "kind": "block",
+      "text": "大学物理（乙）Ⅱ 紫金港东1B-201",
+      "x": 515,
+      "y": 429,
+      "w": 120.8,
+      "h": 162
+    },
+    {
+      "name": "block[2]",
+      "id": "block-2",
+      "kind": "block",
+      "text": "概率论与数理统计 紫金港东2-202",
+      "x": 643.8,
+      "y": 149,
+      "w": 120.9,
+      "h": 106
+    },
+    {
+      "name": "block[3]",
+      "id": "block-3",
+      "kind": "block",
+      "text": "计算机组成 紫金港东1A-405",
+      "x": 643.8,
+      "y": 261,
+      "w": 120.9,
+      "h": 162
+    },
+    {
+      "name": "block[4]",
+      "id": "block-4",
+      "kind": "block",
+      "text": "心理学及应用 紫金港西1-203",
+      "x": 643.8,
+      "y": 709,
+      "w": 120.9,
+      "h": 162
+    },
+    {
+      "name": "block[5]",
+      "id": "block-5",
+      "kind": "block",
+      "text": "大学物理（乙）Ⅱ 紫金港东1B-201",
+      "x": 772.7,
+      "y": 261,
+      "w": 120.9,
+      "h": 106
+    },
+    {
+      "name": "block[6]",
+      "id": "block-6",
+      "kind": "block",
+      "text": "离散数学及其应用 紫金港东2-301",
+      "x": 772.7,
+      "y": 429,
+      "w": 120.9,
+      "h": 162
+    },
+    {
+      "name": "block[7]",
+      "id": "block-7",
+      "kind": "block",
+      "text": "概率论与数理统计 紫金港东2-202",
+      "x": 901.6,
+      "y": 261,
+      "w": 120.9,
+      "h": 106
+    },
+    {
+      "name": "block[8]",
+      "id": "block-8",
+      "kind": "block",
+      "text": "数据结构基础 紫金港曹光彪西-503（机房）",
+      "x": 901.6,
+      "y": 429,
+      "w": 120.9,
+      "h": 162
+    },
+    {
+      "name": "block[9]",
+      "id": "block-9",
+      "kind": "block",
+      "text": "18:00 羽毛球场预约",
+      "x": 901.6,
+      "y": 709,
+      "w": 120.9,
+      "h": 50
+    },
+    {
+      "name": "block[10]",
+      "id": "block-10",
+      "kind": "block",
+      "text": "大学物理实验 紫金港东四物理实验中心",
+      "x": 1030.4,
+      "y": 149,
+      "w": 120.9,
+      "h": 218
+    },
+    {
+      "name": "block[11]",
+      "id": "block-11",
+      "kind": "block",
+      "text": "体育Ⅲ（羽毛球） 紫金港风雨操场",
+      "x": 1030.4,
+      "y": 429,
+      "w": 120.9,
+      "h": 106
+    },
+    {
+      "name": "block[12]",
+      "id": "block-12",
+      "kind": "block",
+      "text": "15:30 周五下午找辅导员签字",
+      "x": 1030.4,
+      "y": 572.1,
+      "w": 120.9,
+      "h": 50
+    },
+    {
+      "name": "block[13]",
+      "id": "block-13",
+      "kind": "block",
+      "text": "10:30 考试 大学物理（乙）Ⅱ 期中考试 紫金港东1B-201 · 座位 37",
+      "x": 1159.3,
+      "y": 298.3,
+      "w": 120.9,
+      "h": 124.7
+    },
+    {
+      "name": "block[14]",
+      "id": "block-14",
+      "kind": "block",
+      "text": "19:00 社团技术部面试",
+      "x": 1159.3,
+      "y": 721.4,
+      "w": 120.9,
+      "h": 50
+    },
+    {
+      "name": "pin[0]",
+      "id": "pin-0",
+      "kind": "pin",
+      "text": "23:59 截止 HW4 书面作业：AVL 树与伸展树",
+      "x": 773.7,
+      "y": 821,
+      "w": 118.9,
+      "h": 50
+    },
+    {
+      "name": "pin[1]",
+      "id": "pin-1",
+      "kind": "pin",
+      "text": "22:00 截止 预习报告：霍尔效应测磁场",
+      "x": 902.6,
+      "y": 821,
+      "w": 118.9,
+      "h": 50
+    },
+    {
+      "name": "pin[2]",
+      "id": "pin-2",
+      "kind": "pin",
+      "text": "21:00 截止 习题四：随机变量的数字特征",
+      "x": 902.6,
+      "y": 765,
+      "w": 118.9,
+      "h": 50
+    },
+    {
+      "name": "pin[3]",
+      "id": "pin-3",
+      "kind": "pin",
+      "text": "12:00 截止 第 4 章 处理器 练习题",
+      "x": 902.6,
+      "y": 341.9,
+      "w": 118.9,
+      "h": 50
+    },
+    {
+      "name": "pin[4]",
+      "id": "pin-4",
+      "kind": "pin",
+      "text": "23:59 截止 第三次作业：电磁感应",
+      "x": 1031.4,
+      "y": 821,
+      "w": 118.9,
+      "h": 50
+    },
+    {
+      "name": "pin[5]",
+      "id": "pin-5",
+      "kind": "pin",
+      "text": "23:59 截止 大物第三次作业延后到周五",
+      "x": 1031.4,
+      "y": 765,
+      "w": 118.9,
+      "h": 50
+    },
+    {
+      "name": "pin[6]",
+      "id": "pin-6",
+      "kind": "pin",
+      "text": "22:00 截止 HW5 关系与偏序",
+      "x": 1160.3,
+      "y": 821,
+      "w": 118.9,
+      "h": 50
+    },
+    {
+      "name": "pin[7]",
+      "id": "pin-7",
+      "kind": "pin",
+      "text": "23:00 截止 HW5 树与二叉树",
+      "x": 1289.1,
+      "y": 821,
+      "w": 118.8,
+      "h": 50
+    },
+    {
+      "name": "grid.now",
+      "id": "grid-now",
+      "kind": "grid.now",
+      "text": "",
+      "x": 769.7,
+      "y": 581.5,
+      "w": 126.9,
+      "h": 1
+    },
+    {
+      "name": "plan.week",
+      "id": "plan-week",
+      "kind": "plan.week",
+      "text": "秋学期第 6 周",
+      "x": 878.3,
+      "y": 63,
+      "w": 79.1,
+      "h": 22
+    },
+    {
+      "name": "plan.nav[0]",
+      "id": "plan-nav-0",
+      "kind": "plan.nav",
+      "text": "",
+      "x": 620,
+      "y": 60,
+      "w": 36,
+      "h": 28
+    },
+    {
+      "name": "plan.nav[1]",
+      "id": "plan-nav-1",
+      "kind": "plan.nav",
+      "text": "本周",
+      "x": 660,
+      "y": 60,
+      "w": 46,
+      "h": 28
+    },
+    {
+      "name": "plan.nav[2]",
+      "id": "plan-nav-2",
+      "kind": "plan.nav",
+      "text": "",
+      "x": 710,
+      "y": 60,
+      "w": 36,
+      "h": 28
+    },
+    {
+      "name": "schedule.tabs[0]",
+      "id": "schedule-tabs-0",
+      "kind": "schedule.tabs",
+      "text": "日程",
+      "x": 460,
+      "y": 60,
+      "w": 40,
+      "h": 28
+    },
+    {
+      "name": "schedule.tabs[1]",
+      "id": "schedule-tabs-1",
+      "kind": "schedule.tabs",
+      "text": "定时任务",
+      "x": 520,
+      "y": 60,
+      "w": 80,
+      "h": 28
+    }
+  ]
+}

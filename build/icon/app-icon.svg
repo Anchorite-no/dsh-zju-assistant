@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="campus-icon-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5A8DF5"/><stop offset="1" stop-color="#2F5CC9"/></linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="232" fill="url(#campus-icon-bg)"/>
+  <path d="M512 468c-80-54-186-72-306-58v356c120-14 226 4 306 58Z" fill="#fff"/>
+  <path d="M512 468c80-54 186-72 306-58v356c-120-14-226 4-306 58Z" fill="#fff" fill-opacity=".82"/>
+  <path d="M512 140c15 84 56 125 140 140-84 15-125 56-140 140-15-84-56-125-140-140 84-15 125-56 140-140Z" fill="#F0700F"/>
+  <circle cx="716" cy="188" r="36" fill="#fff" fill-opacity=".9"/>
+</svg>

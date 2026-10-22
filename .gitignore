@@ -4,18 +4,20 @@ ui/lib/
 *.log
 api-keys.local.yaml
 core/wechat/**/__pycache__/
-计划/wechat-plugin-ui-test/
-计划/weread-plugin-ui-test/
 __pycache__/
 *.pyc
 
 # 调研时下载的第三方安装包和解包目录：不是我们的代码，单个文件也超过 GitHub 的 100 MB 上限。
-计划/钉钉公众号调研/*.exe
-计划/钉钉公众号调研/*.zip
-计划/钉钉公众号调研/dws/
-计划/钉钉公众号调研/qwen-extracted/
-计划/钉钉公众号调研/qwen-package/
+plans/dingtalk-wechat/*.exe
+plans/dingtalk-wechat/*.zip
+plans/dingtalk-wechat/dws/
+plans/dingtalk-wechat/qwen-extracted/
+plans/dingtalk-wechat/qwen-package/
 
-# 交比赛的最终提交包（约 180 MB，由 比赛/支撑材料/tools/finalize.py 打出来）和它试跑的输出，不进仓库。
-比赛/Anchorite+校园智能体.zip
-比赛/支撑材料/tools/finalize-dry/
+# 交比赛的影片（约 180 MB）和总包（约 500 MB，由 contest/docs/support/tools/finalize.py 打出来）超过 GitHub 的 100 MB 上限，和它试跑的输出一起不进仓库。
+contest/round1/*.mp4
+contest/round1/Anchorite+校园智能体.zip
+contest/docs/support/tools/finalize-dry/
+
+# 图标导出的各尺寸 PNG 和 ICO，用 build/icon/rasterize.cjs 重新生成。
+build/icon/out/

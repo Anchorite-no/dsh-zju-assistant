@@ -93,7 +93,7 @@ async function main() {
     minWidth: MIN_WIDTH,
     minHeight: 600,
     title: TITLE,
-    // 应用自己的图标（书和星，源文件在 比赛/视频/icon/）；装好的程序 exe 里也是它（build/icon.ico）。
+    // 应用自己的图标（书和星，源文件在 build/icon/）；装好的程序 exe 里也是它（build/icon.ico）。
     icon: path.join(__dirname, 'icon.ico'),
     show: false,
     backgroundColor: fill,

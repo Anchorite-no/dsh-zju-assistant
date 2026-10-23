@@ -1,0 +1,6 @@
+out/
+frames/
+.om/
+.stills/
+assets/fonts/HarmonyOS_*
+assets/sound.wav

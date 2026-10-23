@@ -1,0 +1,20 @@
+[
+  {
+    "name": "memo-organize",
+    "file": "assets/clips/memo-organize.mp4",
+    "frames": 263,
+    "seconds": 5.2
+  },
+  {
+    "name": "notice-slide-in",
+    "file": "assets/clips/notice-slide-in.mp4",
+    "frames": 90,
+    "seconds": 2
+  },
+  {
+    "name": "trace-grow",
+    "file": "assets/clips/trace-grow.mp4",
+    "frames": 1642,
+    "seconds": 20.7
+  }
+]

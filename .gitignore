@@ -14,10 +14,10 @@ plans/dingtalk-wechat/dws/
 plans/dingtalk-wechat/qwen-extracted/
 plans/dingtalk-wechat/qwen-package/
 
-# 交比赛的影片（约 180 MB）和总包（约 500 MB，由 contest/docs/support/tools/finalize.py 打出来）超过 GitHub 的 100 MB 上限，和它试跑的输出一起不进仓库。
-contest/round1/*.mp4
-contest/round1/Anchorite+校园智能体.zip
-contest/docs/support/tools/finalize-dry/
+# 交比赛的影片（约 180 MB）和总包（约 500 MB，由 submit/tools/finalize.py 打出来）超过 GitHub 的 100 MB 上限，和它试跑的输出一起不进仓库。
+submit/round1/*.mp4
+submit/round1/Anchorite+校园智能体.zip
+submit/tools/finalize-dry/
 
 # 图标导出的各尺寸 PNG 和 ICO，用 build/icon/rasterize.cjs 重新生成。
 build/icon/out/

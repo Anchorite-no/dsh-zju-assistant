@@ -1,9 +1,0 @@
-out/
-frames/
-film/out/
-film/.om/
-film/.stills/
-film/archive/**/*.mp4
-film/assets/fonts/HarmonyOS_*
-shots/v2/html/
-film/assets/sound.wav

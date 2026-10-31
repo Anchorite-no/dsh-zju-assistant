@@ -1,5 +1,5 @@
 #!/bin/sh
-# 把 om render 出来的母版压成交比赛用的 MP4：H.264 两遍编码，总大小压在约 188 MB（比赛上限 200 MB）。
+# 把 om render 出来的母版压成成片 MP4：H.264 两遍编码，总大小压在约 188 MB（上限 200 MB）。
 # 音频：低频收一点、高频提一点，响度统一到 -14 LUFS。
 # 用法：sh tools/final.sh out/film-vN.mp4 out/校园智能体-演示视频.mp4
 set -e

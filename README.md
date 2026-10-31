@@ -1,5 +1,15 @@
 # 校园智能体（桌面端）
 
+[![校园智能体宣传片](docs/cover.jpg)](https://github.com/Anchorite-no/campus-agent/releases/download/demo-video/campus-agent-demo-1080p.mp4)
+
+给浙大学生用的校园 AI 助手，Windows 桌面应用。把散在各处的校园信息串成你自己的日常：教务网、学在浙大、智云课堂、学习通、PTA、学校和学院的通知、公众号，再加上你选定的钉钉群和微信群，接到一起，按课程整理成一份个人档案；问一句话，它去各个网站查、比对，把结果交给你。
+
+宣传片 8 分 24 秒，点上面的封面看完整版（1080p，约 60 MB）。片子里的界面数据是演示实例里编的，人物都是化名。
+
+<!-- 32 秒亮点：在 GitHub 网页上编辑这个文件，把 video/out/campus-agent-highlights.mp4 拖到这一行，生成的链接替换这条注释，就能在页面里直接播放。 -->
+
+以下是开发记录。
+
 自己写的 Electron 壳加自己的界面包，引擎用 DeepSeek Harness（`@deepseek-ai/dsh`，锁在 0.2.0-rc.2，不改它的代码）。产品名是占位的。图标是自己的（2026-10-21 定：打开的书上升起一颗星，品牌蓝底、校园橙的星）：侧栏和新会话首页的在 `ui/client/Brand.tsx`，窗口、任务栏和托盘用 `desktop/icon.ico`、`desktop/icon-32.png`，exe 和安装程序用 `build/icon.ico`（electron-builder 默认从 `build/` 取）；源文件和各尺寸 PNG 在 `build/icon/`。
 
 ## 浙大邮箱
@@ -42,8 +52,8 @@
 | `app.patch.yml` | 组合层：关掉引擎的哪些部分、换人设、插入我们的包 |
 | `build/` | 打包用的图标（electron-builder 默认从这里取）；`icon/` 是图标的源文件和导出脚本 |
 | `plans/` | 计划和盘点；`shots/` 是界面截图，`probes/` 是探测脚本，`plugin-pages/` 是插件页改造的交互草图，`dingtalk-wechat/` 是钉钉和公众号的调研 |
-| `submit/` | 比赛交的东西。`round1/` 是初赛交上去的：申报书、承诺书、作品介绍三份 PDF，演示视频，支撑材料包，和把它们连同安装程序装在一起的总包 `Anchorite+校园智能体.zip`（影片和总包太大，不进仓库）。`docs/` 是这些材料的 Word 源稿，连同空白模板和旧版。`support/` 是技术方案、安装与使用手册、测试与验证报告（Word 和 PDF，源稿是同名的 `.md`）。`tools/` 是排版和打包的脚本：改了源稿用 `build_doc.py` 重排、Word 导出 PDF；`finalize.py --link <网盘链接>` 把安装程序的获取方式、备用下载地址和校验值写进手册，重排手册、重打支撑材料包，再打总包（安装程序超过支撑材料 100 MB 的上限，在总包里单独放在 `6-安装程序/`，云盘链接作备用） |
-| `video/` | 做演示视频的工程，不放成品；`demo/` 是给它截界面的隔离实例和假数据（见 `video/README.md`） |
+| `video/` | 做宣传片的工程，不放成品；`demo/` 是给它截界面的隔离实例和假数据（见 `video/README.md`） |
+| `docs/` | README 用的图：宣传片封面 `cover.jpg` |
 
 ## 命令
 

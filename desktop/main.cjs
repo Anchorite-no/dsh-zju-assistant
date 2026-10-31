@@ -217,7 +217,7 @@ async function main() {
     opening = undefined
     return target
   })
-  // 检查更新（update.cjs）。读私有仓库要 GitHub 令牌：设置里填的那个用系统的加密存在数据目录里，没填就问本机的 GitHub CLI。
+  // 检查更新（update.cjs）。仓库是公开的，不用令牌也能查；有 GitHub 令牌就带上：设置里填的那个用系统的加密存在数据目录里，没填就问本机的 GitHub CLI。
   const tokenFile = path.join(app.getPath('userData'), 'update-token')
   const savedToken = () => { try { return safeStorage.decryptString(readFileSync(tokenFile)) } catch { return undefined } }
   const run = (command, args) => new Promise((resolve, reject) => {

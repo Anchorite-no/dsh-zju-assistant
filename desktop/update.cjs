@@ -1,7 +1,7 @@
 /**
  * 检查更新：有新版本自己下载，下完问要不要立刻装，装完应用自己重新打开。设置 → 通用设置里有一行，能手动查，也看得到下到哪了。
- * 新版本取自 GitHub 上这个项目的 Release（electron-updater）。仓库是私有的，用的人都是它的协作者，
- * 所以每个人用自己的 GitHub 身份去读：环境变量、设置里存的令牌、本机 GitHub CLI 的登录，按这个顺序找（githubToken）。
+ * 新版本取自 GitHub 上这个项目的 Release（electron-updater）。仓库是公开的，不用令牌也能查、能下。
+ * 有 GitHub 令牌就带上：环境变量、设置里存的令牌、本机 GitHub CLI 的登录，按这个顺序找（githubToken）。
  * 只有装好的应用才查，开发时（npm start）不查。
  */
 
@@ -10,8 +10,8 @@ const FIRST_CHECK_MS = 15_000
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000
 
 /**
- * 能读这个仓库的 GitHub 令牌。env 是环境变量，saved 返回设置里存的那个，run 执行一条命令并返回它的输出。
- * 都没有时给 undefined。
+ * 查更新时带上的 GitHub 令牌。env 是环境变量，saved 返回设置里存的那个，run 执行一条命令并返回它的输出。
+ * 都没有时给 undefined，那就不带令牌查。
  */
 async function githubToken({ env, saved, run }) {
   const fromEnv = (env.GH_TOKEN || env.GITHUB_TOKEN || '').trim()
@@ -21,7 +21,7 @@ async function githubToken({ env, saved, run }) {
   try { return (await run('gh', ['auth', 'token'])).trim() || undefined } catch { return undefined }
 }
 
-/** 这次失败是不是因为没有权限：令牌不对，或者这个身份看不到这个仓库（私有仓库对外人回 404）。 */
+/** 这次失败是不是因为读不到：令牌不对，或者看不到这个仓库、它的 Release（仓库要是改回私有，对外人回 404）。 */
 const denied = error => /\b(401|403|404)\b|Bad credentials/.test(String(error?.message ?? error))
 
 /**
@@ -29,7 +29,7 @@ const denied = error => /\b(401|403|404)\b|Bad credentials/.test(String(error?.m
  * feed 返回更新源的配置（打包时写进 app-update.yml 的那一份）；token 找 GitHub 令牌；
  * ask(version) 问用户要不要立刻装，答应了给 true；onChange 在状态变了的时候叫一声。
  * 返回 { state(), check(), install(), start() }。state().status：
- * unavailable（开发模式）、idle、checking、current（已是最新）、downloading、ready（下好了）、no-access（没有权限）、error。
+ * unavailable（开发模式）、idle、checking、current（已是最新）、downloading、ready（下好了）、no-access（带不带令牌都读不到）、error。
  */
 function createUpdater({ autoUpdater, packaged, version, feed, token, ask, onChange = () => {}, timers = globalThis }) {
   let state = { status: packaged ? 'idle' : 'unavailable', current: version }
@@ -48,19 +48,30 @@ function createUpdater({ autoUpdater, packaged, version, feed, token, ask, onCha
     // 只在刚下完时问这一次；答了稍后，设置里那一行留着「安装并重启」，退出应用时也会装上。
     Promise.resolve(ask(info.version)).then((now) => { if (now) install() }, () => {})
   })
-  autoUpdater.on('error', fail)
+  // 查的时候出的错由 check() 接（electron-updater 先发 error 再把它抛出来），这里只接下载时的；不然令牌被拒、换成不带令牌重查之前，那一行会先闪一下「读不到」。
+  autoUpdater.on('error', (error) => { if (state.status !== 'checking') fail(error) })
 
-  /** 查一次。正在查、正在下、已经下好时不重复查。 */
+  /** 按 key 设好更新源查一次，没有 key 就不带令牌。每次都重设：令牌可能刚换过，electron-updater 自己不会重读。 */
+  async function look(key) {
+    autoUpdater.setFeedURL(key ? { ...feed(), token: key } : feed())
+    await autoUpdater.checkForUpdates()
+  }
+
+  /**
+   * 查一次。正在查、正在下、已经下好时不重复查。
+   * 有令牌就带上（electron-updater 这时走 api.github.com）；没有就不带（读 github.com 上公开的发布页）。
+   * 带的令牌被拒了（过期、填错），不带令牌再查一次。
+   */
   async function check() {
     if (!packaged || ['checking', 'downloading', 'ready'].includes(state.status)) return state
     const key = await token()
-    if (!key) return set({ status: 'no-access' })
     set({ status: 'checking' })
     try {
-      // 每次都重设更新源：令牌可能刚换过，electron-updater 自己不会重读。
-      autoUpdater.setFeedURL({ ...feed(), token: key })
-      await autoUpdater.checkForUpdates()
-    } catch (error) { fail(error) }
+      await look(key)
+    } catch (error) {
+      if (key && denied(error)) await look().catch(fail)
+      else fail(error)
+    }
     return state
   }
 

@@ -25,7 +25,7 @@ interface Window {
     update: () => Promise<CampusUpdateState | undefined>
     checkUpdate: () => Promise<CampusUpdateState | undefined>
     installUpdate: () => Promise<void>
-    /** 存下读私有仓库用的 GitHub 令牌（给空的是删掉），随后重新查一次。 */
+    /** 存下查更新时带上的 GitHub 令牌（可以不填；给空的是删掉），随后重新查一次。 */
     saveUpdateToken: (token: string) => Promise<CampusUpdateState | undefined>
     /** 托盘上点的那条消息要打开哪里：一个对话，或者侧栏上的一页；取一次就没了。 */
     takeOpen: () => Promise<{ sessionId?: string, panel?: string } | undefined>

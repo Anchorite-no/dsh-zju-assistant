@@ -6,14 +6,16 @@ import test from 'node:test'
 const require = createRequire(import.meta.url)
 const { createUpdater, githubToken } = require('./update.cjs')
 
-/** 假的 electron-updater：记下壳对它做了什么；reply 决定这次检查它怎么回。 */
+/** 假的 electron-updater：记下壳对它做了什么；reply 决定这次检查它怎么回（拿到这次的更新源）。查失败时和真的一样，先发 error 再抛出来。 */
 function fakeUpdater() {
   const updater = new EventEmitter()
   updater.feeds = []
   updater.installs = []
   updater.reply = () => { updater.emit('update-not-available', {}) }
   updater.setFeedURL = (feed) => { updater.feeds.push(feed) }
-  updater.checkForUpdates = async () => { await updater.reply() }
+  updater.checkForUpdates = async () => {
+    try { await updater.reply(updater.feeds.at(-1)) } catch (error) { updater.emit('error', error); throw error }
+  }
   updater.quitAndInstall = (...args) => { updater.installs.push(args) }
   return updater
 }
@@ -25,7 +27,7 @@ function fixture({ packaged = true, token = 'tok', answer = false } = {}) {
   const tokens = { value: token }
   const updater = createUpdater({
     autoUpdater, packaged, version: '0.1.3', timers,
-    feed: () => ({ provider: 'github', owner: 'o', repo: 'r', private: true }),
+    feed: () => ({ provider: 'github', owner: 'o', repo: 'r', private: false }),
     token: async () => tokens.value,
     ask: (version) => { asked.push(version); return answer },
     onChange: (state) => { changes.push(state.status) },
@@ -49,7 +51,30 @@ test('已是最新：查一次，带着令牌设好更新源，状态回到「�
   const f = fixture()
   assert.deepEqual(f.updater.state(), { status: 'idle', current: '0.1.3' })
   assert.deepEqual(await f.updater.check(), { status: 'current', current: '0.1.3' })
-  assert.deepEqual(f.autoUpdater.feeds, [{ provider: 'github', owner: 'o', repo: 'r', private: true, token: 'tok' }])
+  assert.deepEqual(f.autoUpdater.feeds, [{ provider: 'github', owner: 'o', repo: 'r', private: false, token: 'tok' }])
+  assert.deepEqual(f.changes, ['checking', 'current'])
+})
+
+test('没有令牌也照样查：更新源里不带令牌，查到新版本照样下', async () => {
+  const f = fixture({ token: null })
+  assert.deepEqual(await f.updater.check(), { status: 'current', current: '0.1.3' })
+  assert.deepEqual(f.autoUpdater.feeds, [{ provider: 'github', owner: 'o', repo: 'r', private: false }])
+  assert.deepEqual(f.changes, ['checking', 'current'])
+
+  const later = fixture({ token: '' })
+  later.autoUpdater.reply = () => { later.autoUpdater.emit('update-available', { version: '0.1.8' }) }
+  assert.equal((await later.updater.check()).status, 'downloading')
+  assert.equal('token' in later.autoUpdater.feeds[0], false)
+})
+
+test('带的令牌被拒了：不带令牌再查一次，中间不闪「读不到」', async () => {
+  const f = fixture({ token: 'expired' })
+  f.autoUpdater.reply = (feed) => {
+    if (feed.token) throw new Error('HttpError: 401 Bad credentials')
+    f.autoUpdater.emit('update-not-available', {})
+  }
+  assert.equal((await f.updater.check()).status, 'current')
+  assert.deepEqual(f.autoUpdater.feeds.map(feed => feed.token), ['expired', undefined])
   assert.deepEqual(f.changes, ['checking', 'current'])
 })
 
@@ -84,20 +109,34 @@ test('答了稍后：不装，状态留在「下好了」，之后从设置里�
   assert.deepEqual(f.autoUpdater.installs, [[true, true]])
 })
 
-test('没有权限和别的失败分开说：没令牌、令牌不对或看不到仓库是「没有权限」，其余带上原因；之后还能再查', async () => {
+test('读不到和别的失败分开说：带不带令牌都被拒（比如仓库改回了私有）是「读不到」，其余带上原因；之后还能再查', async () => {
+  // 没令牌、看不到仓库：不再重查，直接是读不到；填上令牌以后就能查。
   const none = fixture({ token: '' })
+  none.autoUpdater.reply = (feed) => {
+    if (!feed.token) throw new Error('Unable to find latest version on GitHub (https://github.com/o/r/releases/latest): HttpError: 404\nstack…')
+    none.autoUpdater.emit('update-not-available', {})
+  }
   assert.deepEqual(await none.updater.check(), { status: 'no-access', current: '0.1.3' })
-  assert.deepEqual(none.autoUpdater.feeds, [])
+  assert.equal(none.autoUpdater.feeds.length, 1)
   none.tokens.value = 'saved-later'
   assert.equal((await none.updater.check()).status, 'current')
 
   const f = fixture()
   f.autoUpdater.reply = () => { throw new Error('Unable to find latest version on GitHub (https://api.github.com/repos/o/r/releases/latest): HttpError: 404\nstack…') }
   assert.equal((await f.updater.check()).status, 'no-access')
+  assert.deepEqual(f.autoUpdater.feeds.map(feed => feed.token), ['tok', undefined])
   f.autoUpdater.reply = () => { throw new Error('HttpError: 401 Bad credentials') }
   assert.equal((await f.updater.check()).status, 'no-access')
+  // 别的失败（断网之类）带令牌也不重查，原样报出来。
+  f.autoUpdater.feeds.length = 0
   f.autoUpdater.reply = () => { throw new Error('net::ERR_INTERNET_DISCONNECTED\n    at stack') }
   assert.deepEqual(await f.updater.check(), { status: 'error', current: '0.1.3', message: 'net::ERR_INTERNET_DISCONNECTED' })
+  assert.equal(f.autoUpdater.feeds.length, 1)
+  // 下载到一半出的错走 error 事件。
+  f.autoUpdater.reply = () => { f.autoUpdater.emit('update-available', { version: '0.1.8' }) }
+  assert.equal((await f.updater.check()).status, 'downloading')
+  f.autoUpdater.emit('error', new Error('net::ERR_CONNECTION_RESET'))
+  assert.deepEqual(f.updater.state(), { status: 'error', current: '0.1.3', message: 'net::ERR_CONNECTION_RESET' })
   f.autoUpdater.reply = () => { f.autoUpdater.emit('update-not-available', {}) }
   assert.equal((await f.updater.check()).status, 'current')
   // 没有下好的版本时，安装什么都不做。

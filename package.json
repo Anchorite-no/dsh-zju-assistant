@@ -100,7 +100,7 @@
         "provider": "github",
         "owner": "Anchorite-no",
         "repo": "campus-agent",
-        "private": true
+        "private": false
       }
     ],
     "win": {

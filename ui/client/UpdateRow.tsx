@@ -1,6 +1,6 @@
 /**
  * 设置 → 通用设置里的「检查更新」一行。查、下载、安装都在壳里（desktop/update.cjs）：有新版本它自己下，下完弹窗问要不要立刻装。
- * 这里显示走到哪了，给「检查更新」和「安装并重启」两个按钮；读不到私有仓库时让人填一个 GitHub 令牌。
+ * 这里显示走到哪了，给「检查更新」和「安装并重启」两个按钮。仓库是公开的，平时不用令牌；带不带令牌都读不到时（比如仓库改回了私有），可以填一个 GitHub 令牌。
  */
 import { useEffect, useState } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -12,7 +12,7 @@ function describe(state: CampusUpdateState): string {
     case 'current': return `已是最新版本（${state.current}）`
     case 'downloading': return `正在下载 ${state.version ?? '新版本'}：${state.percent ?? 0}%`
     case 'ready': return `${state.version ?? '新版本'} 已下载，安装后生效`
-    case 'no-access': return '读不到这个项目的更新：先在本机登录 GitHub CLI（gh auth login），或者在下面填一个能读这个仓库的 GitHub 令牌。'
+    case 'no-access': return '读不到这个项目的更新：GitHub 拒绝了，或者找不到发布的版本。平时不用令牌；要是仓库改回了私有，先在本机登录 GitHub CLI（gh auth login），或者在下面填一个能读这个仓库的 GitHub 令牌。'
     case 'error': return `检查更新没有成功：${state.message ?? ''}`
     default: return `当前版本 ${state.current}`
   }

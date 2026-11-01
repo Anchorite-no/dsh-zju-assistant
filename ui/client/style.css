@@ -2246,6 +2246,11 @@ button[aria-label='工作区“对话”的操作'] {
   overscroll-behavior: contain;
 }
 
+/* 通知列表到顶/到底后，继续滚动交给校园事务页；不要把触控板手势困在列表里。 */
+.campus-feed .campus-notice-scroll {
+  overscroll-behavior-y: auto;
+}
+
 .campus-notice-scroll:has(> .campus-flow:empty) {
   display: none;
 }

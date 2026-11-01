@@ -34,6 +34,21 @@ pta
 
 `session login --fresh` 忽略缓存，仍可能触发 PTA 验证码或二次验证；此时返回 `NEEDS_USER`，不循环尝试，也不会删除磁盘上原有的会话。正常浏览器登录后，可将本人 PTA 请求的单行 Cookie 头放入私有文件，用 `session import-cookie --file 文件` 导入；只接收 `PTASession/JSESSIONID`，验证账号与填写的 PTA 邮箱一致后持久化。不要把 Cookie 放进命令参数、示例或 Git。
 
+### 桌面版遇到验证码时如何导入
+
+目前账号设置页没有 Cookie 导入按钮。先在「插件 → 课程与作业」保存 PTA 邮箱和密码，再按下面的方式导入：
+
+1. 在 Chrome / Edge 的 PTA 官网正常登录，完成验证码或二次验证，确认登录邮箱与应用里填写的一致。
+2. 打开开发者工具（Mac：⌥⌘I），进入 Network（网络），刷新网页。选中发往 `pintia.cn` 的已登录 API 请求，在 Headers → Request Headers 找到 `Cookie`。
+3. 只复制 Cookie 的值（不要复制 `Cookie:` 标签），保存到本机私有的 UTF-8 纯文本文件，内容为一行，须包含 `PTASession=...`。不要保存为 RTF、JSON 或整个请求。
+4. 在校园智能体中新建对话，发送：
+
+   > 请使用 PTA 的 `session import-cookie --file` 导入我本地文件 `/文件的绝对路径/pta-cookie.txt`。直接将文件路径传给导入命令，不要读取、展示或复述 Cookie 内容，不要尝试密码登录。
+
+5. 导入成功后返回「校园事务」刷新。确认成功后可删除临时 Cookie 文件；会话过期时需重新导入。
+
+Cookie 相当于登录凭据，不要粘贴到聊天、截图或提交到 Git。应用内运行命令会继承正确的档案目录；如果从外部终端运行，须显式设置 `CAMPUS_PROFILE_DIR` 为该安装实例的 `profile` 目录，否则可能读取另一份账号配置。
+
 遇到 429 返回 `RATE_LIMITED` 和重试等待提示，停止当前扫描。
 
 ## 开始、保存、提交与结束

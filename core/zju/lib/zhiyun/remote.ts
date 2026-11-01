@@ -9,6 +9,7 @@ import { parseArgv } from "../core/cli.ts";
 import { readJson, writeJson } from "../core/fsjson.ts";
 import { sha256 } from "./cache.ts";
 import { BadResponse, ConfigError, TransportError, ZjuError, exitCodeFor, type ErrorCode } from "../core/errors.ts";
+import type { LiveInputRequest } from "./live-input.ts";
 
 interface RemoteRun { code: number; stdout: string; stderr: string }
 interface Payload { ok: boolean; system: string; action: string; meta?: Record<string, unknown>; data?: Record<string, any>; error?: { code: string; message: string; detail?: Record<string, any> } }
@@ -76,6 +77,14 @@ function runWorkerScript(c: Config, script: string, args: string[], checks: stri
     `& ${ps(c.node)} ${script} ${args.map(ps).join(" ")}`, "exit $LASTEXITCODE"].join("; ");
   const encoded = Buffer.from(command, "utf16le").toString("base64");
   return run("ssh", [...connection(c), c.target, `powershell.exe -NoProfile -NonInteractive -OutputFormat Text -EncodedCommand ${encoded}`], signal);
+}
+
+/** Internal captions use the same configured worker and transport as public Zhiyun commands. */
+export async function runRemoteLiveInput(request: LiveInputRequest, signal?: AbortSignal): Promise<Record<string, any>> {
+  const result = await runWorkerScript(configuration(), "scripts/zhiyun/live-input.ts", [Buffer.from(JSON.stringify(request), "utf8").toString("base64")], [], signal);
+  const payload = parsePayload(result.stdout, result.code);
+  if (!payload.ok) throw new ZjuError(payload.error?.code as ErrorCode, payload.error?.message ?? "读取课堂文字失败", { detail: payload.error?.detail ?? {} });
+  return payload.data ?? {};
 }
 
 function parsePayload(text: string, code: number): Payload {

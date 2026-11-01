@@ -1,12 +1,12 @@
-import { command, group, retired, sessionCommands, bool, num, type Command, type Flags, type Option } from "../core/command.ts";
+import { command, group, retired, sessionCommands, bool, type Command, type Flags, type Option } from "../core/command.ts";
 import { ConfigError, NeedsUser, WriteGateClosed } from "../core/errors.ts";
 import { writeAllowed } from "../core/env.ts";
 import { readProfile } from "../profile/profile.ts";
 import { openTyys, tyysSession } from "./client.ts";
 import { history } from "./rollcall.ts";
-import { log } from "../core/output.ts";
 import { openVenue, listVenues, targetDate, timeRange, type VenueApi } from "./venue.ts";
 import { bookVenue, cancelVenue, listOrders, VenueJournal, type VenueResult } from "./booking.ts";
+const BOOK_LIMIT_MS = 180_000;
 const venueFilters: Record<string, Option> = {
   sport: { description: "运动名称，如羽毛球、网球" }, campus: { description: "校区名称，如紫金港" }, venue: { description: "场馆名称，可带校区；重名时返回候选" },
 };
@@ -29,10 +29,9 @@ const venueCommands = group("场馆：查空场、预约、本人订单和预约
     return useVenue(client => listVenues(client, { ...venueFilter(f), date, ...(time ? { time } : {}) }));
   }),
   notice: command("预约须知全文、各场馆放号时刻及来源；自动复用缓存", {}, async () => useVenue(client => client.notice(), true)),
-  book: command("按目标日期和时段完成预约、确认与回查；未放号自动等待，成功即停", {
+  book: command("按目标日期和时段预约一次，有空场就提交、确认付款并回查；不等放号、不等空场", {
     ...venueFilters, date: { description: "今天至三天后；相对日期启动时固定", required: true }, time: { description: "HH:mm 或完整区间 HH:mm-HH:mm，最多连续两格且受场馆规则限制", required: true },
     buddy: { description: "已授权配置的同伴姓名；多人用竖线分隔，省略按最少人数自动选择" },
-    duration: { description: "最长执行秒数，包含等待放号、提交和回查", type: "number", min: 1, default: 600 },
     "max-fee": { description: "可选最高自动付款金额，单位元；价格在建单后才出现，超额时保留未支付订单" },
     confirm: { description: "执行已授权预约，同时设置 ZJU_ALLOW_WRITE=1", type: "boolean", required: true },
   }, async f => {
@@ -41,17 +40,17 @@ const venueCommands = group("场馆：查空场、预约、本人订单和预约
     if (!filter.sport && !filter.venue) throw new ConfigError("预约需指定 --sport 或 --venue");
     const maxFee = typeof f["max-fee"] === "string" ? f["max-fee"] : undefined;
     if (maxFee !== undefined && !/^\d+(?:\.\d{1,2})?$/.test(maxFee)) throw new ConfigError("最高费用须为非负金额，最多两位小数");
-    const deadline = now + num(f, "duration") * 1000;
-    if (!Number.isSafeInteger(Math.ceil(deadline))) throw new ConfigError("持续时间过大");
+    // 一次预约的上限，含同伴登录、验证码、提交和回查；不等放号，用不着更长。
+    const deadline = now + BOOK_LIMIT_MS;
     const controller = new AbortController(), stop = () => controller.abort();
     let timer: ReturnType<typeof setTimeout>;
-    const arm = () => { const remaining = deadline - Date.now(); if (remaining <= 0) controller.abort(new Error("预约等待时间已到")); else timer = setTimeout(arm, Math.min(remaining, 2147483647)); };
+    const arm = () => { const remaining = deadline - Date.now(); if (remaining <= 0) controller.abort(new Error("预约时间已到")); else timer = setTimeout(arm, remaining); };
     arm(); process.once("SIGINT", stop); process.once("SIGTERM", stop);
     try {
       const client = await openVenue({ signal: controller.signal });
       const journal = new VenueJournal(client.username);
       try { return finished({ ...await bookVenue(client, { ...filter, date, time, confirm: true, deadline, signal: controller.signal, journal,
-        ...(typeof f.buddy === "string" ? { buddy: f.buddy } : {}), ...(maxFee !== undefined ? { maxFee } : {}), onProgress: log }), journalFile: journal.file }); }
+        ...(typeof f.buddy === "string" ? { buddy: f.buddy } : {}), ...(maxFee !== undefined ? { maxFee } : {}) }), journalFile: journal.file }); }
       finally { client.close(); }
     } finally { clearTimeout(timer!); process.removeListener("SIGINT", stop); process.removeListener("SIGTERM", stop); }
   }),

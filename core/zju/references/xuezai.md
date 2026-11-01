@@ -8,7 +8,7 @@ xuezai
 ├─ course    list · view                    我的课程；一门课的章节与活动
 ├─ material  list · download                课件等文件
 ├─ homework  list · view · download · submit · retract 作业
-├─ rollcall  status · history                 当前点名、历史点名记录（只读）
+├─ rollcall  [默认 GPS] · number · all · status · history 签到、当前点名与历史记录
 └─ session   login · status · logout        排障用
 ```
 
@@ -30,14 +30,28 @@ xuezai
 
 下载结果总在 `files` 列表里（一个文件也是），个别失败的列在 `failed`。下载到的文件直接用返回的本地路径读取或发送。
 
+## 签到
+
+| 用户说法 | 命令 |
+|---|---|
+| 帮我签到 / GPS 签到 / 雷达签到 | `xuezai rollcall --confirm`，只运行 GPS/雷达 |
+| 开启数字签到 | `xuezai rollcall number --confirm`，自动准备字幕、取码、提交和回查 |
+| 签到全开 | `xuezai rollcall all --confirm`，任一路确认成功就停止两路 |
+
+三者都要设置 `ZJU_ALLOW_WRITE=1`。PowerShell 在同次调用中写 `$env:ZJU_ALLOW_WRITE='1'; node "<SKILL>/scripts/zju.ts" xuezai rollcall --confirm`。默认挂 10 分钟（600 秒），每 4 秒检查一次；用户指定时长加 `--duration 秒数`，指定间隔加 `--interval 秒数`，确认成功立即停止。用应用的 pwsh 工具 `run_in_background: true` 启动，按返回的任务 ID 用 job_output 读最终结果，不另写后台脚本。
+
+数字签到从同课程的课堂定稿字幕中提取有签到语境的完整四位码，不补全缺位或枚举。应在课前开启，duration 覆盖所需课堂；启动晚了不能补回此前文字。默认 GPS 不连接智云；数字和全开需要启用智云插件，使用现有本机采集或已配置的智云远程执行机。仅停止本次签到创建的采集，用户原先独立开启的课堂采集继续运行。
+
+GPS 与数字只检查自己类型的点名，不把其他类型的已签记录当作本次成功。全开任一路确认成功便取消另一条；一条不可用时另一条继续。每次提交前写 journal，日志失败不提交。结果以 status/message 为准，只有 signed/already-signed 是成功；未完成返回非零，error.detail.result 保留业务结果。字幕缺码、到期或取消如实报告；cleanupWarning 表示本次字幕采集尚未确认停止，后台仍受任务截止时间限制。
+
 ## 点名记录
 
-`xuezai rollcall status` 列出现在有没有点名、各是什么方式、本人是否已签；只查看，不签到。本技能不代签到，签到由本人在学在浙大 App 里完成。
+`xuezai rollcall status` 列出现在有没有点名、各是什么方式、本人是否已签；只查看，不签到，也不作为签到前置步骤。
 
 `xuezai rollcall history [--course 课程名]` 列出以往每次点名：时间（北京时间）、方式（雷达/数字/二维码）、状态（已签到、缺勤、未签（点名未结束）；其他平台状态原样给出）。省略 course 查全部学期的课程；course 按名称模糊匹配，同名课程一并返回。课程按最近一次点名排序，每门课的记录最近的在前，附 total/signed/notSigned。message 已汇总总次数和每次未签到的课程与时间，直接转述。部分课程读取失败返回 BAD_RESPONSE，`error.detail.result` 保留已取得的记录与逐课程错误。
 
 ## 边界与错误
 
-当前边界：支持个人文件/文字作业提交；点名只读，不应答。小组作业提交、在线考试答题、PTA 和学习进度写入未在此模块实现。todos 自动合并平台待办（含考试/测验）与各课作业补查。
+当前边界：支持个人文件/文字作业提交，以及雷达/数字点名应答。小组作业提交、在线考试答题、PTA 和学习进度写入未在此模块实现。todos 自动合并平台待办（含考试/测验）与各课作业补查。
 
 待办遇到部分读取失败时返回 BAD_RESPONSE，error.detail.result 保留已取得的待办与逐课程错误。

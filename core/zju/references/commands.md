@@ -1,6 +1,6 @@
 # 当前命令总表
 
-生成日期：2026-10-12。共 159 条公开命令路径、17 个模块。
+生成日期：2026-10-31。共 162 条公开命令路径、17 个模块。
 
 入口为 `node scripts/zju.ts <module> <command> [参数]`。默认帮助逐级展示；`--help --all` 展开当前范围全部公开命令。参数类型与帮助来自实际注册定义，本生成器不执行登录或业务。
 
@@ -16,7 +16,7 @@
 | [sztz](#sztz) | 8 | 二三四课堂（素质拓展平台）：活动中心、可申请记点的项目、本人记点与成绩单，活动报名、取消报名与收藏 |
 | [ebook](#ebook) | 1 | 学校订购的电子图书：有没有某本书的电子版、在哪个平台有全文（图书馆电子书刊导航和超星） |
 | [lab](#lab) | 9 | 实验班次、周次余量与选课执行 |
-| [xuezai](#xuezai) | 16 | 课程资料、作业、待办与点名 |
+| [xuezai](#xuezai) | 19 | 课程资料、作业、待办与点名 |
 | [tyys](#tyys) | 9 | 体育课考勤记录与体育场馆预约 |
 | [pta](#pta) | 14 | PTA 独立登录、作业进度、小题保存与提交 |
 | [chaoxing](#chaoxing) | 9 | 超星学习通的课程、课件与视频下载 |
@@ -481,10 +481,10 @@ zju lab session logout  清除本地实验课会话
 ### xuezai todos
 
 ```text
-zju xuezai todos [--course VALUE] 待办：当前学期各课未交的作业和测验，按截止先后，含作业要求
+zju xuezai todos [--course VALUE] [--done] 待办：当前学期各课未交的作业和测验，按截止先后，含作业要求
 ```
 
-`--course`：文本/路径。
+`--course`：文本/路径；`--done`：开关。
 
 ### xuezai course list
 
@@ -566,6 +566,30 @@ zju xuezai homework retract --course VALUE --name VALUE [--confirm] 撤回最近
 
 `--course`：文本/路径，必填；`--name`：文本/路径，必填；`--confirm`：开关。
 
+### xuezai rollcall
+
+```text
+zju xuezai rollcall [--interval VALUE] [--duration VALUE] [--confirm] GPS/雷达签到：仅监测雷达点名，不启动数字签到或字幕；成功立即停止
+```
+
+`--interval`：数值，默认 4，最小 1，最大 3600；`--duration`：数值，默认 600，最小 1；`--confirm`：开关。
+
+### xuezai rollcall number
+
+```text
+zju xuezai rollcall number [--interval VALUE] [--duration VALUE] [--confirm] 数字签到：准备课堂字幕，监测数字点名、取码并回查；成功立即停止
+```
+
+`--interval`：数值，默认 4，最小 1，最大 3600；`--duration`：数值，默认 600，最小 1；`--confirm`：开关。
+
+### xuezai rollcall all
+
+```text
+zju xuezai rollcall all [--interval VALUE] [--duration VALUE] [--confirm] 签到全开：组合 GPS 和数字执行器，任一路确认成功后两路一起停止
+```
+
+`--interval`：数值，默认 4，最小 1，最大 3600；`--duration`：数值，默认 600，最小 1；`--confirm`：开关。
+
 ### xuezai rollcall status
 
 ```text
@@ -629,10 +653,10 @@ zju tyys venue notice  预约须知全文、各场馆放号时刻及来源；自
 ### tyys venue book
 
 ```text
-zju tyys venue book [--sport VALUE] [--campus VALUE] [--venue VALUE] --date VALUE --time VALUE [--buddy VALUE] [--duration VALUE] [--max-fee VALUE] --confirm 按目标日期和时段完成预约、确认与回查；未放号自动等待，成功即停
+zju tyys venue book [--sport VALUE] [--campus VALUE] [--venue VALUE] --date VALUE --time VALUE [--buddy VALUE] [--max-fee VALUE] --confirm 按目标日期和时段预约一次，有空场就提交、确认付款并回查；不等放号、不等空场
 ```
 
-`--sport`：文本/路径；`--campus`：文本/路径；`--venue`：文本/路径；`--date`：文本/路径，必填；`--time`：文本/路径，必填；`--buddy`：文本/路径；`--duration`：数值，默认 600，最小 1；`--max-fee`：文本/路径；`--confirm`：开关，必填。
+`--sport`：文本/路径；`--campus`：文本/路径；`--venue`：文本/路径；`--date`：文本/路径，必填；`--time`：文本/路径，必填；`--buddy`：文本/路径；`--max-fee`：文本/路径；`--confirm`：开关，必填。
 
 ### tyys venue order list
 
@@ -1371,7 +1395,7 @@ zju doc find --file VALUE --keyword VALUE 找关键词在 PDF 的哪几页，返
 - 业务自动认证；session 仅作维护。网络和 URL 工具均在 webvpn。
 - zdbk selection 通过课程、教师和上课时间自动定位，课程池与搜索条件由内部保留。普通志愿与低定仍是不同业务。培养方案按专业名、学院名查。
 - notice 的来源和栏目都写名称；list 与 view 的每条通知是同一种记录，new 只有标题、日期、来源和链接。
-- 学在和体艺的 rollcall 只读：学在 status 看当前点名、history 看历史记录，体艺只有 history；不提交签到。
+- 学在 rollcall 默认 GPS/雷达签到，number 为数字签到，all 为两路全开；均须写授权，成功立即停止。status 看当前点名，history 看历史记录；体艺只有只读的 history。
 - 学在的课程、作业、文件都按名称定位；下载结果总在 files 列表里。
 - zhiyun 支持课程名称；--lesson/--lesson-id/--date/--week-of/--all 互斥。kind 支持 video,audio,ppt,slides,subtitles。视频优先 1080p；仅取音频优先独立音轨或 360p；无独立音轨的混合下载复用视频。
 - zhiyun trans 只处理本地文件；音频用 SenseVoice 在本机 CPU 上转写，模型第一次用时自动下载。输出交给 AI 按模板直接成稿。

@@ -178,7 +178,7 @@ export interface BookingOptions {
   date: string; time: TimeRange; sport?: string; campus?: string; venue?: string; buddy?: string; maxFee?: string;
   confirm: boolean; deadline: number; signal?: AbortSignal; journal: VenueJournal;
   now?: () => number; wait?: (ms: number) => Promise<void>; solver?: Solver;
-  companions?: (client: VenueApi, preview: Row) => Promise<Row>; onProgress?: (message: string) => void;
+  companions?: (client: VenueApi, preview: Row) => Promise<Row>;
 }
 async function payAndVerify(client: VenueApi, site: Site, order: Order, opts: BookingOptions): Promise<VenueResult> {
   if (done(order)) {
@@ -225,76 +225,55 @@ export async function bookVenue(client: VenueApi, opts: BookingOptions): Promise
   if (same.length > 1) return { status: "needs-input", message: "同一目标有多笔订单，需先核对", orders: same.map(orderView) };
   if (same[0]) return done(same[0]) ? { status: "already-booked", message: "该时段已有有效预约，无需重复预约", order: orderView(same[0]) } : payAndVerify(client, site, same[0], opts);
   const solver = opts.solver ?? new CaptchaSolver(opts.signal);
-  let state = "not-released", attempted = 0, release: number | undefined;
+  // 只查一次：没放号、没空场都直接返回，不等放号、不刷空场，提交被拒也不重试（2026-10-31 用户定的：不做抢场）。
   try {
-    while (now() < opts.deadline && !opts.signal?.aborted) {
-      const day = await client.day(site, opts.date);
-      if (!day.open) {
-        state = "not-released";
-        if (release === undefined) {
-          const current = Number.isFinite(day.days) ? day : await client.day(site, beijingDate(now()));
-          release = releaseAt(site, opts.date, current.days, notice, now());
-        }
-        if (release !== undefined && release > now()) {
-          if (release >= opts.deadline) return { status: "not-released", message: `目标日期尚未开放，按须知和当前窗口预计 ${localTime(release)} 放号，超出本次等待时限`, date: opts.date, venue: siteName(site), releaseAt: localTime(release) };
-          opts.onProgress?.(`等待 ${localTime(release)} 放号，目标日期固定为 ${opts.date}`);
-          await wait(Math.max(0, Math.min(release - now(), opts.deadline - now()))); continue;
-        }
-        if (release === undefined) return { status: "not-released", message: "目标日期尚未发布时段，缺少可确认的放号日期规则；未扫描其他日期", date: opts.date, venue: siteName(site) };
-      } else {
-        state = "unavailable";
-        if (atDate(opts.date, opts.time.start) <= now()) return { status: "unavailable", message: "目标时段已开始，已停止等待，不预约过期时段" };
-        const possible = selectSlots({ ...day, slots: day.slots.map(s => ({ ...s, status: 1 })) }, opts.time, Math.min(2, catalog.maxSlots, site.maxSlots), now());
-        if (!possible) return { status: "needs-input", message: "指定时间不对应该场馆一至两格连续时段，请从相邻时段中明确选择；未缩短或拆分预约", venue: siteName(site), date: opts.date, alternatives: nearbyTimes(day, opts.time) };
-        const slots = selectSlots(day, opts.time, Math.min(2, catalog.maxSlots, site.maxSlots), now());
-        if (slots) {
-          if (!day.token || !day.weekStart) throw new BadResponse("预约时段缺少提交凭据");
-          const effectiveTime = { start: slots[0]!.start, end: slots.at(-1)!.end };
-          const params = { venueSiteId: site.id, reservationDate: opts.date, weekStartDate: day.weekStart,
-            reservationOrderJson: JSON.stringify(slots.map(s => ({ spaceId: s.spaceId, timeId: s.timeId, venueSpaceGroupId: null }))), schoolType: 1, token: day.token };
-          const previewAt = now(), preview = row(await client.request("POST", "/api/reservation/order/info", params));
-          if (!Object.keys(row(preview.venueInfoBean)).length) throw new BadResponse("预下单未返回场馆规则");
-          if (!text(preview.phone)) throw new NeedsUser("预约账号未返回联系电话，请在场馆平台补齐");
-          const buddies = opts.companions ? await opts.companions(client, preview) : await companionParams(client, preview, opts.buddy, opts.signal);
-          const verification = Number(preview.isCaptchaCheck) === 1 ? await captcha(client, solver) : undefined;
-          await wait(Math.max(0, 1500 - (now() - previewAt)));
-          if (now() >= opts.deadline || opts.signal?.aborted) break;
-          const op = opts.journal.begin("submit", site, opts.date, effectiveTime);
-          let submitted: unknown;
-          try {
-            attempted++;
-            submitted = await client.request("POST", "/api/reservation/order/submit", { ...params, phone: preview.phone, ...buddies, ...(verification ? { captchaVerification: verification } : {}), isOfflineTicket: 1 }, opts.confirm);
-          } catch (e) {
-            if (e instanceof RemoteRejected) {
-              opts.journal.resolve(op, "rejected");
-              if (attempted < 2 && /已被|已预约|被占|无空|场地.*占用/.test(e.message)) continue;
-              return { status: "rejected", message: e.message };
-            }
-            if (!(e instanceof RateLimited)) {
-              try {
-                const check = await readOrders(client), found = check.orders.filter(o => sameTarget(o, site, opts.date, effectiveTime) && active(o));
-                if (check.complete && found.length === 1) { opts.journal.resolve(op, "recovered", found[0]!.number); return payAndVerify(client, site, found[0]!, opts); }
-              } catch { /* Ambiguous write remains unresolved. */ }
-            }
-            return { status: "unknown", message: e instanceof RateLimited ? "提交后遇到限流，结果未确认，已停止且未重复提交" : "预约提交结果不明，回查未能确认；本次未重复提交" };
-          }
-          const raw = row(row(submitted).orderInfo), number = text(raw.tradeNo);
-          if (!number) return { status: "unknown", message: "提交返回缺少订单号，不能确认预约成功，请到 App 核对" };
-          opts.journal.resolve(op, "created", number);
-          const parsed = parseOrder(raw);
-          const order: Order = { ...parsed, number, siteId: site.id, venue: siteName(site), date: opts.date, start: effectiveTime.start, end: effectiveTime.end,
-            status: Number.isFinite(parsed.status) ? parsed.status : 1, payStatus: Number.isFinite(parsed.payStatus) ? parsed.payStatus : 1 };
-          return payAndVerify(client, site, order, opts);
-        }
-      }
-      // Old short release polling remains local to one target; sustained vacancy waits slow down.
-      const delay = release !== undefined && now() - release < 5000 ? 250 : 5000;
-      await wait(Math.min(delay, Math.max(0, opts.deadline - now())));
+    const day = await client.day(site, opts.date);
+    if (!day.open) {
+      const current = Number.isFinite(day.days) ? day : await client.day(site, beijingDate(now()));
+      const release = releaseAt(site, opts.date, current.days, notice, now());
+      if (release !== undefined && release > now()) return { status: "not-released", message: `目标日期还没放号，按须知预计 ${localTime(release)} 放号；本命令不等放号，到时再约`, date: opts.date, venue: siteName(site), releaseAt: localTime(release) };
+      return { status: "not-released", message: "目标日期还没发布时段，也算不出确定的放号时刻；未扫描其他日期", date: opts.date, venue: siteName(site) };
     }
-    return { status: opts.signal?.aborted ? "aborted" : "timeout", message: state === "not-released" ? "等待结束，目标日期仍未开放" : "等待结束，未找到指定完整时段的空场", date: opts.date, venue: siteName(site) };
+    const maximum = Math.min(2, catalog.maxSlots, site.maxSlots);
+    const possible = selectSlots({ ...day, slots: day.slots.map(s => ({ ...s, status: 1 })) }, opts.time, maximum, now());
+    if (!possible) return { status: "needs-input", message: "指定时间不对应该场馆一至两格连续时段，请从相邻时段中明确选择；未缩短或拆分预约", venue: siteName(site), date: opts.date, alternatives: nearbyTimes(day, opts.time) };
+    const slots = selectSlots(day, opts.time, maximum, now());
+    if (!slots) return { status: "unavailable", message: "指定时段已经约满；本命令不等空场，可以换相邻时段", venue: siteName(site), date: opts.date, alternatives: nearbyTimes(day, opts.time) };
+    if (!day.token || !day.weekStart) throw new BadResponse("预约时段缺少提交凭据");
+    const effectiveTime = { start: slots[0]!.start, end: slots.at(-1)!.end };
+    const params = { venueSiteId: site.id, reservationDate: opts.date, weekStartDate: day.weekStart,
+      reservationOrderJson: JSON.stringify(slots.map(s => ({ spaceId: s.spaceId, timeId: s.timeId, venueSpaceGroupId: null }))), schoolType: 1, token: day.token };
+    const previewAt = now(), preview = row(await client.request("POST", "/api/reservation/order/info", params));
+    if (!Object.keys(row(preview.venueInfoBean)).length) throw new BadResponse("预下单未返回场馆规则");
+    if (!text(preview.phone)) throw new NeedsUser("预约账号未返回联系电话，请在场馆平台补齐");
+    const buddies = opts.companions ? await opts.companions(client, preview) : await companionParams(client, preview, opts.buddy, opts.signal);
+    const verification = Number(preview.isCaptchaCheck) === 1 ? await captcha(client, solver) : undefined;
+    await wait(Math.max(0, 1500 - (now() - previewAt)));
+    if (now() >= opts.deadline || opts.signal?.aborted) return { status: opts.signal?.aborted ? "aborted" : "timeout", message: "同伴或验证码处理超时，没有提交预约", date: opts.date, venue: siteName(site) };
+    const op = opts.journal.begin("submit", site, opts.date, effectiveTime);
+    let submitted: unknown;
+    try {
+      submitted = await client.request("POST", "/api/reservation/order/submit", { ...params, phone: preview.phone, ...buddies, ...(verification ? { captchaVerification: verification } : {}), isOfflineTicket: 1 }, opts.confirm);
+    } catch (e) {
+      if (e instanceof RemoteRejected) { opts.journal.resolve(op, "rejected"); return { status: "rejected", message: e.message }; }
+      if (!(e instanceof RateLimited)) {
+        try {
+          const check = await readOrders(client), found = check.orders.filter(o => sameTarget(o, site, opts.date, effectiveTime) && active(o));
+          if (check.complete && found.length === 1) { opts.journal.resolve(op, "recovered", found[0]!.number); return payAndVerify(client, site, found[0]!, opts); }
+        } catch { /* Ambiguous write remains unresolved. */ }
+      }
+      return { status: "unknown", message: e instanceof RateLimited ? "提交后遇到限流，结果未确认，已停止且未重复提交" : "预约提交结果不明，回查未能确认；本次未重复提交" };
+    }
+    const raw = row(row(submitted).orderInfo), number = text(raw.tradeNo);
+    if (!number) return { status: "unknown", message: "提交返回缺少订单号，不能确认预约成功，请到 App 核对" };
+    opts.journal.resolve(op, "created", number);
+    const parsed = parseOrder(raw);
+    const order: Order = { ...parsed, number, siteId: site.id, venue: siteName(site), date: opts.date, start: effectiveTime.start, end: effectiveTime.end,
+      status: Number.isFinite(parsed.status) ? parsed.status : 1, payStatus: Number.isFinite(parsed.payStatus) ? parsed.payStatus : 1 };
+    return payAndVerify(client, site, order, opts);
   } catch (e) {
     if (opts.journal.pending().some(op => op.date === opts.date && op.start === opts.time.start)) return { status: "unknown", message: "写入已经发起，但记录或回查未完成，请到 App 核对；本次没有重复写入" };
-    if (opts.signal?.aborted) return { status: "aborted", message: "预约等待已结束；没有再次提交" };
+    if (opts.signal?.aborted) return { status: "aborted", message: "预约已中止；没有再次提交" };
     if (e instanceof RateLimited) return { status: "rate-limited", message: e.message };
     throw e;
   } finally { solver.close(); }

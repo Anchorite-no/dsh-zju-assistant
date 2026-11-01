@@ -3,6 +3,7 @@
   "productName": "CampusAgent",
   "version": "0.1.7",
   "private": true,
+  "license": "GPL-3.0-only",
   "description": "校园智能体桌面端：自写 Electron 壳 + 自己的界面包 + 自带的 ZJU / Learning / WeRead core，引擎用 DeepSeek Harness",
   "main": "desktop/main.cjs",
   "engines": {
@@ -59,6 +60,8 @@
     "asar": false,
     "npmRebuild": false,
     "files": [
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
       "desktop/**/*",
       "!desktop/**/*.test.mjs",
       "ui/package.json",

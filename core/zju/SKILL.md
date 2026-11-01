@@ -1,6 +1,6 @@
 ---
 name: zju
-description: 浙江大学校园任务工具，查询课表、成绩、作业、课件和课程信息，学校各部门和本人学院的通知公告（教务网、学工部、研工部、团委、综合服务网、各学院官网等）和新通知，二课、三课的活动与本人记点（素质拓展平台，文件里常叫素拓网），学校订购的电子图书在哪个平台有全文（图书馆电子图书导航、超星电子书），体艺场馆空场、预约须知与放号时间，CC98 论坛帖子与帖内图片视频下载（file.cc98.org 等校网链接经 WebVPN 获取），读取 PDF、Word、PPT、Excel 等文档的文字（本地文件或链接），PDF 找页、切页、取出其中的图片或把某页渲染成图，照片和 Word 转 PDF，超星学习通（泛雅）课程的课件与视频下载，在中国知网检索中文论文（期刊、学位论文、会议）并用学校 IP 下载全文 PDF，执行已授权的场馆预约与取消、选课、作业提交和二课活动报名。zju.edu.cn、cc98.org 的链接直接用 curl 或网页提取会超时或要求登录，一律先用本技能。
+description: 浙江大学校园任务工具，查询课表、成绩、作业、课件和课程信息，学校各部门和本人学院的通知公告（教务网、学工部、研工部、团委、综合服务网、各学院官网等）和新通知，二课、三课的活动与本人记点（素质拓展平台，文件里常叫素拓网），学校订购的电子图书在哪个平台有全文（图书馆电子图书导航、超星电子书），体艺场馆空场、预约须知与放号时间，CC98 论坛帖子与帖内图片视频下载（file.cc98.org 等校网链接经 WebVPN 获取），读取 PDF、Word、PPT、Excel 等文档的文字（本地文件或链接），PDF 找页、切页、取出其中的图片或把某页渲染成图，照片和 Word 转 PDF，超星学习通（泛雅）课程的课件与视频下载，在中国知网检索中文论文（期刊、学位论文、会议）并用学校 IP 下载全文 PDF，执行已授权的学在浙大签到、场馆预约与取消、选课、作业提交和二课活动报名。zju.edu.cn、cc98.org 的链接直接用 curl 或网页提取会超时或要求登录，一律先用本技能。
 ---
 
 # zju
@@ -56,9 +56,10 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 | 下载知网论文 | `cnki download --title 完整篇名`，返回本地 PDF 路径；已知篇名直接下载，不先 search；同名时按候选加 `--author`。多篇用竖线分隔，30 篇也放进一次调用，命令自行分批串行；按 `message`、`files`、`failed`、`pending` 报告进度 |
 | 体育场馆空场 | `tyys venue list --sport 运动 --campus 校区 --venue 场馆 --date 今天`；日期支持今天至3天后，场馆不唯一时返回候选 |
 | 场馆放号时间、预约须知 | `tyys venue notice`，一次返回须知全文和各场馆放号时间 |
-| 预约明确的体育场馆 | `tyys venue book --venue 场馆 --sport 运动 --date 日期 --time 19:00 --confirm`；设置 `ZJU_ALLOW_WRITE=1`，自动等待、处理验证码与同伴、确认付款并回查；具体限制见 [体艺](references/tyys.md) |
+| 预约明确的体育场馆 | `tyys venue book --venue 场馆 --sport 运动 --date 日期 --time 19:00 --confirm`；设置 `ZJU_ALLOW_WRITE=1`，只约一次：处理验证码与同伴、确认付款并回查，没放号、没空场直接返回，不等；具体限制见 [体艺](references/tyys.md) |
 | 我的场馆预约、取消预约 | 查看 `tyys venue order list`；已授权取消 `tyys venue order cancel --venue 场馆 --date 日期 --time 时段 --confirm`，同样设置写闸 |
-| 现在有没有点名、以前的点名和缺勤记录 | 学在课程 `xuezai rollcall status`、`xuezai rollcall history`，体育课 `tyys rollcall history`，都可加 `--course 课程名`；只读 |
+| 学在浙大签到 | `xuezai rollcall --confirm` 默认 GPS/雷达；明确数字签到用 `xuezai rollcall number --confirm`，签到全开用 `xuezai rollcall all --confirm`；设置 `ZJU_ALLOW_WRITE=1`，见下方签到说明 |
+| 现在有没有点名、以前的点名和缺勤记录 | 学在课程 `xuezai rollcall status`、`xuezai rollcall history`，体育课 `tyys rollcall history`；history 可加 `--course 课程名`，均只读 |
 | 读 PDF、Word、PPT、Excel（含 doc/ppt/xls）等文件的文字 | `doc text --file 本地文件` 或 `--url 链接`；校内和 CC98 链接、教务网附件自动处理登录。各命令下载到的文件（课件、通知附件、论文）也用它读，不自行安装解析库或写下载脚本。结果是 `no_text`（扫描件、截图做的课件）时把页面渲染成图来看 |
 | 照片、截图、Word 转成 PDF，或几个文件合成一个 PDF（交作业等） | `doc pdf --file 文件`，多个文件的写法见表后 |
 | 从 PDF 里只取几页（如课本的某章习题） | 先 `doc find --file 课本.pdf --keyword 习题一` 看在哪几页，再 `doc pages --file 课本.pdf --pages 43-49` |
@@ -77,13 +78,23 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 
 ## 场馆预约
 
-场馆预约目标已明确时直接调用 `tyys venue book`，包括今天、三天后和等待放号；不先调用 list、notice、session 或 check 做预检。book 自行查询并处理放号、同伴、验证码和回查；确实缺用户选择时会返回候选。场馆是半点时段等情况下，按返回的相邻时段问用户，不再查询一次、不擅自改时间。
+场馆预约目标已明确时直接调用 `tyys venue book`，今天到三天后都行；不先调用 list、notice、session 或 check 做预检。book 自行查询并处理同伴、验证码和回查；目标日期还没放号时返回预计放号时间，照实告诉用户到时再约；时段约满时返回相邻时段；确实缺用户选择时会返回候选。场馆是半点时段等情况下，按返回的相邻时段问用户，不再查询一次、不擅自改时间。
 
-## 点名与考勤
+## 签到与考勤
 
-点名和考勤只读：学在课程用 `xuezai rollcall status` 看现在有没有点名、本人是否已签，`xuezai rollcall history` 看历史记录；体育课用 `tyys rollcall history`。没说平台时两个都查，按 message 回答。
+“帮我签到”“学在浙大签到”默认学在 GPS/雷达，直接执行，不先查 status。在 PowerShell 同一次调用中设置写闸：
 
-本技能不代签到、不抢课。用户要求“帮我签到”“到点抢课”时如实说明做不了，由本人在对应平台操作；可以帮着查点名状态和教学班余量。
+`$env:ZJU_ALLOW_WRITE='1'; node "<SKILL>/scripts/zju.ts" xuezai rollcall --confirm`
+
+明确说“数字签到”换成 `xuezai rollcall number --confirm`，明确说“签到全开”换成 `xuezai rollcall all --confirm`。数字入口内部准备课堂字幕、取码与回查，无需另调 live start；课前开启并给出覆盖课堂的时长才能保留此前报码。全开组合 GPS 和数字两路，任一路确认签上后两路一起停止。普通签到只走 GPS，不开启数字或智云。数字签到遵守智云插件开关，停止时只关闭本次创建的采集。
+
+默认挂 10 分钟，每 4 秒一轮，确认签上立即停止。用户指定时长才传 `--duration 秒数`，指定轮询间隔才传 `--interval 秒数`；明确要求持续到成功时用覆盖本次课的时长，不用默认 10 分钟替代，也不另建定时续接任务。不需要坐标或课号。
+
+签到用应用的 `pwsh` 工具，设置 `run_in_background: true`，启动后说明正在监测；用返回的任务 ID 和 `job_output` 读取最终结果。只有 status 为 signed/already-signed 才说签到完成，其余按 message 报告，不能把启动或空结果说成成功。细节见 [学在](references/xuezai.md)。
+
+只查当前点名用 `xuezai rollcall status`；历史和缺勤记录用 `xuezai rollcall history`，体育课用 `tyys rollcall history`，两种 history 都可加 `--course 课程名`；问历史未说平台时两个都查。体育课仍只查考勤，不提交签到；CC98 签到必须明确提到 CC98。
+
+本技能不抢课、不抢场馆。要求到点抢课或一放号就抢场时说明不支持，可以查询教学班余量和场馆空场；正常选课和有空场时的一次预约照常。
 
 ## 操作边界与结果
 

@@ -16,7 +16,7 @@ AI 使用入口为 [SKILL.md](SKILL.md)。所有模块通过同一个 CLI 调用
 | `ebook` 电子图书 | 图书馆主页「电子图书」入口（电子书刊导航）加超星电子书：按书名或 ISBN 查学校订购的电子图书在哪个平台有全文，给出各平台的直达地址；只查找，不下载 | 免登录，校内 | [电子图书](references/ebook.md) |
 | `sztz` 二三四课堂 | 素质拓展数智平台：活动中心里能报和即将举办的活动（记点、时间地点、报名方式）、可申请认定记点的项目、本人二三四课堂记点与成绩单记录、报名和收藏的活动、平台通知；按活动名报名、取消报名、收藏 | 统一认证，校内 | [二三四课堂](references/sztz.md) |
 | `lab` 实验课 | 实验课表（日期、实验名、实验室）、每门课的实验与可选周次、已选实验、公告；选、退 | 独立密码，校内 | [实验课](references/lab.md) |
-| `xuezai` 学在浙大 | 课程章节与活动、课件清单与下载、作业待办与 DDL、作业要求与提交记录、下载交过的文件和批改文件、个人作业提交与撤回；当前点名与历史点名记录（只读） | 统一认证，公网 | [学在浙大](references/xuezai.md) |
+| `xuezai` 学在浙大 | 课程章节与活动、课件清单与下载、作业待办与 DDL、作业要求与提交记录、下载交过的文件和批改文件、个人作业提交与撤回；GPS/雷达签到、数字签到与两路全开，当前点名与历史点名记录 | 统一认证，公网 | [学在浙大](references/xuezai.md) |
 | `tyys` 浙大体艺 | 各学期体育课考勤记录；体育场馆空场、放号时间与须知、预约、本人订单与取消 | 统一认证，公网 | [浙大体艺](references/tyys.md) |
 | `pta` | 作业进度、题面与本人作答、保存、提交判题、结束答题、提交记录、未决回查 | 独立账号，公网 | [PTA](references/pta.md) |
 | `chaoxing` 超星学习通 | 本人课程；章节文档和「资料」栏的课件、章节视频的清单与下载，视频可选原文件或 720p 播放版；只读，不碰学习进度 | 独立账号，公网 | [超星学习通](references/chaoxing.md) |
@@ -181,6 +181,11 @@ zju doc pdf --file "第1页.jpg|第2页.jpg" --out 作业.pdf
 zju doc find --file 课本.pdf --keyword 习题一
 zju doc pages --file 课本.pdf --pages 43-49
 
+# 学在签到：设置 ZJU_ALLOW_WRITE=1 后执行，默认 GPS，数字与全开需明确选择
+zju xuezai rollcall --confirm
+zju xuezai rollcall number --confirm
+zju xuezai rollcall all --confirm
+
 # 点名与考勤的只读查询：当前有没有点名、历史记录
 zju xuezai rollcall status
 zju xuezai rollcall history --course 课程名
@@ -222,7 +227,7 @@ ZJU_ALLOW_WRITE=1 node scripts/zju.ts sztz activity signup --name 活动名 --co
 ZJU_ALLOW_WRITE=1 zju tyys venue book --venue 紫金港体育馆 --sport 羽毛球 --date 明天 --time 19:00 --confirm
 ```
 
-`book` 一次完成等待放号、验证码、同伴、确认付款与回查，范围为当天到三天后，未放号时自动等到放号时刻。`booked` / `already-booked` 才算约上，`pending-payment`、`unknown` 都不算。取消用 `tyys venue order cancel --venue 场馆 --date 日期 --time 时段 --confirm`。场馆服务器对账号有限流，命令按单个目标查询，不扫全站余量；遇到 `rate-limited` 时停下，不要连续重试。
+`book` 只约一次，完成验证码、同伴、确认付款与回查，范围为当天到三天后；没放号时返回预计放号时间，没空场时返回相邻时段，都不等待，被拒也不重试。`booked` / `already-booked` 才算约上，`pending-payment`、`unknown` 都不算。取消用 `tyys venue order cancel --venue 场馆 --date 日期 --time 时段 --confirm`。场馆服务器对账号有限流，命令按单个目标查询，不扫全站余量；遇到 `rate-limited` 时停下，不要连续重试。
 
 ### 作业
 

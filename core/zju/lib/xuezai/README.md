@@ -11,7 +11,8 @@ CLI 用法见 [学在参考](../../references/xuezai.md)。本文件说明源码
 | `webvpn/transport.openContext` | 根据声明组装传输和现有认证组件 |
 | `zjuam` | CAS 密码认证、TGT 复用和 service 票据交换 |
 | `xuezai/client.ts` | 学在专属 identity 回跳、站点 Cookie、XSRF、用户 ID、分页、取文件下载地址和签名上传 |
-| `xuezai/rollcall.ts` | 点名的只读查询：当前点名、本人是否已签、历史点名记录 |
+| `xuezai/rollcall.ts` | GPS/雷达签到、当前点名和历史记录；复用上游参考点应答与距离拟合 |
+| `xuezai/rollcall-number.ts` / `rollcall-all.ts` | 同课字幕取四位码并回查；组合两路，确认成功即取消另一条 |
 | `xuezai/cli.ts` / `rollcall-cli.ts` | 参数适配，创建和关闭一次任务所用的客户端 |
 
 `openXuezai()` 是模块工厂：调用公共 `openContext`，把同一上下文注入 `Xuezai`，随后由业务请求按需准备站点会话。模块不重新读取 CAS 账号密码，也不实现密码加密或 CAS 表单提交。站点缓存有效时不会先请求 CAS；确需身份委托时，由注入的 `ctx.zjuam.service()` 完成。
@@ -77,6 +78,8 @@ JSON 读取遇 401 或登录跳转时合并重登一次；写请求不自动重�
 | 提交作业（写） | POST `/api/course/activities/{activity}/submissions` | JSON `{uploads:[附件ID],comment,slides:[],is_draft:false}` |
 | 撤回（写） | PUT `/api/submissions/{submission}/retract` | JSON `{}`，需平台允许撤回 |
 | 当前点名 | GET `/api/radar/rollcalls` | `rollcalls[]`，含 `rollcall_id/is_radar/is_number/status` |
+| 雷达签到（写） | PUT `/api/rollcall/{id}/answer?api_version=1.1.2` | 设备标识、经纬度、精度；写前日志，平台确认后停止 |
+| 数字签到（写） | PUT `/api/rollcall/{id}/answer_number_rollcall` | `{deviceId,numberCode:"0007"}`；仅使用同课定稿字幕中的完整四位码，提交后回查 |
 | 本人历史点名 | GET `/api/course/{course}/student/{user}/rollcalls` | `rollcalls[]`：`rollcall_time`（UTC）、`source`（radar/number/qr）、`status`（on_call_fine/absent）、`student_status`（on_call/absent）、`rollcall_status`（finished）；无点名为空数组。同课程的 `/api/course/{course}/rollcalls`、`students_rollcalls` 是教师接口，学生 403；`rollcall-score` 只给次数汇总，不使用。2026-09-28 核对 |
 
 课程条件使用 `semester_id: [ID, …]`、`keyword`、`status: ["ongoing","notStarted","ended"]`。查询自动翻页。章节和活动分开返回，内容树函数按 ID 关联，空章节和未分章活动也保留。
@@ -92,6 +95,14 @@ JSON 读取遇 401 或登录跳转时合并重登一次；写请求不自动重�
 - 本人交过的文件与课件走同一个下载接口，`homework download` 取最近一次提交（与撤回同一条记录），存到 `data/output/xuezai/<课程名>/我的提交/<作业名>/`，老师传回的文件在其下的 `老师批改/`。重交时同名文件内容会变，所以每次重新下载，不按大小复用。
 - `submission_correct.uploads` 里名为 `markattatchment.txt` 的不是老师传回的文件，而是平台保存网页批注笔迹的数据（URL 编码的 JSON，内容是各页的 SVG 路径；2026-10 实测，老师在网页上批注一次产生一到两个）。它只用来说明「老师在网页上批注过」（`annotation`），不列入文件、不下载；把笔迹画回 PDF 未做。
 - 没有文件的提交记录有两种：老师代为登记的（`submit_by_instructor: true`，如线下交的作业、考试成绩）和纯文字提交，`homework download` 在 `note` 里分别说明。
+
+## 签到接入（2026-10-31）
+
+从本机 zju skill 移入三个执行器和 CLI，保留本项目的作业、课件、课程匹配与账号逻辑。默认入口只跑雷达；数字入口从首次发现前 300 秒至后 300 秒读取同课定稿字幕，每 20 秒更新候选。明确错码才换候选，其他结果先回查，未签上则下一轮重试同一码，最多提交 200 次。平台成功状态才算成功，日志失败禁止提交。
+
+`zhiyun/live-input.ts` 是内部字幕输入，复用已有采集的任务 ID、所有权和截止时间；只停止本次创建的任务。配置远程智云时经 remote.ts 的相同 SSH 通道调用 `scripts/zhiyun/live-input.ts`。禁用智云时数字入口不能读字幕，GPS 不受影响；体育课签到未接入。签到命令通过应用 pwsh 后台任务运行，`job_output` 读取结果。
+
+隔离测试覆盖授权、成功后停止、取消、数字取码与回查、两路协同及字幕任务所有权；真实课堂签到未在开发过程中执行。
 
 ## 参考实现
 

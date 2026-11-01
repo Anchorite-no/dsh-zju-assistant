@@ -3,7 +3,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { fork, spawn, spawnSync } = require('node:child_process')
-const { nodeEnv } = require('../desktop/node.cjs')
+const { nodeEnv, nodeExecutable } = require('../desktop/node.cjs')
 const { checkRuntimeDependencies } = require('./runtime-deps.cjs')
 
 /**
@@ -40,22 +40,23 @@ async function main() {
   if (directory.toLowerCase().startsWith(project.toLowerCase() + path.sep)) throw new Error('先把成品复制到项目目录之外，避免借用开发依赖。')
   const root = path.join(directory, 'resources', 'app'), executable = path.join(directory, 'CampusAgent.exe')
   checkRuntimeDependencies(root)
+  const runtime = nodeExecutable(root)
   const tempRoot = fs.realpathSync.native(os.tmpdir())
   const data = fs.mkdtempSync(path.join(tempRoot, 'campus-smoke-'))
   const env = Object.fromEntries(['SystemRoot', 'WINDIR', 'SystemDrive', 'TEMP', 'TMP', 'COMSPEC', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS', 'PATHEXT'].filter(k => process.env[k]).map(k => [k, process.env[k]]))
   Object.assign(env, { PATH: `${process.env.SystemRoot}/System32;${process.env.SystemRoot}/System32/WindowsPowerShell/v1.0`, ProgramFiles: path.join(data, 'empty'),
     APPDATA: path.join(data, 'roaming'), LOCALAPPDATA: path.join(data, 'local'), USERPROFILE: data, HOME: data, DSH_HOME: path.join(data, 'home'),
-    CAMPUS_PROFILE_DIR: path.join(data, 'profile'), CAMPUS_KEYS_DIR: data, CAMPUS_CHATS_DIR: path.join(data, 'documents'), DSH_TELEMETRY_DISABLED: '1', ELECTRON_RUN_AS_NODE: '1' })
-  Object.assign(env, nodeEnv({ dir: path.join(data, 'bin'), execPath: executable, env }))
+    CAMPUS_PROFILE_DIR: path.join(data, 'profile'), CAMPUS_KEYS_DIR: data, CAMPUS_CHATS_DIR: path.join(data, 'documents'), DSH_TELEMETRY_DISABLED: '1' })
+  Object.assign(env, nodeEnv({ dir: path.join(data, 'bin'), execPath: runtime, env }))
   let child, logs = ''
   try {
     for (const file of ['core/zju/scripts/zju.ts', 'core/weread/scripts/weread.ts']) {
-      const run = spawnSync(executable, [path.join(root, file), '--help'], { cwd: data, env, windowsHide: true, encoding: 'utf8', timeout: 30_000 })
+      const run = spawnSync(runtime, [path.join(root, file), '--help'], { cwd: data, env, windowsHide: true, encoding: 'utf8', timeout: 30_000 })
       if (run.status !== 0) throw new Error(`${file} failed: ${run.stderr}`)
       console.log('PASS', file)
     }
     const url = await new Promise((resolve, reject) => {
-      child = fork(path.join(root, 'desktop/host.mjs'), [], { execPath: executable, cwd: data, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
+      child = fork(path.join(root, 'desktop/host.mjs'), [], { execPath: runtime, cwd: data, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
       const timer = setTimeout(() => reject(new Error('引擎启动超时')), 30_000)
       child.stdout.on('data', c => { logs = (logs + c).slice(-8000) })
       child.stderr.on('data', c => { logs = (logs + c).slice(-8000) })

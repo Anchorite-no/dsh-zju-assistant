@@ -7,5 +7,6 @@
 - 宣传片工程使用的 GSAP 保留其 Standard License，见 [video/vendor/GSAP-LICENSE.txt](video/vendor/GSAP-LICENSE.txt) 及同目录的完整条款；它不按本项目的 GPL 重新授权。
 - 宣传片字体使用 SIL Open Font License 1.1，版权和许可见 [video/assets/fonts/LICENSES.md](video/assets/fonts/LICENSES.md) 与同目录的 `OFL.txt`。朗读工具字体的来源见 [core/learn/tools/tts/fonts/README.md](core/learn/tools/tts/fonts/README.md)。
 - npm 安装的 DeepSeek Harness、Electron、FFmpeg 等组件沿用各包附带的许可证。`ffmpeg-static` 标注为 `GPL-3.0-or-later`；随包提供的 FFmpeg 二进制另附其构建和许可说明。
+- 随包的独立 Node.js 24.19.0 运行时通过 `node-win-x64` 提供。Node.js 及内含第三方组件的完整声明来自 [上游 v24.19.0 LICENSE](https://github.com/nodejs/node/blob/v24.19.0/LICENSE)，保存在 [build/licenses/NODE-LICENSE.txt](build/licenses/NODE-LICENSE.txt)，随源码与安装包保留。
 
 分发修改版或安装包时，须保留适用的第三方声明，并按 GPL 和各组件许可证履行相应的源码提供及分发义务。上面是仓库内明确保留的来源索引，不替代依赖包各自的完整许可文本。

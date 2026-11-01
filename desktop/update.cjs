@@ -36,7 +36,7 @@ function createUpdater({ autoUpdater, packaged, version, feed, token, ask, onCha
   const set = (next) => { state = { current: version, ...next }; onChange(state); return state }
   const fail = error => set(denied(error) ? { status: 'no-access' } : { status: 'error', message: String(error?.message ?? error).split('\n')[0].slice(0, 200) })
 
-  // 新版本总是整个下：安装程序里的应用是一个 zip（装得快，见 README「命令」），没有配套的 .blockmap，按块比对着只下变了的部分做不了，也就不去试。
+  // 新版本总是整个下：安装程序里的应用是一个 zip（装得快，见 docs/DEVELOPMENT.md「命令」），没有配套的 .blockmap，按块比对着只下变了的部分做不了，也就不去试。
   autoUpdater.disableDifferentialDownload = true
   autoUpdater.on('update-not-available', () => { set({ status: 'current' }) })
   autoUpdater.on('update-available', (info) => { set({ status: 'downloading', version: info.version, percent: 0 }) })

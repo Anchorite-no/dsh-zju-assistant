@@ -24,7 +24,7 @@
     "turndown-plugin-gfm": "^1.0.2"
   },
   "optionalDependencies": {
-    "electron": "44.0.0"
+    "electron": "44.10.1"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

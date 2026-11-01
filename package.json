@@ -4,7 +4,7 @@
   "version": "0.1.7",
   "private": true,
   "license": "GPL-3.0-only",
-  "description": "校园智能体桌面端：自写 Electron 壳 + 自己的界面包 + 自带的 ZJU / Learning / WeRead core，引擎用 DeepSeek Harness",
+  "description": "ZJU All-in-One Assistant：浙大学生的一站式校园 AI 助手（Windows 桌面端）。自写 Electron 壳 + 界面包 + ZJU / Learning / WeRead core，引擎用 DeepSeek Harness",
   "main": "desktop/main.cjs",
   "engines": {
     "node": ">=24.18.0 <25",
@@ -39,19 +39,30 @@
     "imapflow": "^2.5.2",
     "js-yaml": "^4.3.2",
     "mailparser": "^3.9.40",
+    "node-win-x64": "24.19.0",
     "nodemailer": "^10.1.2"
   },
   "devDependencies": {
     "@types/react": "18.3",
-    "electron": "44.0.0",
-    "electron-builder": "26.15.3",
+    "electron": "44.10.1",
+    "electron-builder": "26.18.1",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
   },
   "overrides": {
-    "@modelcontextprotocol/client": "2.2.0",
+    "@modelcontextprotocol/client": "2.4.0",
     "@deepseek-ai/libreoffice-kit": {
       "fflate": "0.8.3"
+    },
+    "@electron/asar": {
+      ".": "4.3.1",
+      "glob": "14.0.3"
+    },
+    "@electron/universal": "3.0.6",
+    "ejs": "7.0.2",
+    "minimatch": "11.0.2",
+    "rimraf@2": {
+      "glob": "file:../../scripts/build-deps/legacy-glob"
     }
   },
   "build": {
@@ -62,6 +73,7 @@
     "files": [
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
+      "build/licenses/NODE-LICENSE.txt",
       "desktop/**/*",
       "!desktop/**/*.test.mjs",
       "ui/package.json",
@@ -102,7 +114,7 @@
       {
         "provider": "github",
         "owner": "Anchorite-no",
-        "repo": "campus-agent",
+        "repo": "zju-all-in-one",
         "private": false
       }
     ],

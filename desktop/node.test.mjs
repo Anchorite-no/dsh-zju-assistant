@@ -7,7 +7,7 @@ import path from 'node:path'
 import test from 'node:test'
 
 const require = createRequire(import.meta.url)
-const { nodeEnv } = require('./node.cjs')
+const { nodeEnv, nodeExecutable } = require('./node.cjs')
 
 const windows = { skip: process.platform !== 'win32' && '给命令行用的 node 只做了 Windows 的' }
 const room = (t) => { const root = mkdtempSync(path.join(tmpdir(), 'campus-node-')); t.after(() => { rmSync(root, { recursive: true, force: true }) }); return root }
@@ -32,18 +32,18 @@ test('交给引擎的是放在最前面的 PATH 和应用自己的位置；PATH 
 
 test('没装 Node 的命令行里，node 就是应用自己带的那一份：跑得了 .ts，参数原样到', windows, (t) => {
   // 数据目录带中文和空格（用户名常常是这样）。
-  const root = room(t), dir = path.join(root, '数据 目录', 'bin'), electron = require('electron')
+  const root = room(t), dir = path.join(root, '数据 目录', 'bin'), runtime = nodeExecutable()
   const system = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32')
   // 只留系统自己的那几样：PATH 里没有 Node.js。PATHEXT 要在，命令行靠它认 .cmd。
   const kept = Object.fromEntries(['SystemRoot', 'TEMP', 'TMP', 'PATHEXT', 'ComSpec', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA'].map(name => [name, process.env[name]]).filter(([, value]) => value))
-  const env = { ...kept, ...nodeEnv({ dir, execPath: electron, env: { PATH: system } }) }
+  const env = { ...kept, ...nodeEnv({ dir, execPath: runtime, env: { PATH: system } }) }
   const powershell = path.join(system, 'WindowsPowerShell', 'v1.0', 'powershell.exe')
   const run = command => execFileSync(powershell, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', `[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); ${command}; exit $LASTEXITCODE`], { env, encoding: 'utf8', timeout: 60_000 }).trim()
 
-  // 这个环境里没有系统的 node：能跑出来的只能是我们放的那一个，版本是 Electron 里的 Node。
+  // 这个环境里没有系统的 node：只能使用随应用提供的独立运行时。
   const versions = JSON.parse(run(`node -e "console.log(JSON.stringify(process.versions))"`))
-  assert.ok(versions.electron, '跑起来的不是应用自己带的那一份')
-  assert.ok(Number(versions.node.split('.')[0]) >= 22, `自带的 Node 太旧，跑不了 .ts：${versions.node}`)
+  assert.equal(versions.electron, undefined)
+  assert.equal(versions.node, require('node-win-x64/package.json').version)
 
   // 技能里的命令是「node 某个.ts 参数…」：类型标注要能直接跑，带空格和中文的参数要原样到，退出码要传回来。
   const script = path.join(root, 'echo.ts')
@@ -55,6 +55,12 @@ test('没装 Node 的命令行里，node 就是应用自己带的那一份：跑
   const nested = path.join(root, 'nested.mjs')
   writeFileSync(nested, 'import { spawnSync } from "node:child_process"\nconst child = spawnSync(process.execPath, ["-e", "console.log(1 + 1)"], { encoding: "utf8" })\nconsole.log(child.stdout.trim())\n')
   assert.equal(run(`node '${nested}'`), '2')
+})
+
+test('随包的 Node 支持引擎原生加载器，运行时缺失不会借用系统 Node', windows, (t) => {
+  assert.throws(() => nodeExecutable(room(t)), /缺少随应用提供的 Node/)
+  const loader = JSON.stringify(require.resolve('node-addon-require-builtin'))
+  execFileSync(nodeExecutable(), ['-e', `const assert = require('node:assert/strict'); const loader = require(${loader}); assert.equal(typeof loader.requireBuiltin('internal/modules/cjs/loader').Module, 'function')`], { windowsHide: true, timeout: 30_000 })
 })
 
 test('引擎起命令时把放在最前面的 PATH 和应用的位置原样带下去', windows, async (t) => {

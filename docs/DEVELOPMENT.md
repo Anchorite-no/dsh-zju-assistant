@@ -24,7 +24,7 @@ npm 的本地 override 路径相对于使用它的包解析，所以 rimraf 2 �
 
 ## macOS 版（2026-11-01）
 
-用户要一个 Mac 版，最好带一点液态玻璃的效果。代码和打包配置都改好了，**还没有在真的 Mac 上跑过**：开发机是 Windows，dmg 只能在 macOS 上打，所以打包和启动检查放在 GitHub Actions 的 Mac 机器上（`.github/workflows/mac.yml`），这个流程也还没有跑过。下面每一处写了为什么这样做，最后是在 Windows 上验了什么、真机上还要看什么。
+用户要一个 Mac 版，最好带一点液态玻璃的效果。开发机是 Windows，dmg 只能在 macOS 上打，所以打包和启动检查放在 GitHub Actions 的 Mac 机器上（`.github/workflows/mac.yml`），两种芯片都打出来了、在 Mac 上起过桌面程序；**还没有人在 Mac 上真的用过**。下面每一处写了为什么这样做，最后是验了什么、还要看什么。
 
 **随包的 Node。** 引擎和技能命令用的独立 Node 原来是写在 `dependencies` 里的 `node-win-x64`，它声明了 `os: win32`，在 Mac 上 `npm ci` 直接失败。现在三个平台包都是可选依赖、都是 24.19.0，npm 只装当前这台机器的那一个：`node-win-x64`、`node-darwin-x64`、`node-bin-darwin-arm64`（Apple 芯片的包名带 bin：npm 上的 `node-darwin-arm64` 只出到 18，同一位作者后来改用这个名字发）。`desktop/node.cjs` 的 `nodeRuntime` 按系统和芯片给路径；运行依赖检查（`scripts/runtime-deps.cjs`）和 afterPack 查的是成品要跑的那一种，在 Apple 芯片的机器上打 Intel 的包会在 afterPack 停下。给命令行用的 `node` 在 Mac 上是一个 sh 脚本（`exec "$CAMPUS_NODE_EXE" "$@"`），放在 `~/Library/Application Support/CampusAgent/bin`。从访达打开的应用 PATH 只有 `/usr/bin:/bin:/usr/sbin:/sbin`，所以这一步顺带把存在的 `/opt/homebrew/bin`、`/usr/local/bin`、`/Library/TeX/texbin` 补在后面，讲解找 MacTeX 的 `latex` 靠的就是它。
 
@@ -52,7 +52,9 @@ npm 的本地 override 路径相对于使用它的包解析，所以 rimraf 2 �
 
 **验证。** 在 Windows 开发机上：`npm run verify` 全过（四套类型检查，502 项测试，跳过的一项是只在 Mac 上跑的 sh 脚本那条）；新加和改过的测试有 `desktop/glass.test.mjs`（三档怎么选、窗口选项、垫不上时换成毛玻璃、开关存取）、`node.test.mjs`（Mac 的 sh 脚本和 PATH，三个平台包都是可选依赖且同一版本）、`update.test.mjs`（Atom 订阅里挑版本、Mac 上的检查和去下载）、`tray.test.mjs`（存托盘选择时留着玻璃的开关、Mac 的说明）、`runtime-deps.test.mjs`、`after-pack.test.mjs`。发布页的真实订阅拿来试过，挑出来的是 v0.1.6，两个视频的 Release 跳过了。改过的壳在 Windows 上打了一份成品（输出到项目以外），`smoke-packaged.cjs` 四项都过，Windows 这边没有被带坏。Mac 的图标渲染出来看过。用隔离数据起引擎，在浏览器里给页面打上 Mac 的标记、垫一张彩色底图当桌面，看了液态玻璃和实底两档：侧栏透出底图、四角按 16 像素裁、左上角给三个按钮留了位置；实底那一档侧栏不透。浏览器里没有系统的玻璃，只能看布局和裁角，看不出玻璃本身的效果。
 
-**没验证的（都要一台 Mac）**：GitHub 上的 Mac 构建流程没跑过（`macos-15-intel` 这个机器标签也是照 GitHub 的说明写的）；应用在 Mac 上能不能起来、引擎和校园命令能不能跑（sharp、文档引擎、FFmpeg 的 Mac 版）；液态玻璃、毛玻璃、实底三档各自的样子，透明窗口的圆角和投影、左上角三个按钮的位置、全屏；菜单、程序坞、菜单栏图标和闪；临时签名的应用能不能弹通知；第一次打开时系统拦下来、在「隐私与安全性」里点「仍要打开」这条路；邮箱专用密码存进钥匙串时的弹窗；检查更新在装好的应用里对着真实的发布页走一遍。
+GitHub Actions 上跑了两次（2026-11-01）。第一次两台都停在 `desktop/` 的测试上：`film.test.mjs` 写死了 `E:\tmp\chats` 这样的盘符路径，macOS 上不算完整路径；改成用临时文件夹下的路径。第二次两台（`macos-15` 是 Apple 芯片，`macos-15-intel` 是 Intel，两个机器标签都认）都打出了 dmg（Artifact 344 MB 和 362 MB），`codesign --verify --deep --strict` 都过，挪到项目外面跑 `smoke-packaged.cjs` 四项都过：随包的 Node 跑 `zju.ts`、`weread.ts`，引擎和认证后的页面，配音默认没装，桌面程序起来、窗口加载出应用的页面。这两台是 macOS 15，走的是毛玻璃那一档，液态玻璃那一档没起过。全部测试 502 项，491 过、10 项照 Windows 写的自己跳过，1 项失败：`ui/profile/permissions.test.mjs` 拿 `C:\Program Files\…` 当带空格的安装路径，同样是测试写死了 Windows 路径，改成 Mac 上用 `/Applications/Campus Agent.app/…`。
+
+**没验证的（都要一台 Mac）**：在 Mac 上真的用一遍：校园命令读文档、转格式（sharp、文档引擎、FFmpeg 的 Mac 版只验过装得上、`--help` 跑得起来）；液态玻璃、毛玻璃、实底三档各自的样子，透明窗口的圆角和投影、左上角三个按钮的位置、全屏；菜单、程序坞、菜单栏图标和闪；临时签名的应用能不能弹通知；第一次打开时系统拦下来、在「隐私与安全性」里点「仍要打开」这条路；邮箱专用密码存进钥匙串时的弹窗；检查更新在装好的应用里对着真实的发布页走一遍。
 
 ## 场馆预约与学在签到（2026-10-31）
 

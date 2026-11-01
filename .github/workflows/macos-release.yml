@@ -8,6 +8,7 @@ permissions:
   contents: read
 jobs:
   build:
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -31,6 +32,7 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Smoke test outside source tree
+        timeout-minutes: 3
         env:
           APP_PATH: ${{ matrix.app }}
         run: |

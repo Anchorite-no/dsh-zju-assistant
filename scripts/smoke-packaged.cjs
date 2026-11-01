@@ -15,12 +15,14 @@ async function desktopStarts(executable, dir, baseEnv) {
   const env = { ...baseEnv }
   delete env.ELECTRON_RUN_AS_NODE
   env.CAMPUS_DOWNLOADS_DIR = path.join(dir, 'downloads')
-  const child = spawn(executable, [`--campus-data-dir=${dir}`, '--remote-debugging-port=0'], { env, windowsHide: true, stdio: 'ignore', detached: process.platform === 'darwin' })
+  const child = spawn(executable, [`--campus-data-dir=${dir}`, '--remote-debugging-port=0'], { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform === 'darwin' })
+  let desktopLogs = ''
+  for (const stream of [child.stdout, child.stderr]) stream.on('data', chunk => { desktopLogs = (desktopLogs + chunk).slice(-8000) })
   try {
     const until = Date.now() + 60_000
     for (;;) {
       if (child.exitCode !== null) throw new Error(`桌面程序退出 ${child.exitCode}`)
-      if (Date.now() > until) throw new Error('桌面程序 60 秒内没有加载出应用的页面（主进程可能报错了）')
+      if (Date.now() > until) throw new Error(`桌面程序 60 秒内没有加载出应用的页面：${desktopLogs.replace(/([?&]token=)[^\s]+/g, '$1[redacted]')}`)
       try {
         const port = fs.readFileSync(path.join(dir, 'DevToolsActivePort'), 'utf8').split('\n')[0].trim()
         const pages = await (await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(3000) })).json()
@@ -32,7 +34,7 @@ async function desktopStarts(executable, dir, baseEnv) {
     // 结束整棵进程树：引擎、渲染进程和可能弹出来的报错框。
     if (child.exitCode === null) {
       if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true })
-      else { try { process.kill(-child.pid, 'SIGTERM') } catch { /* already exited */ } }
+      else { try { process.kill(-child.pid, 'SIGKILL') } catch { /* already exited */ } }
       await new Promise(resolve => child.once('close', resolve))
     }
   }
@@ -62,7 +64,7 @@ async function main() {
       console.log('PASS', file)
     }
     const url = await new Promise((resolve, reject) => {
-      child = fork(path.join(root, 'desktop/host.mjs'), [], { execPath: runtime, cwd: data, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
+      child = fork(path.join(root, 'desktop/host.mjs'), [], { execPath: runtime, cwd: data, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'], detached: mac })
       const timer = setTimeout(() => reject(new Error('引擎启动超时')), 30_000)
       child.stdout.on('data', c => { logs = (logs + c).slice(-8000) })
       child.stderr.on('data', c => { logs = (logs + c).slice(-8000) })
@@ -92,7 +94,11 @@ async function main() {
     throw error
   } finally {
     if (child && child.exitCode === null) await new Promise(resolve => {
-      const timer = setTimeout(() => { child.kill() }, 5000)
+      const timer = setTimeout(() => {
+        if (mac) { try { process.kill(-child.pid, 'SIGKILL') } catch { /* already exited */ } }
+        else child.kill('SIGKILL')
+        resolve()
+      }, 5000)
       child.once('close', () => { clearTimeout(timer); resolve() })
       if (child.connected) child.send({ type: 'shutdown' }); else child.kill()
     })

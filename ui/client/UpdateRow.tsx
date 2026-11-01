@@ -7,7 +7,7 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 
 function describe(state: CampusUpdateState): string {
   switch (state.status) {
-    case 'unavailable': return `当前版本 ${state.current}，开发模式不检查更新`
+    case 'unavailable': return `当前版本 ${state.current}，此构建不支持自动更新，请从 Releases 下载新版`
     case 'checking': return '正在检查…'
     case 'current': return `已是最新版本（${state.current}）`
     case 'downloading': return `正在下载 ${state.version ?? '新版本'}：${state.percent ?? 0}%`

@@ -52,7 +52,7 @@ async function createWereadBridge({ BrowserWindow, ipcMain, session, parent, cor
       if (!readJson(path.join(profileDir, 'plugins.json'))?.enabled?.includes(PLUGIN)) throw Object.assign(new Error('微信公众号插件已关闭，请先在「插件」页打开。'), { code: 'plugin_disabled' })
     },
   })
-  const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\campus-weread-${randomUUID()}` : path.join(os.tmpdir(), `campus-weread-${randomUUID()}.sock`)
+  const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\campus-weread-${randomUUID()}` : path.join(os.tmpdir(), `cw-${randomUUID().replaceAll("-", "")}.sock`)
   const sockets = new Set()
   const server = net.createServer((socket) => {
     sockets.add(socket)

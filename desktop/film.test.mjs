@@ -27,7 +27,7 @@ test('页面给的只能是一个 .html 的文件名：带路径的、别的类�
 
 test('成品文件夹在「文档」的 CampusAgent\\讲解\\dist；CAMPUS_CHATS_DIR 换掉时跟着换', () => {
   assert.equal(filmDirectory('D:\\Docs', {}), path.join('D:\\Docs', 'CampusAgent', '讲解', 'dist'))
-  assert.equal(filmDirectory('D:\\Docs', { CAMPUS_CHATS_DIR: 'E:\\tmp\\chats' }), path.join('E:\\tmp\\chats', '讲解', 'dist'))
+  assert.equal(filmDirectory('D:\\Docs', { CAMPUS_CHATS_DIR: path.resolve('chats') }), path.join(path.resolve('chats'), '讲解', 'dist'))
 })
 
 test('未启用配音时放原文件；启用后加载私有朗读器，关窗口时停止服务', async t => {

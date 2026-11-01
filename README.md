@@ -1,6 +1,6 @@
 # ZJU All-in-One Assistant
 
-浙大学生的一站式校园 AI 助手，Windows 桌面应用。
+浙大学生的一站式校园 AI 助手，Windows / macOS 桌面应用。
 
 [![ZJU All-in-One Assistant 宣传片](docs/cover.jpg)](https://github.com/Anchorite-no/zju-all-in-one/releases/download/demo-video/campus-agent-demo-1080p.mp4)
 
@@ -27,14 +27,23 @@
 
 ## 安装
 
-目前只有 Windows x64 版本。
+Windows x64：
 
 1. 到 [Releases](https://github.com/Anchorite-no/zju-all-in-one/releases/latest) 下载 `CampusAgent-Setup-<版本>.exe`（约 310 MB）。
 2. 安装程序没有代码签名，Windows 可能弹出 SmartScreen 提示，点「更多信息」再点「仍要运行」。
 3. 默认装到 `C:\Program Files\CampusAgent`，装给这台电脑上的所有用户，需要管理员权限。
 4. 打开后在设置里填 DeepSeek API Key，或者用 ChatGPT 账号登录；再到「插件 → 校园账号」填统一身份认证的学号和密码。
 
-装好以后应用会自己检查更新。
+Windows 装好以后应用会自己检查更新。
+
+macOS（Apple Silicon / Intel）：
+
+1. 在 Releases 下载 `CampusAgent-<版本>-mac-arm64.dmg`（M 系列芯片）或 `CampusAgent-<版本>-mac-x64.dmg`（Intel）。
+2. 打开 DMG，把 CampusAgent 拖到「应用程序」。也提供 ZIP 格式。
+3. 当前 Mac 包没有 Developer ID 签名和公证。首次打开被系统拦截时，在「系统设置 → 隐私与安全性」确认来源后允许打开。
+4. Mac 版暂不启用自动更新，升级时下载并替换应用，用户数据会保留。
+
+macOS 数据目录为 `~/Library/Application Support/CampusAgent`；源码模式使用 `campus-agent` 目录。校园账号仍为明文保存，邮箱密码通过系统安全存储保存。微信/钉钉本机聊天记录读取和配音环境的一键安装目前仍仅支持 Windows；这次移植不包含这些功能。校园服务的实际账号登录和查询需自行配置后验证。
 
 ## 数据和隐私
 
@@ -49,7 +58,7 @@
 
 ## 从源码运行
 
-需要 Node.js 24.x（24.18 以上）和 npm 11，目前只在 Windows x64 上验证过。
+需要 Node.js 24.x（24.18 以上）和 npm 11，支持 Windows x64、macOS arm64 / x64。
 
 ```powershell
 npm ci
@@ -59,7 +68,13 @@ npm ci
 npm start
 ```
 
-`npm start` 构建界面并打开窗口，也可以双击 `start.cmd`。`npm run verify` 跑类型检查和全部测试，`npm run installer` 打安装程序。各块功能的做法、取舍和验证记录在 [开发记录](docs/DEVELOPMENT.md)。
+`npm start` 构建界面并打开窗口，也可以双击 `start.cmd`。`npm run verify` 跑类型检查和全部测试，`npm run installer` 打 Windows 安装程序，`npm run installer:mac` 打 Mac DMG / ZIP。必须在目标系统和架构上执行 `npm ci` 后打包（内含平台原生依赖，不支持交叉打包）。各块功能的做法、取舍和验证记录在 [开发记录](docs/DEVELOPMENT.md)。
+
+### macOS 发布流程
+
+`.github/workflows/macos-release.yml` 在 PR 和手动运行时分别在 Apple Silicon / Intel runner 上检查、打包、执行隔离启动测试并保存构建产物。推送 `v*` 标签时还会把 DMG / ZIP 上传到该仓库的草稿 Release，供维护者检查后发布。未签名版本不上传自动更新清单。
+
+本地验证成品：将 `.app` 复制到源码目录外，再运行 `node scripts/smoke-packaged.cjs /绝对路径/CampusAgent.app`。测试使用临时用户数据和精简 PATH，验证 Core CLI、引擎页面和桌面窗口启动，不需要真实校园账号。
 
 ## 项目结构
 

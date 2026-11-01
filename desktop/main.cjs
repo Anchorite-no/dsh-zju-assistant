@@ -83,7 +83,9 @@ function startHost() {
 
 async function main() {
   await app.whenReady()
-  Menu.setApplicationMenu(null)
+  Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate([
+    { role: 'appMenu' }, { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' },
+  ]) : null)
   const windows = process.platform === 'win32'
   const dark = nativeTheme.shouldUseDarkColors
   // 界面样式到位前先用引擎侧栏的默认底色，避免闪白。
@@ -199,6 +201,7 @@ async function main() {
   // 关机、注销时系统要窗口真的关掉，不能再藏。
   window.on('session-end', () => { quitting = true })
   app.on('second-instance', show)
+  app.on('activate', show)
   app.on('will-quit', () => { tray.dispose() })
   // 设置页读、改这个开关（preload.cjs 的 campusShell）；只认本窗口主页面发来的。
   const fromPage = event => !window.isDestroyed() && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame
@@ -227,7 +230,8 @@ async function main() {
     execFile(command, args, { timeout: 5000, windowsHide: true }, (error, stdout) => { if (error) reject(error); else resolve(stdout) })
   })
   const updater = createUpdater({
-    autoUpdater, packaged: app.isPackaged, version: app.getVersion(),
+    // Unsigned macOS builds cannot use Squirrel's signature-checked updates.
+    autoUpdater, packaged: app.isPackaged && process.platform !== 'darwin', version: app.getVersion(),
     // 更新源是打包时按 package.json 的 build.publish 写好的。
     feed: () => require('js-yaml').load(readFileSync(path.join(process.resourcesPath, 'app-update.yml'), 'utf8')),
     token: () => githubToken({ env: process.env, saved: savedToken, run }),

@@ -14,7 +14,7 @@ import { ensureCampusProfile } from './profile.mjs'
 const PROFILE = 'campus'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 // 校园命令找引擎问模型用的管道（ui/profile/vision.mjs 在这个地址上听）。引擎一启动就定下来，它后面启动的命令从环境变量里读到。
-process.env.CAMPUS_MODEL_ENDPOINT ||= process.platform === 'win32' ? `\\\\.\\pipe\\campus-model-${randomUUID()}` : join(tmpdir(), `campus-model-${randomUUID()}.sock`)
+process.env.CAMPUS_MODEL_ENDPOINT ||= process.platform === 'win32' ? `\\\\.\\pipe\\campus-model-${randomUUID()}` : join(tmpdir(), `cm-${randomUUID().replaceAll("-", "")}.sock`)
 
 try {
   ensureCampusProfile(resolveDshHome(), PROFILE)

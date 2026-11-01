@@ -1,0 +1,65 @@
+name: macOS release
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            app: dist/mac-arm64/CampusAgent.app
+          - runner: macos-15-intel
+            arch: x64
+            app: dist/mac/CampusAgent.app
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run installer:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Smoke test outside source tree
+        env:
+          APP_PATH: ${{ matrix.app }}
+        run: |
+          ditto "$APP_PATH" "$RUNNER_TEMP/CampusAgent.app"
+          node scripts/smoke-packaged.cjs "$RUNNER_TEMP/CampusAgent.app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: macos-*
+          merge-multiple: true
+          path: artifacts
+      - name: Attach installers to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$RELEASE_TAG" || gh release create "$RELEASE_TAG" --draft --title "$RELEASE_TAG" --notes "Unsigned macOS builds; see README for installation and limitations."
+          gh release upload "$RELEASE_TAG" artifacts/*.dmg artifacts/*.zip

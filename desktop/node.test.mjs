@@ -26,7 +26,7 @@ test('交给引擎的是放在最前面的 PATH 和应用自己的位置；PATH 
   assert.deepEqual(nodeEnv({ dir, execPath: exe, env: {} }), { CAMPUS_NODE_EXE: exe, PATH: dir })
   assert.equal(statSync(path.join(dir, 'node.cmd')).mtimeMs, before)
   // 别的系统上不动。
-  assert.deepEqual(nodeEnv({ dir: path.join(root, 'other'), execPath: exe, env: {}, platform: 'darwin' }), {})
+  assert.deepEqual(nodeEnv({ dir: path.join(root, 'other'), execPath: exe, env: {}, platform: 'linux' }), {})
   assert.equal(existsSync(path.join(root, 'other')), false)
 })
 
@@ -57,7 +57,7 @@ test('没装 Node 的命令行里，node 就是应用自己带的那一份：跑
   assert.equal(run(`node '${nested}'`), '2')
 })
 
-test('随包的 Node 支持引擎原生加载器，运行时缺失不会借用系统 Node', windows, (t) => {
+test('随包的 Node 支持引擎原生加载器，运行时缺失不会借用系统 Node', (t) => {
   assert.throws(() => nodeExecutable(room(t)), /缺少随应用提供的 Node/)
   const loader = JSON.stringify(require.resolve('node-addon-require-builtin'))
   execFileSync(nodeExecutable(), ['-e', `const assert = require('node:assert/strict'); const loader = require(${loader}); assert.equal(typeof loader.requireBuiltin('internal/modules/cjs/loader').Module, 'function')`], { windowsHide: true, timeout: 30_000 })
@@ -80,4 +80,17 @@ test('引擎起命令时把放在最前面的 PATH 和应用的位置原样带�
   assert.equal(passed.CAMPUS_NODE_EXE, exe)
   assert.ok(passed[passedKey].startsWith(`${path.join(root, 'bin')}${path.delimiter}`))
   assert.ok(passed.PATHEXT, '没有 PATHEXT 的话命令行不认 .cmd')
+})
+
+test('macOS shell uses bundled Node with spaces, Unicode, TypeScript and exit codes', { skip: process.platform !== 'darwin' }, t => {
+  const root = room(t), dir = path.join(root, '数据 目录', 'bin')
+  const runtime = nodeExecutable()
+  const env = nodeEnv({ dir, execPath: runtime, env: { PATH: '/usr/bin:/bin' } })
+  const script = path.join(root, 'echo.ts')
+  writeFileSync(script, 'const args: string[] = process.argv.slice(2); console.log(JSON.stringify(args)); process.exit(args.includes("--fail") ? 3 : 0)')
+  const run = args => execFileSync('/bin/sh', ['-c', 'exec node "$@"', 'sh', ...args], { env, encoding: 'utf8' }).trim()
+  assert.deepEqual(JSON.parse(run([script, '中文 空格', '$literal'])), ['中文 空格', '$literal'])
+  assert.throws(() => run([script, '--fail']), error => error.status === 3)
+  assert.equal(run(['-p', 'process.execPath']), runtime)
+  assert.throws(() => nodeExecutable(root), /缺少随应用提供的 Node/)
 })

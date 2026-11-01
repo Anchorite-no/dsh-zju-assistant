@@ -7,7 +7,7 @@ import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { lookAt, startModelBridge } from './vision.mjs'
 
-const pipe = () => process.platform === 'win32' ? `\\\\.\\pipe\\campus-model-test-${randomUUID()}` : path.join(os.tmpdir(), `campus-model-test-${randomUUID()}.sock`)
+const pipe = () => process.platform === 'win32' ? `\\\\.\\pipe\\campus-model-test-${randomUUID()}` : path.join(os.tmpdir(), `ct-${randomUUID().replaceAll("-", "")}.sock`)
 
 /** 像校园命令那样问一次：写一行，读到对面关上为止。 */
 function ask(endpoint, line) {

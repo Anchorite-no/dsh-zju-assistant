@@ -29,7 +29,7 @@ const denied = error => /\b(401|403|404)\b|Bad credentials/.test(String(error?.m
  * feed 返回更新源的配置（打包时写进 app-update.yml 的那一份）；token 找 GitHub 令牌；
  * ask(version) 问用户要不要立刻装，答应了给 true；onChange 在状态变了的时候叫一声。
  * 返回 { state(), check(), install(), start() }。state().status：
- * unavailable（开发模式）、idle、checking、current（已是最新）、downloading、ready（下好了）、no-access（带不带令牌都读不到）、error。
+ * unavailable（开发模式或未启用自动更新的构建）、idle、checking、current（已是最新）、downloading、ready（下好了）、no-access（带不带令牌都读不到）、error。
  */
 function createUpdater({ autoUpdater, packaged, version, feed, token, ask, onChange = () => {}, timers = globalThis }) {
   let state = { status: packaged ? 'idle' : 'unavailable', current: version }

@@ -55,7 +55,7 @@ function shipMissingDependencies(appDir, projectDir) {
     if (!manifest) continue
     const optional = manifest.peerDependenciesMeta ?? {}
     const wanted = new Set([
-      ...Object.keys(manifest.dependencies ?? {}),
+      ...Object.keys(manifest.dependencies ?? {}).filter(name => !manifest.optionalDependencies?.[name]),
       ...Object.keys(manifest.peerDependencies ?? {}).filter(name => optional[name]?.optional !== true),
     ])
     for (const name of wanted) {
@@ -137,13 +137,16 @@ const defaultDirLength = name => 'C:\\Program Files\\'.length + name.length
 
 /** electron-builder 的 afterPack 钩子。 */
 async function afterPack(context) {
-  const appDir = path.join(context.appOutDir, 'resources', 'app')
+  const appDir = context.electronPlatformName === 'darwin'
+    ? path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`, 'Contents', 'Resources', 'app')
+    : path.join(context.appOutDir, 'resources', 'app')
   const { added, unresolved } = shipMissingDependencies(appDir, context.packager.projectDir)
   console.log(`  • shipped ${added.length} installed packages the dependency walk left out${added.length ? `: ${added.join(', ')}` : ''}`)
   if (unresolved.length > 0) throw new Error(`成品缺少必需依赖：${unresolved.join('; ')}`)
   checkRuntimeDependencies(appDir)
   const dropped = dropDeadWeight(appDir)
   console.log(`  • dropped ${dropped.files} source maps and type declarations (${Math.round(dropped.bytes / 1048576)} MB) nothing reads at run time`)
+  if (context.electronPlatformName !== 'win32') return
   const odd = oddNames(context.appOutDir)
   if (odd.length > 0) throw new Error(`安装程序装不了名字带中文的文件，改名或者在 package.json 的 build.files 里排除：${odd.slice(0, 10).join('、')}`)
   const { room, longest } = installDirRoom(context.appOutDir)

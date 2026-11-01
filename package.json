@@ -4,7 +4,7 @@
   "version": "0.1.7",
   "private": true,
   "license": "GPL-3.0-only",
-  "description": "ZJU All-in-One Assistant：浙大学生的一站式校园 AI 助手（Windows 桌面端）。自写 Electron 壳 + 界面包 + ZJU / Learning / WeRead core，引擎用 DeepSeek Harness",
+  "description": "ZJU All-in-One Assistant：浙大学生的一站式校园 AI 助手（Windows / macOS 桌面端）。自写 Electron 壳 + 界面包 + ZJU / Learning / WeRead core，引擎用 DeepSeek Harness",
   "main": "desktop/main.cjs",
   "engines": {
     "node": ">=24.18.0 <25",
@@ -30,7 +30,8 @@
     "package": "node ui/build.mjs && node scripts/runtime-deps.cjs && electron-builder --dir --publish never",
     "installer": "node ui/build.mjs && node scripts/runtime-deps.cjs && electron-builder --win nsis --publish never",
     "test:chats": "node --test core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts ui/profile/chat-watch.test.mjs",
-    "typecheck:dingtalk": "node core/dingtalk/node_modules/typescript/bin/tsc --noEmit -p core/dingtalk"
+    "typecheck:dingtalk": "node core/dingtalk/node_modules/typescript/bin/tsc --noEmit -p core/dingtalk",
+    "installer:mac": "node ui/build.mjs && node scripts/runtime-deps.cjs && electron-builder --mac dmg zip --publish never"
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.2.0-rc.2",
@@ -39,7 +40,6 @@
     "imapflow": "^2.5.2",
     "js-yaml": "^4.3.2",
     "mailparser": "^3.9.40",
-    "node-win-x64": "24.19.0",
     "nodemailer": "^10.1.2"
   },
   "devDependencies": {
@@ -136,6 +136,21 @@
         "en_US"
       ],
       "include": "scripts/installer.nsh"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.education",
+      "icon": "build/icon.png",
+      "identity": null,
+      "artifactName": "CampusAgent-${version}-mac-${arch}.${ext}"
     }
+  },
+  "optionalDependencies": {
+    "node-win-x64": "24.19.0",
+    "node-bin-darwin-arm64": "24.19.0",
+    "node-darwin-x64": "24.19.0"
   }
 }

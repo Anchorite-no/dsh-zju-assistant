@@ -2,11 +2,11 @@
  * 最小的自写壳：一个窗口 + 一个引擎子进程。
  * 壳只负责窗口、名字和进程生命周期；界面由引擎的 Web 应用提供，壳直接加载它的地址。
  */
-const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, nativeTheme, safeStorage, screen, session, shell } = require('electron')
-const { autoUpdater } = require('electron-updater')
+const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, nativeTheme, net, safeStorage, screen, session, shell } = require('electron')
 const { APP_ID, createTray } = require('./tray.cjs')
 const { windowSize } = require('./size.cjs')
-const { createUpdater, githubToken } = require('./update.cjs')
+const { createReleaseWatcher, createUpdater, githubToken, releasesFeed } = require('./update.cjs')
+const { CORNER_RADIUS, applyGlass, glassMode, readGlass, windowOptions, writeGlass } = require('./glass.cjs')
 const { createWereadBridge } = require('./weread.cjs')
 const { createReader } = require('./reader.cjs')
 const { handleMailSecret } = require('./mail-secrets.cjs')
@@ -22,6 +22,7 @@ const TITLE = '校园智能体'
 const TITLEBAR_HEIGHT = 40
 /** 窗口宽度的下限。 */
 const MIN_WIDTH = 520
+const windows = process.platform === 'win32', mac = process.platform === 'darwin'
 
 // Some launchers omit APPDATA. Use Windows' application-data folder for all child processes.
 // appData is the user's Roaming directory, distinct from this app's userData directory.
@@ -50,6 +51,8 @@ mkdirSync(workspace, { recursive: true })
 // 密钥文件（DeepSeek Key、ChatGPT 登录的令牌）放哪：开发时在项目根目录，方便直接改；装好的应用放数据目录，
 // 安装目录在升级时会被整个换掉，放在里面每次升级都要重新填。
 const keysDir = app.isPackaged ? app.getPath('userData') : path.join(__dirname, '..')
+/** 存在壳这边的设置：托盘和通知的开关（tray.cjs）、玻璃效果的开关（glass.cjs）。 */
+const shellFile = path.join(app.getPath('userData'), 'shell.json')
 
 let host
 let wereadBridge
@@ -81,13 +84,63 @@ function startHost() {
   })
 }
 
+/**
+ * macOS 屏幕顶上的菜单。Windows 上不要菜单栏；macOS 上不能没有：拷贝、粘贴、全选这些快捷键是挂在「编辑」菜单上的，
+ * 没有它，输入框里按 ⌘C、⌘V 都没反应，⌘Q、⌘H、⌘M、⌘W 也一样。只放这几样，名字照系统的中文叫法写。
+ */
+function macMenu() {
+  return Menu.buildFromTemplate([
+    { label: TITLE, submenu: [
+      { role: 'about', label: `关于${TITLE}` },
+      { type: 'separator' },
+      { role: 'services', label: '服务' },
+      { type: 'separator' },
+      { role: 'hide', label: `隐藏${TITLE}` },
+      { role: 'hideOthers', label: '隐藏其他' },
+      { role: 'unhide', label: '全部显示' },
+      { type: 'separator' },
+      { role: 'quit', label: `退出${TITLE}` },
+    ] },
+    { label: '编辑', submenu: [
+      { role: 'undo', label: '撤销' },
+      { role: 'redo', label: '重做' },
+      { type: 'separator' },
+      { role: 'cut', label: '剪切' },
+      { role: 'copy', label: '拷贝' },
+      { role: 'paste', label: '粘贴' },
+      { role: 'pasteAndMatchStyle', label: '粘贴并匹配样式' },
+      { role: 'delete', label: '删除' },
+      { role: 'selectAll', label: '全选' },
+    ] },
+    { label: '显示', submenu: [{ role: 'togglefullscreen', label: '进入全屏幕' }] },
+    { label: '窗口', role: 'window', submenu: [
+      { role: 'minimize', label: '最小化' },
+      { role: 'zoom', label: '缩放' },
+      { type: 'separator' },
+      // ⌘W 和点左上角的红色按钮一样：设置里开着「关闭窗口时留在菜单栏」时只是藏起来。
+      { role: 'close', label: '关闭窗口' },
+      { role: 'front', label: '前置全部窗口' },
+    ] },
+  ])
+}
+
 async function main() {
   await app.whenReady()
-  Menu.setApplicationMenu(null)
-  const windows = process.platform === 'win32'
+  Menu.setApplicationMenu(mac ? macMenu() : null)
+  if (mac) {
+    app.setAboutPanelOptions({ applicationName: TITLE, applicationVersion: app.getVersion(), version: '' })
+    // 开发时跑的是 Electron 自己的程序，程序坞上是它的图标；换成我们的。装好的应用用的是打包时放进去的那一份。
+    if (!app.isPackaged) app.dock?.setIcon(path.join(__dirname, '..', 'build', 'icon-mac.png'))
+  }
   const dark = nativeTheme.shouldUseDarkColors
   // 界面样式到位前先用引擎侧栏的默认底色，避免闪白。
   const fill = dark ? '#1b1b1c' : '#f9fafb'
+  // macOS 上窗口后面垫什么（glass.cjs）：液态玻璃、毛玻璃还是实底。要在开窗口之前定，Windows 上是 undefined。
+  const glassOn = readGlass(shellFile)
+  const glass = glassMode({
+    version: process.getSystemVersion(), reduced: nativeTheme.prefersReducedTransparency, enabled: glassOn,
+    load: () => require('electron-liquid-glass'),
+  })
   // 一开始就开宽一点（size.cjs）：右边栏展开时是从对话区里让出一列，窗口不跟着变宽。按鼠标所在的那块屏幕算。
   const { width, height } = windowSize(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea, { width: MIN_WIDTH, height: 600 })
   const window = new BrowserWindow({
@@ -105,13 +158,27 @@ async function main() {
       titleBarStyle: 'hidden',
       titleBarOverlay: { height: TITLEBAR_HEIGHT, color: fill, symbolColor: dark ? '#f9fafb' : '#0f1115' },
     } : {}),
+    // macOS：左上角三个按钮缩进侧栏顶上那一条，窗口后面垫玻璃或实底（glass.cjs）。
+    ...(glass ? windowOptions(glass.mode, fill) : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      // 页面要知道窗口后面垫的是哪一档、透明窗口的圆角多大（preload.cjs 读了交给界面的样式）。
+      additionalArguments: glass ? [`--campus-glass=${glass.mode}`, `--campus-corner=${CORNER_RADIUS}`] : [],
     },
   })
+  if (glass) {
+    // 液态玻璃在窗口开好以后垫上去；页面第一次加载完再垫一遍（electron-liquid-glass 的说明里是在这时候垫的，垫第二次会换掉第一次的）。
+    let mode = applyGlass(window, glass)
+    window.webContents.once('did-finish-load', () => { if (mode === 'liquid' && !window.isDestroyed()) { mode = applyGlass(window, glass); window.invalidateShadow() } })
+    // 全屏时界面要收起给三个按钮留的那一块（引擎的 Mac 布局认 html[data-fullscreen]，preload.cjs 打这个标记）。
+    const fullscreen = () => { if (!window.isDestroyed()) window.webContents.send('campus:fullscreen', window.isFullScreen()) }
+    window.on('enter-full-screen', fullscreen)
+    window.on('leave-full-screen', fullscreen)
+    window.webContents.on('did-finish-load', fullscreen)
+  }
   if (windows) {
     // 三个按钮的底色和符号色跟随界面主题；只接受本窗口主页面发来的 rgba() 值。
     const color = /^rgba\(\d{1,3}, \d{1,3}, \d{1,3}, [\d.]+\)$/
@@ -165,12 +232,14 @@ async function main() {
   }
   // 用程序自己的图标，和任务栏上的是同一个。有新消息时它和一张同样大小的空白图来回换，看着就是在闪。
   // 开发时跑的是 electron.exe，它的图标不是我们的，直接用 desktop/icon-32.png。
-  const trayIcon = app.isPackaged ? await app.getFileIcon(process.execPath, { size: 'normal' }) : nativeImage.createFromPath(path.join(__dirname, 'icon-32.png'))
+  // macOS 的菜单栏图标是 16 点见方，32 像素的这张当二倍图用，视网膜屏上正好清楚；程序文件本身在 macOS 上没有我们的图标可取。
+  const trayIcon = mac ? nativeImage.createFromBuffer(readFileSync(path.join(__dirname, 'icon-32.png')), { scaleFactor: 2 })
+    : app.isPackaged ? await app.getFileIcon(process.execPath, { size: 'normal' }) : nativeImage.createFromPath(path.join(__dirname, 'icon-32.png'))
   const { width: iconWidth, height: iconHeight } = trayIcon.getSize()
   /** 托盘上点了一条消息以后，页面来取的「要打开哪里」（一个对话，或者侧栏上的一页）。 */
   let opening
   const tray = createTray({
-    Tray, Menu, Notification, file: path.join(app.getPath('userData'), 'shell.json'), title: TITLE,
+    Tray, Menu, Notification, file: shellFile, title: TITLE,
     icon: trayIcon,
     blank: nativeImage.createFromBitmap(Buffer.alloc(iconWidth * iconHeight * 4), { width: iconWidth, height: iconHeight }),
     show, quit: () => { app.quit() },
@@ -184,11 +253,12 @@ async function main() {
     // 人正看着主窗口时不闪：页面上自己有标记（通知前的小圆点、对话那一行的未读点）。
     if (window.isDestroyed() || window.isFocused()) return
     if (!tray.alert(input)) return
-    // 窗口没藏起来（最小化了，或者被别的窗口盖着）时，任务栏上的按钮也跟着闪。
+    // 窗口没藏起来（最小化了，或者被别的窗口盖着）时，任务栏上的按钮也跟着闪；macOS 上是程序坞的图标跳一下，图标角上标着几条没看。
     if (window.isVisible()) window.flashFrame(true)
+    if (mac) app.setBadgeCount(tray.pending())
   }
   // 人回到主窗口，消息就算看过了。
-  window.on('focus', () => { tray.clear(); window.flashFrame(false) })
+  window.on('focus', () => { tray.clear(); window.flashFrame(false); if (mac) app.setBadgeCount(0) })
   window.on('close', (event) => {
     if (quitting || !tray.enabled()) return
     event.preventDefault()
@@ -199,6 +269,8 @@ async function main() {
   // 关机、注销时系统要窗口真的关掉，不能再藏。
   window.on('session-end', () => { quitting = true })
   app.on('second-instance', show)
+  // macOS 上窗口藏起来以后，应用还在程序坞里：点它的图标就是要回主窗口。
+  app.on('activate', show)
   app.on('will-quit', () => { tray.dispose() })
   // 设置页读、改这个开关（preload.cjs 的 campusShell）；只认本窗口主页面发来的。
   const fromPage = event => !window.isDestroyed() && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame
@@ -213,6 +285,10 @@ async function main() {
       (error, stdout) => resolve(!error && /ToastEnabled\s+REG_DWORD\s+0x0\b/i.test(stdout))))
   })
   ipcMain.handle('campus:notify:set', (event, on) => fromPage(event) ? tray.setNotify(on === true) : false)
+  // 「窗口的玻璃效果」那一行（macOS 才有）：开关现在的值和这次打开时的值（不一样就是要重新打开应用）、这次用的是哪一档、
+  // 是不是因为系统的「减少透明度」才成了实底。
+  ipcMain.handle('campus:glass:get', event => fromPage(event) && glass ? { on: readGlass(shellFile), started: glassOn, mode: glass.mode, reduced: nativeTheme.prefersReducedTransparency } : undefined)
+  ipcMain.handle('campus:glass:set', (event, on) => fromPage(event) && glass ? writeGlass(shellFile, on === true) : false)
   // 托盘上点了一条消息：壳喊一声（campus:open），页面来取要打开哪里，取走就清掉（ui/client/alerts.ts）。
   ipcMain.handle('campus:open:take', (event) => {
     if (!fromPage(event)) return undefined
@@ -226,8 +302,20 @@ async function main() {
   const run = (command, args) => new Promise((resolve, reject) => {
     execFile(command, args, { timeout: 5000, windowsHide: true }, (error, stdout) => { if (error) reject(error); else resolve(stdout) })
   })
-  const updater = createUpdater({
-    autoUpdater, packaged: app.isPackaged, version: app.getVersion(),
+  const onUpdate = () => { if (!window.isDestroyed()) window.webContents.send('campus:update') }
+  // macOS 上装不了自己下好的新版本（update.cjs 的 createReleaseWatcher），只看发布页有没有新版本，有就给一个去下载的地方。
+  // 走 Electron 的网络（net.fetch），和浏览器一样认系统的代理设置。
+  const updater = mac ? createReleaseWatcher({
+    packaged: app.isPackaged, version: app.getVersion(),
+    feed: async () => {
+      const response = await net.fetch(releasesFeed(), { signal: AbortSignal.timeout(20_000) })
+      if (!response.ok) throw new Error(`发布页回了 HTTP ${response.status}`)
+      return response.text()
+    },
+    open: (url) => { void shell.openExternal(url) },
+    onChange: onUpdate,
+  }) : createUpdater({
+    autoUpdater: require('electron-updater').autoUpdater, packaged: app.isPackaged, version: app.getVersion(),
     // 更新源是打包时按 package.json 的 build.publish 写好的。
     feed: () => require('js-yaml').load(readFileSync(path.join(process.resourcesPath, 'app-update.yml'), 'utf8')),
     token: () => githubToken({ env: process.env, saved: savedToken, run }),
@@ -240,7 +328,7 @@ async function main() {
       const { response } = window.isDestroyed() || !window.isVisible() ? await dialog.showMessageBox(options) : await dialog.showMessageBox(window, options)
       return response === 0
     },
-    onChange: () => { if (!window.isDestroyed()) window.webContents.send('campus:update') },
+    onChange: onUpdate,
   })
   app.on('will-quit', updater.start())
   ipcMain.handle('campus:update:get', event => fromPage(event) ? updater.state() : undefined)

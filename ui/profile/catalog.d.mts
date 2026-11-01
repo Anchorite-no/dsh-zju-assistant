@@ -34,6 +34,8 @@ export interface AppPlugin {
   base?: boolean
   /** 默认关着，要用户自己打开；没有这一项的默认开着。 */
   optIn?: boolean
+  /** 只在这几种系统上能用（process.platform 的写法）；没有这一项的哪里都能用。 */
+  platforms?: readonly string[]
   /** 这一项管的 ZJU Core 模块。 */
   modules?: readonly string[]
   /** 不是 ZJU Core 的功能背后是哪一样：公众号的 weread 技能，或者 Learning Core（learn 技能）。 */

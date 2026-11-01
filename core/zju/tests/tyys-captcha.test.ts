@@ -21,7 +21,7 @@ const expected = [{ x: 190, y: 108 }, { x: 218, y: 16 }, { x: 105, y: 122 }];
 
 /** 顶替引擎的那一头：收一行请求，照 reply 回一行。返回管道地址和收到的请求。 */
 async function bridge(t: { after(fn: () => void): void }, reply: (request: Record<string, string>) => unknown) {
-  const endpoint = process.platform === "win32" ? `\\\\.\\pipe\\zju-captcha-test-${randomUUID()}` : path.join(os.tmpdir(), `zju-captcha-test-${randomUUID()}.sock`);
+  const endpoint = process.platform === "win32" ? `\\\\.\\pipe\\zju-captcha-test-${randomUUID()}` : path.join(os.tmpdir(), `zju-captcha-test-${randomUUID().slice(0, 8)}.sock`);
   const requests: Record<string, string>[] = [];
   const server = net.createServer(socket => {
     let received = "";
@@ -100,6 +100,6 @@ test("应用说要用户去处理、这一次没问成、话没说完，各报�
   await assert.rejects(askApp("题目", image), { code: "NEEDS_USER", message: /现在选的模型看不了图/ });
   await assert.rejects(askApp("题目", image), { code: "BAD_RESPONSE", message: /余额不足/ });
   await assert.rejects(askApp("题目", image), { code: "BAD_RESPONSE" });
-  process.env.CAMPUS_MODEL_ENDPOINT = process.platform === "win32" ? `\\\\.\\pipe\\zju-captcha-test-${randomUUID()}` : path.join(os.tmpdir(), `zju-captcha-test-${randomUUID()}.sock`);
+  process.env.CAMPUS_MODEL_ENDPOINT = process.platform === "win32" ? `\\\\.\\pipe\\zju-captcha-test-${randomUUID()}` : path.join(os.tmpdir(), `zju-captcha-test-${randomUUID().slice(0, 8)}.sock`);
   await assert.rejects(askApp("题目", image), { code: "TRANSPORT" });
 });

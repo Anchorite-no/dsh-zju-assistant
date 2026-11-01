@@ -11,10 +11,11 @@ import { TtsSettings } from './TtsSettings.tsx'
 interface Part { id: 'tex' | 'browser', state: 'ready' | 'missing' | 'installing', where: 'app' | 'system' | null, installable: boolean, step: string, percent: number | null, error: string }
 interface Snapshot { enabled: boolean, parts: Part[] }
 
-/** 每一样叫什么、是什么。 */
+/** 每一样叫什么、是什么。macOS 上两样都要自己装（自动安装只做了 Windows 的），说清楚装哪个。 */
+const mac = window.campusShell?.platform === 'darwin'
 const NAMES: Record<Part['id'], { title: string, what: string }> = {
-  tex: { title: '公式排版', what: 'TeX Live，约 300 MB' },
-  browser: { title: '版面检查', what: '本机的 Edge 或 Chrome' },
+  tex: { title: '公式排版', what: mac ? 'TeX Live。macOS 上自己装 MacTeX，或者小一些的 BasicTeX 再用 tlmgr 装上 dvisvgm，装好重新打开应用' : 'TeX Live，约 300 MB' },
+  browser: { title: '版面检查', what: mac ? '本机的 Chrome 或 Edge，装在「应用程序」文件夹里' : '本机的 Edge 或 Chrome' },
 }
 /** 装的时候多久问一次。 */
 const ASK_MS = 1000

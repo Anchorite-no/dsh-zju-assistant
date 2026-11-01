@@ -3729,3 +3729,20 @@ button.campus-chat-open { border: 0; background: transparent; padding: 0; text-a
     display: none;
   }
 }
+
+/*
+ * macOS 的窗口（desktop/glass.cjs、preload.cjs）。引擎的 Mac 布局已经把整页底色设成透明、侧栏只铺半透明的一层，
+ * 窗口后面垫的液态玻璃或毛玻璃就从侧栏透出来。这里补两件事：
+ *   液态玻璃那一档窗口本身是透明的，四角要自己裁，半径和垫在底下的玻璃一样（壳经 --campus-window-radius 交过来）；全屏时不裁。
+ *   实底那一档（系统里打开了「减少透明度」，或者设置里关了玻璃效果）窗口后面什么都没垫，整页铺上侧栏的底色，
+ *   免得透出开窗口时定下的那个底色：它跟不上界面换主题。
+ */
+html[data-platform='darwin'][data-campus-glass='liquid']:not([data-fullscreen]) #root {
+  border-radius: var(--campus-window-radius);
+  overflow: hidden;
+}
+
+html[data-platform='darwin'][data-campus-glass='solid'],
+html[data-platform='darwin'][data-campus-glass='solid'] body {
+  background: var(--dsw-specific-sidebar-fill);
+}

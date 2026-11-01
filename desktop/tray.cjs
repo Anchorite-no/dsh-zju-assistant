@@ -2,10 +2,10 @@
  * 点主窗口的关闭按钮时去哪：直接退出，还是隐藏到系统托盘。开关在 设置 → 通用设置 里，默认开（2026-10-21 起；原来默认关，
  * 可聊天监控、邮箱和 CC98 的后台检查、定时任务都要应用开着才跑，一关窗口就全停了）。只有用户明确关过（文件里写着 false）才是关。
  * 第一次关窗口藏进托盘时，弹一条系统通知说应用还在后台、怎么退出，只弹这一次。
- * 关窗口这件事发生在壳里，所以选择由壳自己存：应用数据目录下的 shell.json。
- * 托盘图标只在开关打开时才有；点它把主窗口叫回来，右键菜单里可以退出。
+ * 关窗口这件事发生在壳里，所以选择由壳自己存：应用数据目录下的 shell.json（glass.cjs 的玻璃效果开关也存在这里，存的时候互不覆盖）。
+ * 托盘图标只在开关打开时才有；点它把主窗口叫回来，右键菜单里可以退出。macOS 上「托盘」是屏幕顶上菜单栏右边那一排，图标放在那里。
  *
- * 新消息另外弹一条 Windows 的系统通知（右下角那种），点了打开它说的地方；开关「新消息时弹出系统通知」也在通用设置里，默认开。
+ * 新消息另外弹一条系统通知（Windows 在右下角，macOS 在右上角），点了打开它说的地方；开关「新消息时弹出系统通知」也在通用设置里，默认开。
  *
  * 有新消息时图标会闪（做法照 QQ：图标和一张空白的图来回换）。消息从引擎那边来（公众号有新文章，监控的聊天、邮箱、CC98 有新消息，
  * 助手用 campus_notify 提醒的事），壳只管攒着、闪、给人看：鼠标放上去的提示里是最近几条，
@@ -36,8 +36,12 @@ function readShell(file) {
 }
 const readCloseToTray = file => readShell(file).closeToTray
 
-/** 第一次藏进托盘时的那条说明。 */
+/** 第一次藏进托盘时的那条说明。HINT 是 Windows 的，macOS 上退出的地方不一样。 */
 const HINT = { title: '还在后台运行', text: '新消息会在这里提醒你。要退出，右键托盘图标选「退出」；不想这样，可以在 设置 → 通用设置 里关掉。' }
+const HINTS = {
+  win32: HINT,
+  darwin: { title: HINT.title, text: '新消息会在这里提醒你。要退出，点菜单栏上的图标选「退出」，或者按 ⌘Q；不想这样，可以在 设置 → 通用设置 里关掉。' },
+}
 
 const clip = (value, limit) => {
   const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
@@ -65,10 +69,10 @@ const line = alert => alert.text ? `${alert.title}：${alert.text}` : alert.titl
 /**
  * file 是存选择的文件，icon 是托盘上的图标，blank 是闪的时候换上去的那张空白的图，
  * show 把主窗口叫回来，quit 真正退出应用，open(alert) 打开一条消息说的那个地方（主窗口由它自己叫回来）。
- * Notification 是 Electron 的系统通知（测试里换成假的）；不给、或者系统不支持时不弹。
+ * Notification 是 Electron 的系统通知（测试里换成假的）；不给、或者系统不支持时不弹。platform 定第一次藏起来时那条说明怎么写。
  * 返回 { enabled(), set(on), notifying(), setNotify(on), hidden(), alert(input), clear(), pending(), dispose() }。
  */
-function createTray({ Tray, Menu, Notification, file, title, icon, blank, show, quit, open = show }) {
+function createTray({ Tray, Menu, Notification, file, title, icon, blank, show, quit, open = show, platform = process.platform }) {
   let { closeToTray: on, notify, hinted } = readShell(file)
   let tray
   /** 弹出去还没被点、也没关掉的系统通知：留着引用，不然被回收以后点了没反应。 */
@@ -112,7 +116,13 @@ function createTray({ Tray, Menu, Notification, file, title, icon, blank, show, 
     paint()
     if (alert) open(alert); else show()
   }
-  function save() { fs.writeFileSync(file, JSON.stringify({ closeToTray: on, notify, hinted }) + '\n') }
+  /** 写回这几样，文件里别的（玻璃效果的开关）原样留着。 */
+  function save() {
+    let value
+    try { value = JSON.parse(fs.readFileSync(file, 'utf8')) } catch {}
+    if (!value || typeof value !== 'object') value = {}
+    fs.writeFileSync(file, JSON.stringify({ ...value, closeToTray: on, notify, hinted }) + '\n')
+  }
   /** 弹一条系统通知；给了 alert 的，点它就打开那个地方。 */
   function toast(message, alert) {
     if (!Notification || (typeof Notification.isSupported === 'function' && !Notification.isSupported())) return false
@@ -161,7 +171,7 @@ function createTray({ Tray, Menu, Notification, file, title, icon, blank, show, 
       if (hinted) return
       hinted = true
       save()
-      toast(HINT)
+      toast(HINTS[platform] ?? HINT)
     },
     /** 来了一条新消息。托盘开着就开始闪，系统通知开着就弹一条；返回收下的那一条，认不出来的返回 undefined。 */
     alert(input) {
@@ -189,4 +199,4 @@ function createTray({ Tray, Menu, Notification, file, title, icon, blank, show, 
   }
 }
 
-module.exports = { createTray, readShell, readCloseToTray, cleanAlert, BLINK_MS, HINT, APP_ID }
+module.exports = { createTray, readShell, readCloseToTray, cleanAlert, BLINK_MS, HINT, HINTS, APP_ID }

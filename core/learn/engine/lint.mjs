@@ -19,7 +19,7 @@ const args = process.argv.slice(2);
 const flag = name => { const i = args.indexOf('--' + name); return i < 0 ? undefined : args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true; };
 const lessonDir = resolve(args[0] || '');
 if (!args[0] || args[0].startsWith('--') || !existsSync(join(lessonDir, 'script.js'))) { console.error('用法: node engine/lint.mjs <这一集的目录> [--scene <场景id>] [--cols 1|2|3]'); process.exit(2); }
-const edge = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe'].find(existsSync);
+const edge = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'].find(existsSync);
 if (!edge) { console.error('找不到 Edge 或 Chrome'); process.exit(2); }
 
 /* 记录器，在成品页面里运行，排在引擎之后、场景之前。平时的成品里没有它。

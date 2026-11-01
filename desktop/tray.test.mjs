@@ -6,7 +6,7 @@ import { join, resolve, sep } from 'node:path'
 import test from 'node:test'
 
 const require = createRequire(import.meta.url)
-const { createTray, readShell, readCloseToTray, cleanAlert, BLINK_MS, HINT, APP_ID } = require('./tray.cjs')
+const { createTray, readShell, readCloseToTray, cleanAlert, BLINK_MS, HINT, HINTS, APP_ID } = require('./tray.cjs')
 
 test('应用标识和安装程序写进快捷方式的 build.appId 一样', () => {
   assert.equal(APP_ID, require('../package.json').build.appId)
@@ -243,4 +243,27 @@ test('认不出来的消息不收；太长的截短；去处只认对话和侧�
   assert.ok(f.icons[0].tip.length <= 127)
   tray.dispose()
   assert.equal(f.icons.length, 0)
+})
+
+test('存托盘的选择时，同一个文件里玻璃效果的开关原样留着；macOS 上第一次藏起来说的是菜单栏和 ⌘Q', async (t) => {
+  const f = await fixture(t)
+  await writeFile(f.file, '{"glass":false}')
+  const shown = []
+  class Notification {
+    static isSupported() { return true }
+    constructor(options) { this.options = options; shown.push(this) }
+    on() {}
+    show() {}
+  }
+  const tray = createTray({
+    Tray: fakes().Tray, Menu: { buildFromTemplate: items => items }, Notification, file: f.file, title: '校园智能体', icon: 'icon', blank: 'blank',
+    show() {}, quit() {}, platform: 'darwin',
+  })
+  tray.set(false)
+  assert.deepEqual(JSON.parse(await readFile(f.file, 'utf8')), { glass: false, closeToTray: false, notify: true, hinted: false })
+  tray.hidden()
+  assert.equal(shown[0].options.title, HINTS.darwin.title)
+  assert.match(shown[0].options.body, /菜单栏/)
+  assert.match(shown[0].options.body, /⌘Q/)
+  assert.equal(JSON.parse(await readFile(f.file, 'utf8')).glass, false)
 })

@@ -52,7 +52,8 @@ async function createWereadBridge({ BrowserWindow, ipcMain, session, parent, cor
       if (!readJson(path.join(profileDir, 'plugins.json'))?.enabled?.includes(PLUGIN)) throw Object.assign(new Error('微信公众号插件已关闭，请先在「插件」页打开。'), { code: 'plugin_disabled' })
     },
   })
-  const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\campus-weread-${randomUUID()}` : path.join(os.tmpdir(), `campus-weread-${randomUUID()}.sock`)
+  // macOS 上套接字文件的整条路径不能超过 103 个字节（临时文件夹本身就有五十来个字），只取 UUID 的头一段。
+  const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\campus-weread-${randomUUID()}` : path.join(os.tmpdir(), `campus-weread-${randomUUID().slice(0, 8)}.sock`)
   const sockets = new Set()
   const server = net.createServer((socket) => {
     sockets.add(socket)

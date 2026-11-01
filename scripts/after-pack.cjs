@@ -7,7 +7,7 @@
  * 拷来的包再照样看，直到没有缺的。标了可选的 peer 和 devDependencies 不补。
  *
  * 补完以后再删一遍运行时用不到的文件（dropDeadWeight）：安装程序是一个文件一个文件装的，文件越多装得越慢。
- * 最后查两件安装程序装不了的事：名字带中文的文件（oddNames）、太长的路径（installDirRoom）。
+ * 最后查两件 Windows 安装程序装不了的事：名字带中文的文件（oddNames）、太长的路径（installDirRoom）。macOS 的成品不查这两样。
  */
 const fs = require('node:fs')
 const path = require('node:path')
@@ -135,15 +135,28 @@ function installDirRoom(dir) {
 /** 默认的安装位置有多长：C:\Program Files\<应用名>。 */
 const defaultDirLength = name => 'C:\\Program Files\\'.length + name.length
 
+/**
+ * 成品里应用的文件夹。Windows 上是 <输出>\resources\app；macOS 上应用是一个 .app 包，在 <输出>/<应用名>.app/Contents/Resources/app。
+ */
+function appDirOf(appOutDir, platform, productFilename) {
+  return platform === 'darwin'
+    ? path.join(appOutDir, `${productFilename}.app`, 'Contents', 'Resources', 'app')
+    : path.join(appOutDir, 'resources', 'app')
+}
+
 /** electron-builder 的 afterPack 钩子。 */
 async function afterPack(context) {
-  const appDir = path.join(context.appOutDir, 'resources', 'app')
+  const platform = context.electronPlatformName, productFilename = context.packager.appInfo.productFilename
+  const appDir = appDirOf(context.appOutDir, platform, productFilename)
   const { added, unresolved } = shipMissingDependencies(appDir, context.packager.projectDir)
   console.log(`  • shipped ${added.length} installed packages the dependency walk left out${added.length ? `: ${added.join(', ')}` : ''}`)
   if (unresolved.length > 0) throw new Error(`成品缺少必需依赖：${unresolved.join('; ')}`)
-  checkRuntimeDependencies(appDir)
+  // 查的是成品要跑的那种系统和芯片：随包的 Node 每种一个包，带错了（比如在 Apple 芯片的机器上打 Intel 的包）这里就停下。
+  checkRuntimeDependencies(appDir, { platform, arch: require('builder-util').Arch[context.arch] })
   const dropped = dropDeadWeight(appDir)
   console.log(`  • dropped ${dropped.files} source maps and type declarations (${Math.round(dropped.bytes / 1048576)} MB) nothing reads at run time`)
+  // 下面两样是 Windows 安装程序的限制；macOS 的 dmg 是把 .app 整个拖进「应用程序」，没有这些。
+  if (platform !== 'win32') return
   const odd = oddNames(context.appOutDir)
   if (odd.length > 0) throw new Error(`安装程序装不了名字带中文的文件，改名或者在 package.json 的 build.files 里排除：${odd.slice(0, 10).join('、')}`)
   const { room, longest } = installDirRoom(context.appOutDir)
@@ -159,3 +172,4 @@ module.exports.shipMissingDependencies = shipMissingDependencies
 module.exports.dropDeadWeight = dropDeadWeight
 module.exports.oddNames = oddNames
 module.exports.installDirRoom = installDirRoom
+module.exports.appDirOf = appDirOf

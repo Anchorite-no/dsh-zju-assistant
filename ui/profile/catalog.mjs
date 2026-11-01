@@ -129,6 +129,7 @@ export const CAMPUS_PLUGINS = [
  * 它这里的 systems 列的是能做什么，文章从哪里找在详情页里另有一块（WechatSettings.tsx）。
  * learn 是 Learning Core（core/learn，助手的 learn 技能），关掉以后助手的技能目录里没有它，
  * 学习页上也不再给「让助手讲这次课」，做好的讲解照常能放。它的可选依赖在详情页里装（learn.mjs）。
+ * platforms 是只在哪几种系统上能用：两个聊天插件读的是 Windows 版微信、钉钉存在本机的记录，macOS 上还没有做。
  * optIn 的一项默认关着，要用户自己打开（校园功能都默认开着）。讲解是 2026-10-11 定的：做一份很花时间和模型用量，不替人开；
  * 公众号是 2026-10-12 定的。升级上来的人没有另外照顾：原来开着公众号的，升级以后也是关着，要自己再打开一次。
  */
@@ -138,9 +139,9 @@ export const LOCAL_PLUGINS = [
       { name: '新来信', does: '收件箱里新到的邮件进「校园事务」的个人消息，不改邮箱里的已读状态' },
       { name: '查信和写信', does: '在对话里让助手查信、读信、下载附件、起草和回复，发送前要你确认' },
     ] },
-  { id: 'campus.wechat-chat', title: '微信聊天', description: '监控指定的群和私聊，新消息进通知', art: 'wechat-chat', backend: 'wechat-chat', optIn: true,
+  { id: 'campus.wechat-chat', title: '微信聊天', description: '监控指定的群和私聊，新消息进通知', art: 'wechat-chat', backend: 'wechat-chat', optIn: true, platforms: ['win32'],
     accounts: [], requires: [], systems: [{ name: '聊天记录', does: '读取本机已同步的个人与群聊，按群主或指定成员筛选' }, { name: '新消息', does: '客户端运行时定时同步，原样收集或交给 AI 整理，保留原文；群里的进「校园通知」，私聊进「个人消息」' }] },
-  { id: 'campus.dingtalk', title: '钉钉聊天', description: '监控指定的群和私聊，新消息进通知', art: 'dingtalk', backend: 'dingtalk', optIn: true,
+  { id: 'campus.dingtalk', title: '钉钉聊天', description: '监控指定的群和私聊，新消息进通知', art: 'dingtalk', backend: 'dingtalk', optIn: true, platforms: ['win32'],
     accounts: [], requires: [], systems: [{ name: '聊天记录', does: '读取本机已同步的个人与群聊，支持选择本地账号和发送者' }, { name: '新消息', does: '客户端运行时定时同步，原样收集或交给 AI 整理，保留原文；群里的进「校园通知」，私聊进「个人消息」' }] },
   { id: 'campus.learn', title: '课程讲解', description: '把一次课或一份资料讲成带画面的讲解', art: 'learn', backend: 'learn', optIn: true,
     accounts: [], requires: [], systems: [

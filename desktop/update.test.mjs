@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import test from 'node:test'
 
 const require = createRequire(import.meta.url)
-const { createUpdater, githubToken } = require('./update.cjs')
+const { createReleaseWatcher, createUpdater, githubToken, latestRelease, releasesFeed, RELEASES } = require('./update.cjs')
 
 /** 假的 electron-updater：记下壳对它做了什么；reply 决定这次检查它怎么回（拿到这次的更新源）。查失败时和真的一样，先发 error 再抛出来。 */
 function fakeUpdater() {
@@ -158,4 +158,64 @@ test('装好的应用启动后自己查、之后定时查；开发模式不查�
   assert.deepEqual(dev.scheduled, [])
   assert.equal((await dev.updater.check()).status, 'unavailable')
   assert.deepEqual(dev.autoUpdater.feeds, [])
+})
+
+/** 一段 GitHub Release 的 Atom 订阅，tags 是从新到旧的标签。 */
+const atom = tags => `<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom">${tags.map(tag => `<entry><link rel="alternate" type="text/html" href="https://github.com/o/r/releases/tag/${tag}"/><title>${tag}</title></entry>`).join('')}</feed>`
+
+function watcher({ packaged = true, version = '0.1.7', feed = async () => atom(['v0.1.7']) } = {}) {
+  const opened = [], changes = [], scheduled = []
+  const timers = { setTimeout: (run, ms) => { scheduled.push(['once', ms, run]); return scheduled.length }, setInterval: (run, ms) => { scheduled.push(['every', ms, run]); return scheduled.length }, clearTimeout() {}, clearInterval() {} }
+  const source = { feed }
+  const updater = createReleaseWatcher({ packaged, version, timers, feed: () => source.feed(), open: (url) => { opened.push(url) }, onChange: (state) => { changes.push(state.status) } })
+  return { updater, opened, changes, scheduled, source }
+}
+
+test('发布页上挑最新的版本：只认 v1.2.3 这样的标签，宣传片那个 Release 不算，按数字比大小', () => {
+  assert.deepEqual(latestRelease(atom(['demo-video', 'v0.1.10', 'v0.1.9', 'v0.2.0-rc.1'])), { tag: 'v0.1.10', version: '0.1.10' })
+  assert.deepEqual(latestRelease(atom(['0.3.0'])), { tag: '0.3.0', version: '0.3.0' })
+  assert.equal(latestRelease(atom(['demo-video'])), undefined)
+  assert.equal(latestRelease('<html>rate limited</html>'), undefined)
+})
+
+test('macOS 上只查有没有新版本：有就说一声，「去下载」打开那一版的发布页；查不到照实说', async () => {
+  const f = watcher({ feed: async () => atom(['demo-video', 'v0.1.8', 'v0.1.7']) })
+  assert.deepEqual(await f.updater.check(), { status: 'available', current: '0.1.7', version: '0.1.8' })
+  assert.deepEqual(f.changes, ['checking', 'available'])
+  f.updater.install()
+  assert.deepEqual(f.opened, ['https://github.com/Anchorite-no/zju-all-in-one/releases/tag/v0.1.8'])
+
+  // 已是最新，或者发布页上最新的比装着的还旧（自己打的开发版）。
+  f.source.feed = async () => atom(['v0.1.7'])
+  assert.equal((await f.updater.check()).status, 'current')
+  f.source.feed = async () => atom(['v0.1.6'])
+  assert.equal((await f.updater.check()).status, 'current')
+  // 没查到新版本时「去下载」什么都不做。
+  f.updater.install()
+  assert.equal(f.opened.length, 1)
+
+  f.source.feed = async () => { throw new Error('HTTP 503\nmore') }
+  assert.deepEqual(await f.updater.check(), { status: 'error', current: '0.1.7', message: 'HTTP 503' })
+})
+
+test('macOS 上也是装好的应用才查：启动后查一次，之后定时查；开发模式不查', async () => {
+  const f = watcher()
+  f.updater.start()
+  assert.deepEqual(f.scheduled.map(([kind, ms]) => [kind, ms]), [['once', 15_000], ['every', 6 * 60 * 60 * 1000]])
+  f.scheduled[0][2]()
+  await settle()
+  assert.equal(f.updater.state().status, 'current')
+
+  const dev = watcher({ packaged: false })
+  dev.updater.start()
+  assert.deepEqual(dev.scheduled, [])
+  assert.deepEqual(await dev.updater.check(), { status: 'unavailable', current: '0.1.7' })
+})
+
+test('发布新版本的地方和 package.json 的 build.publish 一样', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+  const [publish] = manifest.build.publish
+  assert.deepEqual(RELEASES, { owner: publish.owner, repo: publish.repo })
+  assert.equal(releasesFeed(), `https://github.com/${publish.owner}/${publish.repo}/releases.atom`)
 })

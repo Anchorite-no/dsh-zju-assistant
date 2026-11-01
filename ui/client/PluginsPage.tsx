@@ -42,6 +42,9 @@ interface Loaded { bundles: BundleInfo[], account: AccountSnapshot, disabled: re
 /** 上一次读到的状态。再打开这一页时先照它画，开关不会先空着再跳出来。 */
 let lastLoaded: Loaded | null = null
 
+/** 插件只能在哪几种系统上用时，标签上的叫法。 */
+const PLATFORM_NAMES: Record<string, string> = { win32: 'Windows', darwin: 'macOS' }
+
 const COLUMNS_KEY = 'campus.pluginColumns'
 
 /** 列表排一列还是两列。窄到放不下两列时样式会自己收成一列。 */
@@ -138,6 +141,8 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
   // 还没读到状态时，默认关着的那一项先按关着画，别的按开着画。
   const campusOn = (plugin: AppPlugin) => plugin.base === true || (pending[plugin.id] ?? (data ? !data.disabled.includes(plugin.id) : plugin.optIn !== true))
   const missing = (plugin: AppPlugin) => !!data && campusOn(plugin) && plugin.requires.some(id => !accountReady(data.account.values, id))
+  // 这台机器上用不了的（只做了 Windows 的聊天插件在 macOS 上）：开关只能关不能开。不在壳里打开时不知道是哪种系统，都当用得了。
+  const unsupported = (plugin: AppPlugin) => !!plugin.platforms && !!window.campusShell && !plugin.platforms.includes(window.campusShell.platform)
 
   async function toggle(id: string, enabled: boolean, save: () => Promise<void>) {
     if (saving.current.has(id)) return
@@ -162,7 +167,7 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
 
   // 第一次还没读到状态时不画开关，免得先画成开着、读完又跳成关着。
   const campusSwitch = (plugin: AppPlugin) => plugin.base || !data ? undefined : (
-    <Switch label={`启用${plugin.title}`} checked={campusOn(plugin)} onChange={(value) => { void setCampus(plugin, value) }} />
+    <Switch label={`启用${plugin.title}`} checked={campusOn(plugin)} disabled={unsupported(plugin) && !campusOn(plugin)} onChange={(value) => { void setCampus(plugin, value) }} />
   )
   const generalSwitch = (plugin: GeneralPlugin) => {
     const bundle = bundleOf(plugin)
@@ -172,7 +177,7 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
   const arrow = <IconChevronRightOutlineRegular size={16} className="campus-plugin-arrow" />
   const campusIcon = (plugin: AppPlugin) => <CampusArtwork kind={plugin.art} />
   const generalIcon = (plugin: GeneralPlugin) => plugin.bundle ? <BundleArtwork src={bundleOf(plugin)?.meta?.icon} /> : <SearchArtwork />
-  const campusTags = (plugin: AppPlugin) => plugin.backend === 'mail' && data && campusOn(plugin) ? <Tag tone={data.mail.connected ? undefined : 'warning'}>{data.mail.connected ? '已连接' : '待连接'}</Tag> : missing(plugin) ? <Tag tone="warning">{plugin.base ? '待填写' : '待填账号'}</Tag> : null
+  const campusTags = (plugin: AppPlugin) => unsupported(plugin) ? <Tag tone="warning">{`仅 ${plugin.platforms!.map(name => PLATFORM_NAMES[name] ?? name).join('、')}`}</Tag> : plugin.backend === 'mail' && data && campusOn(plugin) ? <Tag tone={data.mail.connected ? undefined : 'warning'}>{data.mail.connected ? '已连接' : '待连接'}</Tag> : missing(plugin) ? <Tag tone="warning">{plugin.base ? '待填写' : '待填账号'}</Tag> : null
   const generalTags = (plugin: GeneralPlugin) => bundleOf(plugin)?.error ? <Tag tone="danger">加载出错</Tag> : null
 
   // 开关改完要重开应用才生效时，在窗口顶上提示一下。
@@ -211,8 +216,9 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
             </div>
             <p className="campus-detail-desc">{plugin.description}</p>
           </div>
-          {(error || bundle?.error) && (
+          {(error || bundle?.error || (campus && unsupported(campus))) && (
             <div className="campus-detail-notices">
+              {campus && unsupported(campus) && <Alert>{`这个插件读的是 Windows 版${campus.title.replace('聊天', '')}存在本机的聊天记录，这台电脑上还用不了。`}</Alert>}
               {error && <Alert>{error}</Alert>}
               {bundle?.error && <Alert>{bundle.error.diagnostic || '这个插件没有加载成功，重新打开应用后再试。'}</Alert>}
             </div>
@@ -236,8 +242,8 @@ function PluginsPage(props: Face & PropsRenderSlots<Slots>) {
               lastLoaded = lastLoaded && { ...lastLoaded, mail }
               setData(old => old && { ...old, mail })
             }} />}
-            {campus?.backend === 'wechat-chat' && on && <ChatSettings key="wechat" platform="wechat" />}
-            {campus?.backend === 'dingtalk' && on && <ChatSettings key="dingtalk" platform="dingtalk" />}
+            {campus?.backend === 'wechat-chat' && on && !unsupported(campus) && <ChatSettings key="wechat" platform="wechat" />}
+            {campus?.backend === 'dingtalk' && on && !unsupported(campus) && <ChatSettings key="dingtalk" platform="dingtalk" />}
             {campus?.backend === 'learn' && on && <LearnSettings />}
             {general?.id === 'web-search' && (
               <section className="campus-section" data-plugin-config>

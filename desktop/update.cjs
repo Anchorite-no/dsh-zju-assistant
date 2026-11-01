@@ -3,6 +3,7 @@
  * 新版本取自 GitHub 上这个项目的 Release（electron-updater）。仓库是公开的，不用令牌也能查、能下。
  * 有 GitHub 令牌就带上：环境变量、设置里存的令牌、本机 GitHub CLI 的登录，按这个顺序找（githubToken）。
  * 只有装好的应用才查，开发时（npm start）不查。
+ * macOS 上装不了自己下好的新版本（没有 Apple 开发者证书），只查有没有、给一个去下载的地方，见下面的 createReleaseWatcher。
  */
 
 /** 启动后多久查第一次，之后隔多久再查。 */
@@ -93,4 +94,79 @@ function createUpdater({ autoUpdater, packaged, version, feed, token, ask, onCha
   return { state: () => state, check, install, start }
 }
 
-module.exports = { createUpdater, githubToken }
+/**
+ * 发布新版本的地方。和 package.json 的 build.publish 一样（update.test.mjs 核对）；不在运行时去读，理由同 tray.cjs 的 APP_ID。
+ */
+const RELEASES = { owner: 'Anchorite-no', repo: 'zju-all-in-one' }
+const releasesFeed = () => `https://github.com/${RELEASES.owner}/${RELEASES.repo}/releases.atom`
+const releasePage = tag => `https://github.com/${RELEASES.owner}/${RELEASES.repo}/releases/tag/${encodeURIComponent(tag)}`
+
+/** 版本号拆成三个数；不是 1.2.3（前面可以带 v）这样的给 undefined。 */
+function versionParts(text) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(String(text).trim())
+  return match ? match.slice(1).map(Number) : undefined
+}
+const newer = (a, b) => { for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] > b[i]; return false }
+
+/**
+ * 从 Release 的 Atom 订阅里挑出最新的版本：只认 v1.2.3 这样的标签，宣传片挂的那个 Release（demo-video）不算。
+ * 返回 { tag, version }，一个都没有时给 undefined。
+ */
+function latestRelease(atom) {
+  let best
+  for (const [, raw] of String(atom).matchAll(/\/releases\/tag\/([^"'<>\s]+)/g)) {
+    let tag
+    try { tag = decodeURIComponent(raw) } catch { continue }
+    const parts = versionParts(tag)
+    if (parts && (!best || newer(parts, best.parts))) best = { tag, parts }
+  }
+  return best && { tag: best.tag, version: best.parts.join('.') }
+}
+
+/**
+ * macOS 上的「检查更新」。系统的更新组件（Squirrel.Mac）只肯换上和现在这一份同一个开发者签过名的新版本，
+ * 我们的 Mac 版没有 Apple 开发者证书（package.json 的 build.mac.identity 是「-」，只做了临时签名），每一版的签名都对不上，
+ * 下好了也装不上。所以那里只看发布页上的最新版本号：有新的就说一声，「去下载」打开那一版的发布页，下载和替换由用户自己来。
+ * 版本号读的是 Release 的 Atom 订阅（不用令牌，也不占 GitHub 接口的次数）。
+ * feed() 取订阅的内容，open(url) 用系统浏览器打开网址。别的参数和 createUpdater 一样。
+ * state().status 比 createUpdater 的多一个 available（有新版本，要自己去下），没有 downloading、ready 和 no-access。
+ */
+function createReleaseWatcher({ packaged, version, feed, open, onChange = () => {}, timers = globalThis }) {
+  let state = { status: packaged ? 'idle' : 'unavailable', current: version }
+  let tag
+  const set = (next) => { state = { current: version, ...next }; onChange(state); return state }
+
+  async function check() {
+    if (!packaged || state.status === 'checking') return state
+    set({ status: 'checking' })
+    try {
+      const latest = latestRelease(await feed())
+      const mine = versionParts(version)
+      if (latest && mine && newer(versionParts(latest.version), mine)) {
+        tag = latest.tag
+        return set({ status: 'available', version: latest.version })
+      }
+      return set({ status: 'current' })
+    } catch (error) {
+      return set({ status: 'error', message: String(error?.message ?? error).split('\n')[0].slice(0, 200) })
+    }
+  }
+
+  /** 打开新版本的发布页；还没查到新版本时什么都不做。 */
+  function install() {
+    if (state.status === 'available' && tag) open(releasePage(tag))
+  }
+
+  function start() {
+    if (!packaged) return () => {}
+    const first = timers.setTimeout(() => { void check() }, FIRST_CHECK_MS)
+    const later = timers.setInterval(() => { void check() }, CHECK_EVERY_MS)
+    first?.unref?.()
+    later?.unref?.()
+    return () => { timers.clearTimeout(first); timers.clearInterval(later) }
+  }
+
+  return { state: () => state, check, install, start }
+}
+
+module.exports = { createReleaseWatcher, createUpdater, githubToken, latestRelease, releasesFeed, RELEASES }

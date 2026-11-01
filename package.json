@@ -4,7 +4,7 @@
   "version": "0.1.7",
   "private": true,
   "license": "GPL-3.0-only",
-  "description": "ZJU All-in-One Assistant：浙大学生的一站式校园 AI 助手（Windows 桌面端）。自写 Electron 壳 + 界面包 + ZJU / Learning / WeRead core，引擎用 DeepSeek Harness",
+  "description": "ZJU All-in-One Assistant：浙大学生的一站式校园 AI 助手（Windows / macOS 桌面端）。自写 Electron 壳 + 界面包 + ZJU / Learning / WeRead core，引擎用 DeepSeek Harness",
   "main": "desktop/main.cjs",
   "engines": {
     "node": ">=24.18.0 <25",
@@ -29,6 +29,7 @@
     "eval:review": "node scripts/review-eval/run.mjs",
     "package": "node ui/build.mjs && node scripts/runtime-deps.cjs && electron-builder --dir --publish never",
     "installer": "node ui/build.mjs && node scripts/runtime-deps.cjs && electron-builder --win nsis --publish never",
+    "installer:mac": "node ui/build.mjs && node scripts/runtime-deps.cjs && electron-builder --mac dmg --publish never",
     "test:chats": "node --test core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts ui/profile/chat-watch.test.mjs",
     "typecheck:dingtalk": "node core/dingtalk/node_modules/typescript/bin/tsc --noEmit -p core/dingtalk"
   },
@@ -39,8 +40,13 @@
     "imapflow": "^2.5.2",
     "js-yaml": "^4.3.2",
     "mailparser": "^3.9.40",
-    "node-win-x64": "24.19.0",
     "nodemailer": "^10.1.2"
+  },
+  "optionalDependencies": {
+    "electron-liquid-glass": "1.1.1",
+    "node-bin-darwin-arm64": "24.19.0",
+    "node-darwin-x64": "24.19.0",
+    "node-win-x64": "24.19.0"
   },
   "devDependencies": {
     "@types/react": "18.3",
@@ -136,6 +142,25 @@
         "en_US"
       ],
       "include": "scripts/installer.nsh"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/icon-mac.png",
+      "category": "public.app-category.education",
+      "minimumSystemVersion": "12.0",
+      "darkModeSupport": true,
+      "identity": "-",
+      "hardenedRuntime": false,
+      "artifactName": "CampusAgent-${version}-mac-${arch}.${ext}",
+      "extendInfo": {
+        "NSDocumentsFolderUsageDescription": "校园智能体把下载的课件、转写、讲解和每次对话的文件存在「文稿」里的 CampusAgent 文件夹。",
+        "NSDownloadsFolderUsageDescription": "校园智能体把你在页面上点「下载」存下来的课件和附件放在「下载」里的 CampusAgent 文件夹。"
+      }
+    },
+    "dmg": {
+      "title": "${productName} ${version}"
     }
   }
 }

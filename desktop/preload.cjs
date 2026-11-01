@@ -3,15 +3,28 @@
  * 界面自带的布局（html[data-windows-titlebar]）会据此让出位置并提供拖动区。
  * 同时把界面的侧栏底色和文字色报给壳，让右上角三个按钮跟着主题变色。
  * 做法照上游 apps/desktop/src/preload-windows.ts，去掉了它的原生菜单。
+ * macOS 上换成另一套标记：html[data-platform=darwin]（引擎的 Mac 布局：左上角给三个按钮让位、侧栏透出窗口后面垫的玻璃），
+ * 全屏时再加 html[data-fullscreen]；html[data-campus-glass] 说窗口后面垫的是哪一档（glass.cjs），我们自己的样式按它裁圆角。
  * 另外给页面一个 campusShell，用来读、改存在壳这边的设置。
  */
 const { contextBridge, ipcRenderer } = require('electron')
 
 const TITLEBAR_HEIGHT = 40
 
+/** 壳开窗口时经命令行参数交过来的值（main.cjs 的 additionalArguments）。 */
+const argument = name => process.argv.find(item => item.startsWith(`--${name}=`))?.slice(name.length + 3)
+const GLASS = ['liquid', 'vibrancy', 'solid'].includes(argument('campus-glass')) ? argument('campus-glass') : 'solid'
+const CORNER = Number.parseInt(argument('campus-corner') ?? '', 10) || 0
+
 function mark() {
   const root = document.documentElement
   if (root === null) return false
+  if (process.platform === 'darwin') {
+    root.dataset.platform = 'darwin'
+    root.dataset.campusGlass = GLASS
+    root.style.setProperty('--campus-window-radius', `${CORNER}px`)
+    return true
+  }
   root.dataset.windowsTitlebar = ''
   root.style.setProperty('--dsh-windows-titlebar-height', `${TITLEBAR_HEIGHT}px`)
   return true
@@ -57,8 +70,9 @@ ipcRenderer.on('campus:update', () => { window.dispatchEvent(new Event('campus:u
 // 托盘上点了一条消息：壳喊一声，页面听到后来取要打开哪里（ui/client/alerts.ts）。
 ipcRenderer.on('campus:open', () => { window.dispatchEvent(new Event('campus:open')) })
 
-// 存在壳这边的两样设置，页面经这些函数读和改：
-// 「关闭窗口时隐藏到系统托盘」的开关（tray.cjs，ui/client/TrayRow.tsx），和检查更新（update.cjs，ui/client/UpdateRow.tsx）。
+// 存在壳这边的几样设置，页面经这些函数读和改：
+// 「关闭窗口时隐藏到系统托盘」的开关（tray.cjs，ui/client/TrayRow.tsx），检查更新（update.cjs，ui/client/UpdateRow.tsx），
+// 和 macOS 上窗口的玻璃效果（glass.cjs，也在 TrayRow.tsx）。
 contextBridge.exposeInMainWorld('campusShell', {
   closeToTray: () => ipcRenderer.invoke('campus:close-to-tray:get'),
   setCloseToTray: on => ipcRenderer.invoke('campus:close-to-tray:set', on === true),
@@ -72,15 +86,23 @@ contextBridge.exposeInMainWorld('campusShell', {
   saveUpdateToken: token => ipcRenderer.invoke('campus:update:token', String(token ?? '')),
   // 托盘上点的那条消息要打开哪里（tray.cjs）：一个对话或侧栏上的一页，取一次就没了。
   takeOpen: () => ipcRenderer.invoke('campus:open:take'),
+  // 跑在哪种系统上（win32、darwin）：设置页上有几行的说法跟着变，有的插件只能在 Windows 上用。
+  platform: process.platform,
+  // 「窗口的玻璃效果」（glass.cjs，macOS 才有）：{ on, mode, reduced }，别的系统上是 undefined。
+  glass: () => ipcRenderer.invoke('campus:glass:get'),
+  setGlass: on => ipcRenderer.invoke('campus:glass:set', on === true),
 })
 
-if (process.platform === 'win32') {
+if (process.platform === 'win32' || process.platform === 'darwin') {
   // 根元素可能还没被解析器创建，等它出现再标记，保证早于界面第一次渲染。
   if (!mark()) {
     const waiting = new MutationObserver(() => { if (mark()) waiting.disconnect() })
     waiting.observe(document, { childList: true })
   }
-  const install = () => { mark(); syncCaptionColors() }
+  const install = () => { mark(); if (process.platform === 'win32') syncCaptionColors() }
   if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', install, { once: true })
   else install()
 }
+
+// macOS 的全屏：壳在进出全屏和页面加载完时报一次。
+ipcRenderer.on('campus:fullscreen', (_event, on) => { document.documentElement?.toggleAttribute('data-fullscreen', on === true) })

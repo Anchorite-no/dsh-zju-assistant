@@ -1,6 +1,6 @@
 # ZJU All-in-One Assistant
 
-浙大学生的一站式校园 AI 助手，Windows 桌面应用。
+浙大学生的一站式校园 AI 助手，Windows 和 macOS 桌面应用。
 
 [![ZJU All-in-One Assistant 宣传片](docs/cover.jpg)](https://github.com/Anchorite-no/zju-all-in-one/releases/download/demo-video/campus-agent-demo-1080p.mp4)
 
@@ -27,14 +27,32 @@
 
 ## 安装
 
-目前只有 Windows x64 版本。
+### Windows
+
+Windows x64。
 
 1. 到 [Releases](https://github.com/Anchorite-no/zju-all-in-one/releases/latest) 下载 `CampusAgent-Setup-<版本>.exe`（约 310 MB）。
 2. 安装程序没有代码签名，Windows 可能弹出 SmartScreen 提示，点「更多信息」再点「仍要运行」。
 3. 默认装到 `C:\Program Files\CampusAgent`，装给这台电脑上的所有用户，需要管理员权限。
 4. 打开后在设置里填 DeepSeek API Key，或者用 ChatGPT 账号登录；再到「插件 → 校园账号」填统一身份认证的学号和密码。
 
-装好以后应用会自己检查更新。
+装好以后应用会自己检查更新，下好了问你要不要装。
+
+### macOS
+
+macOS 12 及以上，Apple 芯片和 Intel 各有一个安装包。Mac 版刚做出来，还没有在真机上完整走过，遇到问题请提 Issue。
+
+1. 到 [Releases](https://github.com/Anchorite-no/zju-all-in-one/releases/latest) 下载 `CampusAgent-<版本>-mac-arm64.dmg`（Apple 芯片，M1 及以后）或 `CampusAgent-<版本>-mac-x64.dmg`（Intel）。不知道是哪种：点左上角苹果菜单 →「关于本机」，「芯片」一栏写着 Apple 的就是前者。
+2. 打开 dmg，把 CampusAgent 拖进「应用程序」。
+3. 应用没有 Apple 的开发者签名，第一次打开会被系统拦下，说「无法验证开发者」。点「完成」，到 系统设置 → 隐私与安全性，在下面找到 CampusAgent 那一条，点「仍要打开」，再输一次开机密码。只有第一次要这样。
+4. 打开后和 Windows 一样，填 API Key 和校园账号。
+
+Mac 版和 Windows 版的不同：
+
+- 侧栏透出窗口后面的桌面：macOS 26 起是液态玻璃，更早的系统是毛玻璃。不喜欢可以在 设置 → 通用设置 里关掉「窗口的玻璃效果」。
+- 关窗口以后应用留在菜单栏和程序坞里，要退出按 ⌘Q。
+- 应用会检查更新，但不能自己装：有新版本时设置里会提示，点「去下载」下载新的 dmg，把应用拖进「应用程序」换掉旧的，设置和数据都还在。
+- 微信聊天、钉钉聊天两个插件读的是 Windows 版客户端的本机记录，Mac 上用不了；配音选装也只有 Windows 版。讲解的公式排版要自己装 [MacTeX](https://www.tug.org/mactex/)，版面检查要装 Chrome 或 Edge。
 
 ## 数据和隐私
 
@@ -45,11 +63,13 @@
 - 浙大邮箱的客户端专用密码用 Windows 的安全存储加密后保存。
 - 下载的课件、转写、讲解和每次对话的文件夹在 `文档\CampusAgent` 下。
 
+Mac 上同样这几样：`%APPDATA%\CampusAgent` 换成 `~/Library/Application Support/CampusAgent`，邮箱专用密码存在「钥匙串」里（第一次存的时候系统会问一次），对话的文件夹在「文稿」里的 `CampusAgent`。
+
 对话内容会发给你选的模型服务（DeepSeek 或 OpenAI），助手查到的校园数据也会随对话一起发过去。
 
 ## 从源码运行
 
-需要 Node.js 24.x（24.18 以上）和 npm 11，目前只在 Windows x64 上验证过。
+需要 Node.js 24.x（24.18 以上）和 npm 11。Windows x64 上完整验证过；macOS（Apple 芯片和 Intel）的代码和打包配置已经写好，还没有在真机上验证。
 
 ```powershell
 npm ci
@@ -59,13 +79,13 @@ npm ci
 npm start
 ```
 
-`npm start` 构建界面并打开窗口，也可以双击 `start.cmd`。`npm run verify` 跑类型检查和全部测试，`npm run installer` 打安装程序。各块功能的做法、取舍和验证记录在 [开发记录](docs/DEVELOPMENT.md)。
+`npm start` 构建界面并打开窗口，也可以双击 `start.cmd`（Mac 上是 `start.command`）。`npm run verify` 跑类型检查和全部测试，`npm run installer` 打 Windows 安装程序；Mac 的 dmg 在 Mac 上用 `npm run installer:mac -- --arm64`（Intel 换成 `--x64`）打，或者推 `v` 开头的标签，由 GitHub Actions 的 [macOS 流程](.github/workflows/mac.yml) 在两种 Mac 上各打一个。各块功能的做法、取舍和验证记录在 [开发记录](docs/DEVELOPMENT.md)。
 
 ## 项目结构
 
 | 位置 | 内容 |
 |---|---|
-| `desktop/` | 桌面端的壳：`main.cjs` 开窗口、管进程；`preload.cjs` 让界面顶到窗口边缘；`host.mjs` 启动引擎 |
+| `desktop/` | 桌面端的壳：`main.cjs` 开窗口、管进程；`preload.cjs` 让界面顶到窗口边缘；`host.mjs` 启动引擎；`glass.cjs` 定 Mac 上窗口后面垫液态玻璃、毛玻璃还是实底 |
 | `ui/` | 界面包：`client/` 是浏览器侧源码，`host.js` 是引擎侧入口，`lib/` 是构建产物 |
 | `core/zju/` | ZJU Core：校园系统的命令和技能说明 |
 | `core/learn/` | Learning Core：把资料讲成带画面的讲解 |
@@ -75,7 +95,8 @@ npm start
 | `core/skills/` | 应用自带的技能：选课、考前复习、课程学习、我的一周、交作业、写技能 |
 | `core/AGENT.md` | 助手的底层说明，每次对话都放进系统提示 |
 | `app.patch.yml` | 组合层：关掉引擎的哪些部分、换人设、插入我们的包 |
-| `build/` | 打包用的图标；`icon/` 是图标的源文件和导出脚本 |
+| `build/` | 打包用的图标（`icon.ico` 给 Windows，`icon-mac.png` 给 macOS）；`icon/` 是图标的源文件和导出脚本 |
+| `.github/workflows/mac.yml` | 在 GitHub 的 Mac 机器上打 dmg |
 | `plans/` | 计划和盘点；`shots/` 是界面截图，`probes/` 是探测脚本，`plugin-pages/` 是插件页改造的交互草图，`dingtalk-wechat/` 是钉钉和公众号的调研 |
 | `video/` | 做宣传片的工程，不放成品；`demo/` 是给它截界面的隔离实例和假数据（见 `video/README.md`） |
 | `docs/` | 宣传片封面 `cover.jpg`；开发记录 `DEVELOPMENT.md` |

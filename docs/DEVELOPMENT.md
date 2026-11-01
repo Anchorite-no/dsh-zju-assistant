@@ -2,7 +2,7 @@
 
 ZJU All-in-One Assistant 的开发记录：各块功能怎么做的、为什么这样定、验证过什么、哪些没验证。给用户看的介绍和项目结构在 [README](../README.md)。
 
-内部标识没有跟着项目名改：数据目录 `%APPDATA%\CampusAgent`、`文档\CampusAgent`，安装目录、`CampusAgent.exe`、安装包文件名和 `appId`（`cn.campusagent.desktop`）都还是旧的。改了它们，已经装着的用户升级后会找不到原来的账号、档案和对话，安装程序也会当成另一个应用并排装上。
+内部标识没有跟着项目名改：数据目录 `%APPDATA%\CampusAgent`（macOS 上是 `~/Library/Application Support/CampusAgent`）、`文档\CampusAgent`，安装目录、`CampusAgent.exe`、安装包文件名和 `appId`（`cn.campusagent.desktop`）都还是旧的。改了它们，已经装着的用户升级后会找不到原来的账号、档案和对话，安装程序也会当成另一个应用并排装上。
 
 自己写的 Electron 壳加自己的界面包，引擎用 DeepSeek Harness（`@deepseek-ai/dsh`，锁在 0.2.0-rc.2，不改它的代码）。项目名 2026-11-01 定为 ZJU All-in-One Assistant；应用里显示的名字还是「校园智能体」（`ui/client/Brand.tsx` 的 `PRODUCT_NAME`、窗口标题、托盘）。图标是自己的（2026-10-21 定：打开的书上升起一颗星，品牌蓝底、校园橙的星）：侧栏和新会话首页的在 `ui/client/Brand.tsx`，窗口、任务栏和托盘用 `desktop/icon.ico`、`desktop/icon-32.png`，exe 和安装程序用 `build/icon.ico`（electron-builder 默认从 `build/` 取）；源文件和各尺寸 PNG 在 `build/icon/`。
 
@@ -18,9 +18,41 @@ Electron 固定为 44.10.1，根目录与 WeRead 可选依赖一致；electron-b
 
 打包链的旧版本还会带入有告警的 minimatch/glob，因而覆盖 ASAR 4.3.1（内部 glob 14.0.3）、universal 3.0.6、EJS 7.0.2 和 minimatch 11.0.2。electron-winstaller → temp → rimraf 2 需要旧 glob 的回调接口；直接替换其 matcher 会破坏旧 glob 的私有字段依赖。`scripts/build-deps/legacy-glob` 用修复后的 glob 14 实现这一调用契约，仅用于构建，不是应用的运行组件，也不复制旧 glob 实现。
 
-npm 的本地 override 路径相对于使用它的包解析，所以 rimraf 2 的路径写为 `file:../../scripts/build-deps/legacy-glob`；lockfile 的实际目标为仓库内 `scripts/build-deps/legacy-glob`。升级构建链时保留 `scripts/build-dependencies.test.mjs` 的检查：实际消费方解析、目录与 glob 匹配、旧回调和同步接口、限定范围的清理、ASAR 读写、EJS 编译与转义，以及 universal 动态加载。打包仍只承诺 Windows x64/NSIS，其他平台没有验收。
+npm 的本地 override 路径相对于使用它的包解析，所以 rimraf 2 的路径写为 `file:../../scripts/build-deps/legacy-glob`；lockfile 的实际目标为仓库内 `scripts/build-deps/legacy-glob`。升级构建链时保留 `scripts/build-dependencies.test.mjs` 的检查：实际消费方解析、目录与 glob 匹配、旧回调和同步接口、限定范围的清理、ASAR 读写、EJS 编译与转义，以及 universal 动态加载。Windows x64/NSIS 之外，macOS 的打包见下一节，还没有在真机上验收。
 
 本次验证完成：全新 `npm ci`、四套类型检查、488 项测试及朗读器检查通过；根目录和五个 Core 的锁文件审计均为零告警。Windows NSIS 安装包构建通过，源码目录外的成品使用隔离数据、移除系统 Node/Python/npm 的 PATH，校园与公众号 CLI、引擎认证页面、配音默认关闭和桌面窗口启动均通过。GPL、第三方声明、Node.js 完整许可及主进程代码与打包内容逐一匹配；Node 二进制 SHA-256 与 nodejs.org 的 v24.19.0 官方清单一致。本次未发布新 Release，也未进行真实校园写操作或模型问答验收。
+
+## macOS 版（2026-11-01）
+
+用户要一个 Mac 版，最好带一点液态玻璃的效果。代码和打包配置都改好了，**还没有在真的 Mac 上跑过**：开发机是 Windows，dmg 只能在 macOS 上打，所以打包和启动检查放在 GitHub Actions 的 Mac 机器上（`.github/workflows/mac.yml`），这个流程也还没有跑过。下面每一处写了为什么这样做，最后是在 Windows 上验了什么、真机上还要看什么。
+
+**随包的 Node。** 引擎和技能命令用的独立 Node 原来是写在 `dependencies` 里的 `node-win-x64`，它声明了 `os: win32`，在 Mac 上 `npm ci` 直接失败。现在三个平台包都是可选依赖、都是 24.19.0，npm 只装当前这台机器的那一个：`node-win-x64`、`node-darwin-x64`、`node-bin-darwin-arm64`（Apple 芯片的包名带 bin：npm 上的 `node-darwin-arm64` 只出到 18，同一位作者后来改用这个名字发）。`desktop/node.cjs` 的 `nodeRuntime` 按系统和芯片给路径；运行依赖检查（`scripts/runtime-deps.cjs`）和 afterPack 查的是成品要跑的那一种，在 Apple 芯片的机器上打 Intel 的包会在 afterPack 停下。给命令行用的 `node` 在 Mac 上是一个 sh 脚本（`exec "$CAMPUS_NODE_EXE" "$@"`），放在 `~/Library/Application Support/CampusAgent/bin`。从访达打开的应用 PATH 只有 `/usr/bin:/bin:/usr/sbin:/sbin`，所以这一步顺带把存在的 `/opt/homebrew/bin`、`/usr/local/bin`、`/Library/TeX/texbin` 补在后面，讲解找 MacTeX 的 `latex` 靠的就是它。
+
+**套接字路径。** 引擎问模型的通道（`desktop/host.mjs`）和公众号插件的浏览器通道（`desktop/weread.cjs`）在 Windows 上是命名管道，在 Mac 上是临时文件夹里的套接字文件。macOS 的套接字路径最长 103 个字节，而 `os.tmpdir()` 本身就有五十来个字（`/var/folders/xx/…/T/`），原来的「前缀 + 整个 UUID + .sock」一共 105、106 个字，在 Mac 上一定起不来。改成只取 UUID 的头一段（8 位十六进制）；两个测试里的同样改了。
+
+**窗口。** 引擎的界面本来就有一套 Mac 的布局：preload 在 `<html>` 上打 `data-platform="darwin"`，窗口用 `hiddenInset` 标题栏，侧栏顶上留 52 像素给左上角三个按钮，整页透明、侧栏只铺一层半透明的底色，窗口后面垫系统的材质；全屏时还要 `data-fullscreen`（引擎上游的 Mac 版就是这样，见 `@deepseek-ai/dsh-client-ui-layout`、`dsh-client-ui-sidebar` 的 README）。壳照这个约定做：`desktop/preload.cjs` 打这两个标记，`desktop/main.cjs` 进出全屏时告诉页面。
+
+**液态玻璃。** 窗口后面垫什么由 `desktop/glass.cjs` 定，分三档：
+
+- macOS 26 起是液态玻璃：系统的 `NSGlassEffectView`，经 `electron-liquid-glass`（MIT，锁在 1.1.1，自带 Apple 芯片和 Intel 的 N-API 预编译，没有安装脚本，原生代码读过：只是把这个视图插到窗口内容的最底下）垫在网页下面。它要窗口本身透明，所以得在开窗口之前定；透明窗口的四角由我们自己裁，玻璃和网页（`ui/client/style.css` 最后一段）都按 16 像素。Electron 44 自己还没有这种材质的接口，只有老的毛玻璃（`vibrancy`）。窗口开好时垫一次，页面第一次加载完再垫一次（模块的说明里是在这时候垫的，第二次会换掉第一次的）。
+- 更早的系统，或者那个模块加载不了、垫不上：系统的毛玻璃，侧栏材质（`vibrancy: 'sidebar'`），和引擎上游一样。
+- 系统设置里打开了「减少透明度」，或者用户在设置里关了：实底，整页铺侧栏的底色（开窗口时定下的底色跟不上界面换主题）。
+
+设置 → 通用设置在 Mac 上多一行「窗口的玻璃效果」，默认开，写明这次用的是哪一档；改了要重新打开应用，存在 `shell.json` 的 `glass` 里（`tray.cjs` 存托盘的选择时改成合并写，不会把它冲掉）。液态玻璃那一档没在真机上看过，哪台机器上看着不对，关掉这一行就回到实底。
+
+**菜单、程序坞和菜单栏。** Mac 上不能没有菜单：拷贝、粘贴、全选这些快捷键挂在「编辑」菜单上，没有它输入框里 ⌘C、⌘V 都不灵，⌘Q、⌘H、⌘W 也一样。`main.cjs` 的 `macMenu` 只放应用、编辑、显示（全屏）、窗口四个，名字照系统的中文叫法；⌘W 和点红色按钮一样，开着「留在后台」时只是藏起来。窗口藏起来以后点程序坞的图标叫回来（`activate`）。有新消息时程序坞的图标跳一下，角上标着几条没看。托盘在 Mac 上是菜单栏右边那一排，图标用 `desktop/icon-32.png` 当 16 点的二倍图（程序文件本身在 Mac 上取不到我们的图标）；设置里那一行叫「关闭窗口时留在菜单栏」，通知说的是右上角，第一次藏起来时的说明写的是菜单栏和 ⌘Q。
+
+**检查更新。** 系统的更新组件（Squirrel.Mac）只肯换上同一个开发者签过名的新版本。我们没有 Apple 开发者证书，应用只做了临时签名，每一版的签名都对不上，`electron-updater` 下好了也装不上。所以 Mac 上不用它（`main.cjs` 只在 Windows 上加载它），改由 `update.cjs` 的 `createReleaseWatcher` 读发布页的 Atom 订阅（`releases.atom`，不用令牌），只认 `v1.2.3` 这样的标签（宣传片挂的 `demo-video`、`video-archive` 不算），有新版本时设置里那一行写明怎么换、给一个「去下载」，打开那一版的发布页。订阅走 Electron 的 `net.fetch`，认系统的代理。发布地址写成常量 `RELEASES`，`update.test.mjs` 核对它和 `build.publish` 一样（理由同 `APP_ID`：成品里的 `package.json` 没有 `build`）。
+
+**打包。** `package.json` 的 `build.mac`：只打 dmg；`identity: "-"` 是临时签名；`hardenedRuntime: false`（加固运行时是公证才要的，临时签名再开着它还得另给库验证的豁免）；最低 macOS 12（Electron 44 的下限）；`NSDocumentsFolderUsageDescription`、`NSDownloadsFolderUsageDescription` 是第一次读写「文稿」「下载」时系统弹窗上的说明。图标是 `build/icon-mac.png`，照系统的图标格另画的一版（`build/icon/app-icon-mac.svg`：圆角方块缩在 1024 画布中间的 824 里，带投影），electron-builder 从它生成 `.icns`。afterPack 认 `.app` 包里的位置（`Contents/Resources/app`），Windows 安装程序的两项检查（中文文件名、路径长度）在 Mac 上不做。在 Mac 上 `npm run installer:mac -- --arm64`（或 `-- --x64`）打，dmg 在 `dist/CampusAgent-<版本>-mac-<芯片>.dmg`；开发时双击 `start.command` 等于 `npm start`。
+
+**只有 Windows 能用的几样。** 微信聊天、钉钉聊天读的是 Windows 版客户端存在本机的数据库（`core/wechat`、`core/dingtalk` 本来就在别的系统上报 `unsupported_platform`），插件目录给它们加了 `platforms: ['win32']`：Mac 上插件页标「仅 Windows」，开关只能关不能开，详情页写明原因。配音选装原来就只支持 Windows x64，会说明原因。讲解的 TeX 自动安装只做了 Windows，Mac 上那一行写明装 MacTeX 或 BasicTeX；讲解引擎找浏览器的位置加了 Mac 上的 Chrome 和 Edge（`ui/profile/learn.mjs`、`core/learn/engine/lint.mjs`、`shots.mjs`）。
+
+**构建流程。** `.github/workflows/mac.yml`：推 `v` 开头的标签或者在 Actions 页上手动运行时，在 `macos-15`（Apple 芯片）和 `macos-15-intel` 两台上各打一个 dmg，不能一台打两种（随包的 Node、FFmpeg、sharp 这些都是 npm 按当前机器装的）。步骤：`npm ci`；类型检查和 `desktop/`、`scripts/` 的测试（不过就不打包）；全部测试（先跑着看，不挡打包：有的是照 Windows 写的，还没在 Mac 上跑过）；打包；`codesign --verify --deep --strict`（临时签名也要验得过，不然系统说应用「已损坏」）；挪到项目外面跑 `smoke-packaged.cjs`（它也认 `.app` 了，Mac 上用一个进程组起桌面程序，最后连同引擎一起结束）；dmg 传到这次运行的 Artifacts，那个标签的 Release 已经建好时一并传上去。
+
+**验证。** 在 Windows 开发机上：`npm run verify` 全过（四套类型检查，502 项测试，跳过的一项是只在 Mac 上跑的 sh 脚本那条）；新加和改过的测试有 `desktop/glass.test.mjs`（三档怎么选、窗口选项、垫不上时换成毛玻璃、开关存取）、`node.test.mjs`（Mac 的 sh 脚本和 PATH，三个平台包都是可选依赖且同一版本）、`update.test.mjs`（Atom 订阅里挑版本、Mac 上的检查和去下载）、`tray.test.mjs`（存托盘选择时留着玻璃的开关、Mac 的说明）、`runtime-deps.test.mjs`、`after-pack.test.mjs`。发布页的真实订阅拿来试过，挑出来的是 v0.1.6，两个视频的 Release 跳过了。改过的壳在 Windows 上打了一份成品（输出到项目以外），`smoke-packaged.cjs` 四项都过，Windows 这边没有被带坏。Mac 的图标渲染出来看过。用隔离数据起引擎，在浏览器里给页面打上 Mac 的标记、垫一张彩色底图当桌面，看了液态玻璃和实底两档：侧栏透出底图、四角按 16 像素裁、左上角给三个按钮留了位置；实底那一档侧栏不透。浏览器里没有系统的玻璃，只能看布局和裁角，看不出玻璃本身的效果。
+
+**没验证的（都要一台 Mac）**：GitHub 上的 Mac 构建流程没跑过（`macos-15-intel` 这个机器标签也是照 GitHub 的说明写的）；应用在 Mac 上能不能起来、引擎和校园命令能不能跑（sharp、文档引擎、FFmpeg 的 Mac 版）；液态玻璃、毛玻璃、实底三档各自的样子，透明窗口的圆角和投影、左上角三个按钮的位置、全屏；菜单、程序坞、菜单栏图标和闪；临时签名的应用能不能弹通知；第一次打开时系统拦下来、在「隐私与安全性」里点「仍要打开」这条路；邮箱专用密码存进钥匙串时的弹窗；检查更新在装好的应用里对着真实的发布页走一遍。
 
 ## 场馆预约与学在签到（2026-10-31）
 
@@ -58,7 +90,7 @@ npm 的本地 override 路径相对于使用它的包解析，所以 rimraf 2 �
 
 ## 命令
 
-首次开发先安装 Node.js 24.18 以上的 24.x 版本和 npm 11，然后在根目录执行 `npm ci`。根目录的 postinstall 会按各自 lockfile 安装 `core/zju`、`core/weread` 和 `core/learn/engine/vendor`；不会安装 Python 或配音模型。此前只安装过根目录依赖的工作区执行 `npm run setup` 补齐。开发和打包目前以 Windows x64 为验证目标。
+首次开发先安装 Node.js 24.18 以上的 24.x 版本和 npm 11，然后在根目录执行 `npm ci`。根目录的 postinstall 会按各自 lockfile 安装 `core/zju`、`core/weread` 和 `core/learn/engine/vendor`；不会安装 Python 或配音模型。此前只安装过根目录依赖的工作区执行 `npm run setup` 补齐。开发和打包以 Windows x64 为验证目标；macOS 上同样是 `npm ci`、`npm start`，打包见「macOS 版」。
 
 `npm run verify` 统一运行四套类型检查、桌面端/Core/界面逻辑测试及朗读器测试。`npm run check:runtime` 检查运行依赖；打包前后也会检查，缺少 Core 依赖、FFmpeg 或引擎必需包时直接失败。WeRead 单独检查用 `npm run typecheck:weread`。
 
@@ -480,12 +512,12 @@ ZJU Core 没有为这件事改代码，它本来就认环境变量 `FFMPEG_PATH`
 
 2026-10-11 加的，0.1.3 起有。技能里的命令都是 `node …`（`core/zju/SKILL.md` 的 `node <SKILL>/scripts/zju.ts`、`core/learn/references/animation.md` 的 `node engine/build.mjs`），由引擎的命令行工具在用户的机器上执行，找的是 PATH 上名叫 `node` 的程序。最初复用了 Electron 的 Node 模式；2026-11-01 更新后随包提供独立 Node 24.19.0，避免引擎原生加载器与 Electron 的 V8 版本耦合。用户无需安装 Node.js，Core、引擎与技能子命令使用随包运行时。
 
-做法在 `desktop/node.cjs`：壳启动引擎时明确使用 `node_modules/node-win-x64/bin/node.exe`，在数据目录的 `bin` 文件夹（`%APPDATA%\CampusAgent\bin`）里放一个 `node.cmd`，它调用同一运行时，参数原样传过去；再把这个文件夹放到交给引擎的 PATH **最前面**（在 `desktop/main.cjs` 起引擎的那一行接上），引擎启动的命令都会继承。几个定下来的地方：
+做法在 `desktop/node.cjs`：壳启动引擎时明确使用 `node_modules/node-win-x64/bin/node.exe`（macOS 上是那种芯片的包，见「macOS 版」），在数据目录的 `bin` 文件夹（`%APPDATA%\CampusAgent\bin`）里放一个 `node.cmd`，它调用同一运行时，参数原样传过去；再把这个文件夹放到交给引擎的 PATH **最前面**（在 `desktop/main.cjs` 起引擎的那一行接上），引擎启动的命令都会继承。几个定下来的地方：
 
 - 放在最前面，系统里已经有 Node 的也用我们这一份：要的是所有机器上跑技能的是同一份 Node，用户自己装的可能太旧。开发时（`npm start`）也一样，免得只在装好的应用里才出问题。
 - 应用的可执行文件在哪，不写进 `node.cmd`，经环境变量 `CAMPUS_NODE_EXE` 告诉它：`.cmd` 是按系统的代码页读的，用户名带中文时写在文件里的路径会读错，环境变量不会。文件本身全是 ASCII。
 - 只放 `.cmd`，不放 `.ps1`：PowerShell 会先找 `.ps1`，而系统默认不许运行脚本，那样 `node` 反而整个用不了。
-- 只做了 Windows 的。没有给 `npm`：技能日常用不到，讲解要加别的画面库时才用（`animation.md` 里的 `npm install --prefix lessons/<主题>/film/build/vendor`，装在这一集自己的文件夹里），那时仍然要用户自己有 npm。
+- macOS 上放的是一个叫 `node` 的 sh 脚本，PATH 后面还补上 Homebrew 和 MacTeX 的位置（见「macOS 版」）。没有给 `npm`：技能日常用不到，讲解要加别的画面库时才用（`animation.md` 里的 `npm install --prefix lessons/<主题>/film/build/vendor`，装在这一集自己的文件夹里），那时仍然要用户自己有 npm。
 
 验证：`desktop/node.test.mjs` 四项，并入了 `npm run test:plugins`。测试起一个 PATH 里没有 Node.js 的 PowerShell，数据目录带中文和空格，在里面敲 `node`：版本与随包运行时一致，`.ts` 能直接跑，带空格和中文的参数原样到，退出码传得回来，脚本里用 `process.execPath` 再起的子进程也是 Node。另核对引擎的原生加载器可用、运行时缺失明确失败，以及子进程继承 PATH 和 `CAMPUS_NODE_EXE`。**没验证的：在一台真的没装 Node.js 的电脑上让助手跑一条校园命令**（开发机上装着 Node，只能把它从 PATH 里拿掉来模拟）。
 

@@ -1,4 +1,4 @@
-/** Run against an unpacked Windows app outside the source tree, with fresh data and no developer PATH. */
+/** Run against an unpacked Windows app or a macOS .app outside the source tree, with fresh data and no developer PATH. */
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
@@ -15,7 +15,8 @@ async function desktopStarts(executable, dir, baseEnv) {
   const env = { ...baseEnv }
   delete env.ELECTRON_RUN_AS_NODE
   env.CAMPUS_DOWNLOADS_DIR = path.join(dir, 'downloads')
-  const child = spawn(executable, [`--campus-data-dir=${dir}`, '--remote-debugging-port=0'], { env, windowsHide: true, stdio: 'ignore' })
+  // macOS 上单开一个进程组，最后连同引擎一起结束。
+  const child = spawn(executable, [`--campus-data-dir=${dir}`, '--remote-debugging-port=0'], { env, windowsHide: true, stdio: 'ignore', detached: process.platform !== 'win32' })
   try {
     const until = Date.now() + 60_000
     for (;;) {
@@ -30,24 +31,49 @@ async function desktopStarts(executable, dir, baseEnv) {
     }
   } finally {
     // 结束整棵进程树：引擎、渲染进程和可能弹出来的报错框。
-    if (child.exitCode === null) spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true })
+    if (child.exitCode === null) {
+      if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true })
+      else {
+        try { process.kill(-child.pid, 'SIGTERM') } catch { /* 已经退了 */ }
+        await new Promise(resolve => { const timer = setTimeout(resolve, 5000); child.once('exit', () => { clearTimeout(timer); resolve() }) })
+        try { process.kill(-child.pid, 'SIGKILL') } catch { /* 已经退了 */ }
+      }
+    }
   }
 }
 
+/**
+ * 给的成品在哪：Windows 是 win-unpacked 文件夹，macOS 是 CampusAgent.app。返回应用的文件夹和双击时跑的那个程序。
+ */
+function layout(directory) {
+  if (process.platform === 'darwin') return { root: path.join(directory, 'Contents', 'Resources', 'app'), executable: path.join(directory, 'Contents', 'MacOS', 'CampusAgent') }
+  return { root: path.join(directory, 'resources', 'app'), executable: path.join(directory, 'CampusAgent.exe') }
+}
+
+/** 一份干净的环境：只有系统自己的东西，PATH 里没有 Node、Python 和 npm，数据都在 data 里。 */
+function cleanEnv(data) {
+  const own = { DSH_HOME: path.join(data, 'home'), CAMPUS_PROFILE_DIR: path.join(data, 'profile'), CAMPUS_KEYS_DIR: data, CAMPUS_CHATS_DIR: path.join(data, 'documents'), DSH_TELEMETRY_DISABLED: '1' }
+  if (process.platform === 'darwin') {
+    // 和从访达打开时一样的 PATH。TMPDIR 照旧：套接字文件放在那里（desktop/host.mjs）。
+    const kept = Object.fromEntries(['TMPDIR', 'USER', 'LOGNAME', 'LANG'].filter(k => process.env[k]).map(k => [k, process.env[k]]))
+    return { ...kept, PATH: '/usr/bin:/bin:/usr/sbin:/sbin', HOME: data, ...own }
+  }
+  const env = Object.fromEntries(['SystemRoot', 'WINDIR', 'SystemDrive', 'TEMP', 'TMP', 'COMSPEC', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS', 'PATHEXT'].filter(k => process.env[k]).map(k => [k, process.env[k]]))
+  return { ...env, PATH: `${process.env.SystemRoot}/System32;${process.env.SystemRoot}/System32/WindowsPowerShell/v1.0`, ProgramFiles: path.join(data, 'empty'),
+    APPDATA: path.join(data, 'roaming'), LOCALAPPDATA: path.join(data, 'local'), USERPROFILE: data, HOME: data, ...own }
+}
+
 async function main() {
-  if (process.platform !== 'win32' || !process.argv[2]) throw new Error('用法：node scripts/smoke-packaged.cjs <项目目录以外的 win-unpacked>')
+  if (!['win32', 'darwin'].includes(process.platform) || !process.argv[2]) throw new Error('用法：node scripts/smoke-packaged.cjs <项目目录以外的 win-unpacked 或 CampusAgent.app>')
   const directory = fs.realpathSync.native(process.argv[2]), project = fs.realpathSync.native(path.join(__dirname, '..'))
   if (directory.toLowerCase().startsWith(project.toLowerCase() + path.sep)) throw new Error('先把成品复制到项目目录之外，避免借用开发依赖。')
-  const root = path.join(directory, 'resources', 'app'), executable = path.join(directory, 'CampusAgent.exe')
+  const { root, executable } = layout(directory)
   checkRuntimeDependencies(root)
   const runtime = nodeExecutable(root)
   const tempRoot = fs.realpathSync.native(os.tmpdir())
   const data = fs.mkdtempSync(path.join(tempRoot, 'campus-smoke-'))
-  const env = Object.fromEntries(['SystemRoot', 'WINDIR', 'SystemDrive', 'TEMP', 'TMP', 'COMSPEC', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS', 'PATHEXT'].filter(k => process.env[k]).map(k => [k, process.env[k]]))
-  Object.assign(env, { PATH: `${process.env.SystemRoot}/System32;${process.env.SystemRoot}/System32/WindowsPowerShell/v1.0`, ProgramFiles: path.join(data, 'empty'),
-    APPDATA: path.join(data, 'roaming'), LOCALAPPDATA: path.join(data, 'local'), USERPROFILE: data, HOME: data, DSH_HOME: path.join(data, 'home'),
-    CAMPUS_PROFILE_DIR: path.join(data, 'profile'), CAMPUS_KEYS_DIR: data, CAMPUS_CHATS_DIR: path.join(data, 'documents'), DSH_TELEMETRY_DISABLED: '1' })
-  Object.assign(env, nodeEnv({ dir: path.join(data, 'bin'), execPath: runtime, env }))
+  const env = cleanEnv(data)
+  Object.assign(env, nodeEnv({ dir: path.join(data, 'bin'), execPath: runtime, env, exists: () => false }))
   let child, logs = ''
   try {
     for (const file of ['core/zju/scripts/zju.ts', 'core/weread/scripts/weread.ts']) {

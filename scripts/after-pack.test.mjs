@@ -7,7 +7,7 @@ import { join, resolve, sep } from 'node:path'
 import test from 'node:test'
 
 const require = createRequire(import.meta.url)
-const { dropDeadWeight, installDirRoom, oddNames, shipMissingDependencies } = require('./after-pack.cjs')
+const { appDirOf, dropDeadWeight, installDirRoom, oddNames, shipMissingDependencies } = require('./after-pack.cjs')
 
 /** 在 root 下面按 { '包的路径': package.json 的内容 } 建一棵 node_modules。 */
 async function install(root, packages) {
@@ -95,4 +95,9 @@ test('安装位置最长能有多少个字符：看成品里最深的文件（�
   const folder = join('resources', 'app', 'a'.repeat(60))
   await put(join(folder, 'b'))
   assert.deepEqual(installDirRoom(root), { room: 247 - 1 - folder.length, longest: join(folder, 'b') })
+})
+
+test('成品里应用的文件夹：Windows 在 resources/app，macOS 在 .app 包里的 Contents/Resources/app', () => {
+  assert.equal(appDirOf(join('dist', 'win-unpacked'), 'win32', 'CampusAgent'), join('dist', 'win-unpacked', 'resources', 'app'))
+  assert.equal(appDirOf(join('dist', 'mac-arm64'), 'darwin', 'CampusAgent'), join('dist', 'mac-arm64', 'CampusAgent.app', 'Contents', 'Resources', 'app'))
 })

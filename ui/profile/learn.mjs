@@ -1,7 +1,7 @@
 /**
  * 「课程讲解」插件的可选依赖。讲解的引擎（core/learn/engine）自己能跑，下面两样有了效果更好，没有也能出成品：
  *   tex      公式排版：打包时用 TeX（latex 和 dvisvgm）把公式排成字形轮廓；没有时由播放器里的后备排版来画（engine/tex.mjs）。
- *   browser  版面检查和截图：用本机的 Edge 或 Chrome 无界面地打开成品（engine/lint.mjs、shots.mjs）。Windows 自带 Edge，这里只看有没有，不管装。
+ *   browser  版面检查和截图：用本机的 Edge 或 Chrome 无界面地打开成品（engine/lint.mjs、shots.mjs）。Windows 自带 Edge，macOS 上要用户自己装 Chrome 或 Edge；这里只看有没有，不管装。
  * TeX 可以在插件页上点「安装」：从国内的 CTAN 镜像取 TeX Live 的安装程序，只装排公式用得到的那一小部分（约 300 MB），
  * 装在应用的数据目录里，不改系统的 PATH、注册表和开始菜单；卸载就是删掉那个文件夹。
  * 装好以后把位置放进环境变量 LEARN_TEX_BIN（engine/tex.mjs 第一个看的就是它），引擎之后启动的命令都会继承。
@@ -25,8 +25,8 @@ export const MIRRORS = [
 /** 一次安装最多等这么久（校园网上实测十分钟以内）。 */
 const INSTALL_LIMIT_MS = 45 * 60_000
 const EXE = process.platform === 'win32' ? '.exe' : ''
-/** 引擎找浏览器的三个位置（engine/lint.mjs、shots.mjs 里写的就是这三个）。 */
-const BROWSERS = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe']
+/** 引擎找浏览器的几个位置（engine/lint.mjs、shots.mjs 里写的就是这几个）：前三个是 Windows 的，后两个是 macOS 的。 */
+const BROWSERS = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge']
 
 const message = error => error instanceof Error ? error.message : String(error)
 /** 环境变量的名字在 Windows 上不分大小写（PATH 也可能写成 Path），拷出来的普通对象却分，所以按不分大小写取。 */

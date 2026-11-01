@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- macOS 的图标格：1024 的画布里，圆角方块占中间 824，四周留出投影的位置。图案和 app-icon.svg 一样，整体缩进方块里。 -->
+  <defs>
+    <linearGradient id="campus-icon-mac-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5A8DF5"/><stop offset="1" stop-color="#2F5CC9"/></linearGradient>
+    <linearGradient id="campus-icon-mac-sheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <filter id="campus-icon-mac-shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#0b1a3a" flood-opacity=".32"/>
+    </filter>
+  </defs>
+  <g transform="translate(100 100) scale(0.8046875)">
+    <rect width="1024" height="1024" rx="230" fill="url(#campus-icon-mac-bg)" filter="url(#campus-icon-mac-shadow)"/>
+    <rect width="1024" height="1024" rx="230" fill="url(#campus-icon-mac-sheen)"/>
+    <path d="M512 468c-80-54-186-72-306-58v356c120-14 226 4 306 58Z" fill="#fff"/>
+    <path d="M512 468c80-54 186-72 306-58v356c-120-14-226 4-306 58Z" fill="#fff" fill-opacity=".82"/>
+    <path d="M512 140c15 84 56 125 140 140-84 15-125 56-140 140-15-84-56-125-140-140 84-15 125-56 140-140Z" fill="#F0700F"/>
+    <circle cx="716" cy="188" r="36" fill="#fff" fill-opacity=".9"/>
+  </g>
+</svg>

@@ -43,7 +43,7 @@ else {
 const cols = Math.max(1, Math.min(3, Number(flag('cols')) || 3)), rows = cols === 1 ? 1 : cols === 2 ? 2 : 3;
 const TW = 1920 / cols, TH = 1080 / cols, BAR = 44;
 
-const edge = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe'].find(existsSync);
+const edge = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'].find(existsSync);
 if (!edge) { console.error('找不到 Edge 或 Chrome'); process.exit(2); }
 
 // 每一格都是成品本身开在那一刻的样子（一个内嵌的页面），所以画在画布上的、场景自带的图层里的，都截得到。

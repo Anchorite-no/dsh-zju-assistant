@@ -28,6 +28,8 @@ function checkRuntimeDependencies(directory) {
   }
   for (const entry of ['', ...CORES]) visit(path.join(root, entry))
   for (const file of [
+    'node_modules/node-win-x64/bin/node.exe',
+    'build/licenses/NODE-LICENSE.txt',
     'core/learn/engine/vendor/node_modules/gsap/dist/gsap.min.js',
     'ui/lib/client.js',
   ]) if (!fs.existsSync(path.join(root, file))) missing.push(file)

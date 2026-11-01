@@ -11,7 +11,7 @@ const { createWereadBridge } = require('./weread.cjs')
 const { createReader } = require('./reader.cjs')
 const { handleMailSecret } = require('./mail-secrets.cjs')
 const { ffmpegEnv } = require('./ffmpeg.cjs')
-const { nodeEnv } = require('./node.cjs')
+const { nodeEnv, nodeExecutable } = require('./node.cjs')
 const { createFilms, filmDirectory } = require('./film.cjs')
 const { execFile, fork } = require('node:child_process')
 const { mkdirSync, readFileSync, rmSync, writeFileSync } = require('node:fs')
@@ -59,10 +59,13 @@ let onAlert = () => {}
 
 function startHost() {
   return new Promise((resolve, reject) => {
+    const runtime = nodeExecutable()
     host = fork(path.join(__dirname, 'host.mjs'), [], {
       cwd: workspace,
+      execPath: runtime,
+      windowsHide: true,
       // nodeEnv：把应用自己带的 Node 以「node」这个名字交给引擎启动的命令（node.cjs）。
-      env: { ...process.env, ...wereadBridge?.env, ...ffmpegEnv(), ...nodeEnv({ dir: path.join(app.getPath('userData'), 'bin') }), CAMPUS_PROFILE_DIR: path.join(app.getPath('userData'), 'profile'), CAMPUS_KEYS_DIR: keysDir, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', ELECTRON_RUN_AS_NODE: '1' },
+      env: { ...process.env, ...wereadBridge?.env, ...ffmpegEnv(), ...nodeEnv({ dir: path.join(app.getPath('userData'), 'bin'), execPath: runtime }), CAMPUS_PROFILE_DIR: path.join(app.getPath('userData'), 'profile'), CAMPUS_KEYS_DIR: keysDir, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
       stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
     })
     host.on('message', (message) => {

@@ -16,13 +16,16 @@ if (!existsSync(resolve(film))) { console.error(`找不到这一集的目录：$
 const out = join(resolve(film), 'lib'), own = join(resolve(film), 'build', 'vendor', 'node_modules'), KNOWN = { three: 'THREE' };
 mkdirSync(out, { recursive: true });
 const said = file => console.log(`${file}  ${(statSync(file).size / 1024).toFixed(0)} KB`);
+// 仓库里用引擎自带的 esbuild；从 npm 装的 dsh 插件带的是 esbuild-wasm（没有安装脚本，插件页不用为它批准构建），用法一样，慢一点。
+const require = createRequire(join(modules, 'x.js'));
+const esbuild = (() => { try { return require('esbuild'); } catch { return require('esbuild-wasm'); } })();
 for (const want of wants) {
   const [what, name = KNOWN[what]] = want.split('=');
   if (what === 'gsap') { const file = join(out, 'gsap.js'); copyFileSync(join(modules, 'gsap', 'dist', 'gsap.min.js'), file); said(file); continue; }     // GSAP 自带浏览器版，全局名 gsap
   if (!name) { console.error(`${what}：要写成 ${what}=全局名`); process.exit(1); }
   const file = join(out, basename(what).replace(/\.m?js$/, '') + '.js'), entry = existsSync(what);
   // 包先在这一集自己装的里面找，再找引擎自带的。
-  createRequire(join(modules, 'x.js'))('esbuild').buildSync({
+  esbuild.buildSync({
     ...(entry ? { entryPoints: [resolve(what)] } : { stdin: { contents: `export * from ${JSON.stringify(what)};`, resolveDir: modules } }),
     bundle: true, format: 'iife', globalName: name, minify: true, target: 'es2020', legalComments: 'none', nodePaths: [own, modules], outfile: file, logLevel: 'warning',
   });

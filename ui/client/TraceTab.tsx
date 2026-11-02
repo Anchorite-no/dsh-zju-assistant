@@ -340,7 +340,7 @@ function Route({ route, memo }: { route: TurnRoute, memo: string }) {
 }
 
 export function TraceTab({ useTrace, sessionId }: TraceTabProps) {
-  const snapshot = useTrace(value => value)
+  const snapshot = useTrace((value: TraceSnapshot | undefined) => value)
   const routes = useMemo(() => snapshot ? buildRoutes(snapshot) : [], [snapshot])
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
   const memo = (route: TurnRoute) => `${sessionId}\n${String(route.turn)}`

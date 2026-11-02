@@ -19,7 +19,8 @@
     "typecheck": "tsc --noEmit -p ui",
     "typecheck:core": "node core/zju/node_modules/typescript/bin/tsc --noEmit -p core/zju",
     "typecheck:weread": "node core/weread/node_modules/typescript/bin/tsc --noEmit -p core/weread",
-    "verify": "npm run typecheck && npm run typecheck:core && npm run typecheck:weread && npm run typecheck:dingtalk && node --test desktop/*.test.mjs scripts/*.test.mjs ui/profile/*.test.mjs ui/client/*.test.mjs ui/client/trace/*.test.mjs core/zju/tests/*.test.ts core/weread/tests/*.test.ts core/weread/tests/*.test.mjs core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts && node core/learn/tools/tts/test_reader.mjs",
+    "typecheck:plugin": "tsc --noEmit -p plugin",
+    "verify": "npm run typecheck && npm run typecheck:core && npm run typecheck:weread && npm run typecheck:dingtalk && npm run typecheck:plugin && node --test plugin/*.test.mjs plugin/host/*.test.mjs plugin/client/*.test.mjs desktop/*.test.mjs scripts/*.test.mjs ui/profile/*.test.mjs ui/client/*.test.mjs ui/client/trace/*.test.mjs core/zju/tests/*.test.ts core/weread/tests/*.test.ts core/weread/tests/*.test.mjs core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts && node core/learn/tools/tts/test_reader.mjs",
     "test:profile": "node --test ui/profile/*.test.mjs",
     "test:trace": "node --test ui/client/trace/*.test.mjs ui/client/*.test.mjs",
     "test:credentials": "node --test desktop/config.test.mjs",
@@ -34,7 +35,7 @@
     "typecheck:dingtalk": "node core/dingtalk/node_modules/typescript/bin/tsc --noEmit -p core/dingtalk"
   },
   "dependencies": {
-    "@deepseek-ai/dsh": "0.2.0-rc.2",
+    "@deepseek-ai/dsh": "0.2.1-rc.5",
     "electron-updater": "^6.8.9",
     "ffmpeg-static": "5.3.0",
     "imapflow": "^2.5.2",
@@ -49,6 +50,8 @@
     "node-win-x64": "24.19.0"
   },
   "devDependencies": {
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.5",
     "@types/react": "18.3",
     "electron": "44.10.1",
     "electron-builder": "26.18.1",

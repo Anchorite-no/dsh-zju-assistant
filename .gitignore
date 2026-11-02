@@ -1,6 +1,9 @@
 node_modules/
 dist/
 ui/lib/
+plugin/lib/
+# 开发时外层组合包用 link 指着实现包，这份锁文件只在本机有意义。
+plugin/bundle/pnpm-lock.yaml
 *.log
 api-keys.local.yaml
 core/wechat/**/__pycache__/
@@ -19,3 +22,5 @@ build/icon/out/
 
 # 本机存档：重写历史前的完整备份和移出仓库的材料，只留在本机。
 backup/
+# 发到 npm 前由 plugin/pack-core.mjs 从 core/ 拷进来，打完包就删掉。
+plugin/core/

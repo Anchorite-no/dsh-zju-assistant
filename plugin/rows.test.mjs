@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { load, JSON_SCHEMA } from 'js-yaml'
-import { BUNDLE, PACKAGE, ROWS, moduleName } from './rows.mjs'
+import { BUNDLE, PACKAGE, ROWS, entryId, moduleName } from './rows.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const manifest = JSON.parse(fs.readFileSync(path.join(here, 'package.json'), 'utf8'))
@@ -39,7 +39,7 @@ test('bundle/cordis.patch.yml 的行和 rows.mjs 一一对得上，顺序和默�
   const patch = load(fs.readFileSync(at('bundle/cordis.patch.yml'), 'utf8'), { schema: JSON_SCHEMA })
   assert.equal(patch.length, 1)
   const rows = patch[0].insert
-  assert.deepEqual(rows.map(row => [row.id, row.name, row.disabled === true]), ROWS.map(row => [row.id, moduleName(row), !row.on]))
+  assert.deepEqual(rows.map(row => [row.id, row.name, row.disabled === true]), ROWS.map(row => [entryId(row), moduleName(row), !row.on]))
 })
 
 test('每一行都有入口、图标和中英文的标题、描述', () => {
@@ -60,6 +60,8 @@ test('每一行都有入口、图标和中英文的标题、描述', () => {
     for (const language of ['en', 'zh']) {
       const { meta } = JSON.parse(fs.readFileSync(at(locale.replace('*', language)), 'utf8'))
       assert.ok(meta.title?.trim() && meta.description?.trim(), `${prefix} 的 ${language}.json`)
+      // 插件页上 id 和标题一样时才不多列一行 id
+      if (language === 'zh') assert.equal(meta.title, entryId(row), `${prefix} 的中文标题就是 patch 里的 id`)
     }
   }
 })

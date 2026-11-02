@@ -7,7 +7,8 @@
  * 官方把一个包的页面代码挂在名字恰好是包名的那一行，那一行又和包读同一份标题，所以本包的包根就是「校园账号」这一行，
  * 卡片的名字放在 BUNDLE 上。引擎认组合包依赖的包，聚合型的第三方插件也是这样挂别的包。
  *
- * key 是子路径（根行是空串），title 是插件页上的中文标题（和 locale/zh.json 一样，页面上说「哪一行关着」时用），id 是 patch 里那一行的 id，on 是装上以后默认开不开。
+ * key 是子路径（根行是空串），title 是插件页上的中文标题（和 locale/zh.json 一样，页面上说「哪一行关着」时用），
+ * id 是代码里认这一行用的名字（plugins.disabled() 给的就是它），on 是装上以后默认开不开。patch 里那一行的 id 另见 entryId。
  * modules 是这一行管的 ZJU Core 模块：行关着时，这些模块的命令不执行。没列在任何一行里的（读文档的 doc）始终可用。
  * settings 是这一行「配置」页里放什么；没有的不登记配置页。accounts 是这一行配置页里要填的账号（accounts.mjs 的 ACCOUNTS）。
  */
@@ -30,8 +31,14 @@ export const ROWS = [
 /** patch 里这一行的 name：根行是包名，子行是包的子路径。 */
 export const moduleName = row => row.key ? `${PACKAGE}/${row.key}` : PACKAGE
 
-/** 官方插件页 plugins.row.config 插槽的键：组合包的包名加行的 id。 */
-export const rowConfigKey = row => `${BUNDLE}#${row.id}`
+/**
+ * patch 里这一行的 id，就用中文标题。官方插件页每行在标题、说明下面还会列出 id 和模块名，只有和标题一样时才不列；
+ * 写成标题，插件页上就少一行 zju-courses 这样的字（模块名那一行去不掉）。
+ */
+export const entryId = row => row.title
+
+/** 官方插件页 plugins.row.config 插槽的键：组合包的包名加 patch 里那一行的 id。 */
+export const rowConfigKey = row => `${BUNDLE}#${entryId(row)}`
 
 /** 这种账号在哪一行的配置页里填（rows.mjs 的 id）；页面上「去填账号」照它打开那一行。 */
 export const accountRow = account => ROWS.find(row => row.accounts?.includes(account))?.id ?? ''

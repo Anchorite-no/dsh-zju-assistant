@@ -12,7 +12,7 @@
  * 列表模式（xsfs=1）：kbList 每项 kcmc / kcdm / jsxm / xxq / sksj / skdd / xksj / xkzy / szjcmc（数字教材，分号分隔 url;名字）。
  * 不是正式课的放在 sjkList（实践）、xskList（线上）、ywkList（英文）、jxkList（进修）、fKbList（服从安排 tpjg 调配结果）。
  */
-import { Zdbk, MODULE, BASE, openZdbk, stripRow } from "./client.ts";
+import { Zdbk, MODULE, BASE, openZdbk, stripRow, isGraduate } from "./client.ts";
 import { BadResponse, ConfigError } from "../core/errors.ts";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -177,8 +177,8 @@ export function parsePeriodTimes(script: string): PeriodTime[] {
   return times;
 }
 
-/** Match the selected option, or the browser's first-option default. */
-export function parseTimetableDefaults(html: string): { year: string; term: string } {
+/** Match the selected option, or the browser's first-option default. su is the student ID, used only to explain a missing term. */
+export function parseTimetableDefaults(html: string, su = ""): { year: string; term: string } {
   const selected = (id: string) => {
     const body = html.match(new RegExp(`<select\\b[^>]*\\bid=["']${id}["'][^>]*>([\\s\\S]*?)<\\/select>`, "i"))?.[1];
     const options = [...(body ?? "").matchAll(/<option\b([^>]*)>/gi)];
@@ -186,7 +186,10 @@ export function parseTimetableDefaults(html: string): { year: string; term: stri
     return attrs?.match(/\bvalue=["']([^"']+)["']/i)?.[1];
   };
   const year = selected("xnm"), term = selected("xqm");
-  if (!year || !/^\d{4}-\d{4}$/.test(year) || !term || !/^[12]\|[秋冬春夏短暑]$/.test(term)) throw new BadResponse("无法读取教务课表页面的默认学年学期");
+  if (!year || !/^\d{4}-\d{4}$/.test(year) || !term || !/^[12]\|[秋冬春夏短暑]$/.test(term)) {
+    if (isGraduate(su)) throw new ConfigError("研究生的课表和学籍在研究生院的系统里，本科教务网查不到");
+    throw new BadResponse("无法读取教务课表页面的默认学年学期");
+  }
   return { year, term };
 }
 
@@ -240,7 +243,7 @@ export async function getSchedule(z: Zdbk, year: string, term: string) {
 export async function studentInfo(z: Zdbk): Promise<Timetable["student"]> {
   const page = await z.get(z.url(TIMETABLE_PAGE, MODULE.kbcx));
   if (page.status !== 200) throw new BadResponse(`读取教务课表页面 HTTP ${page.status}`);
-  const { year, term } = parseTimetableDefaults(page.body);
+  const { year, term } = parseTimetableDefaults(page.body, z.su);
   return (await getTimetable(z, year, term, "table")).student;
 }
 
@@ -273,7 +276,7 @@ export async function cachedSchedule(options: { year?: string; term?: string } =
     if (!options.year || !term) {
       const page = await z.get(z.url(TIMETABLE_PAGE, MODULE.kbcx));
       if (page.status !== 200) throw new BadResponse(`读取教务课表页面 HTTP ${page.status}`);
-      defaults = parseTimetableDefaults(page.body);
+      defaults = parseTimetableDefaults(page.body, z.su);
     }
     const schedule = await getSchedule(z, options.year ?? defaults!.year, term ?? defaults!.term), fetchedAt = Date.now();
     cache.entries[key] = { fetchedAt, schedule };

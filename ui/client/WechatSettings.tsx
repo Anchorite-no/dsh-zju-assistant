@@ -239,7 +239,7 @@ export function WechatSettings() {
                   </li>
                 ))}
               </ul>
-              {data.checkedAt && <p className="campus-note">每半小时检查一次，上次 {checkedText(data.checkedAt)}</p>}
+              {data.checkedAt && <p className="campus-note">上次检查 {checkedText(data.checkedAt)}</p>}
             </>
           )}
       </section>

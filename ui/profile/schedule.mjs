@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto'
 import { ACCOUNTS, accountReady } from './catalog.mjs'
 import { runCore } from './core.mjs'
 import { accountPlugin, fingerprint } from './affairs.mjs'
+import { fromStudentId } from './identity-fill.mjs'
 import { Holidays, ZJU_CALENDARS } from './holidays.mjs'
 import { TERM_NAMES, WEEKDAY_NAMES, addDays, beijing, dayNumber, isDate, layerCalendars, memoEvents, normalizeCalendar, planDays, termAt, termKey, weekdayOf } from './calendar.mjs'
 
@@ -162,11 +163,16 @@ export class Schedule {
     writeFile(this.file, JSON.stringify(cache, null, 2) + '\n')
   }
 
-  /** 教务网现在能不能读：off 是插件关了，account 是账号还没填；能读时带上账号的指纹。 */
+  /**
+   * 教务网现在能不能读：off 是插件关了，account 是账号还没填，graduate 是研究生（学号 1、2 开头）；能读时带上账号的指纹。
+   * 本科教务网里没有研究生的课表和考试，去读只会拿到一页没有学年学期的页面（2026-11-02 研究生同学反馈），所以不读。
+   */
   status(accounts = this.account.read().data) {
     if (this.plugins.disabled().includes(ZDBK.plugin)) return { state: 'off', plugin: ZDBK.plugin }
     if (!accountReady(accounts, ZDBK.account)) return { state: 'account', plugin: accountPlugin(ZDBK.account) }
-    return { state: 'ready', plugin: ZDBK.plugin, owner: fingerprint(accounts[ACCOUNTS[ZDBK.account].user.key]) }
+    const username = accounts[ACCOUNTS[ZDBK.account].user.key]
+    if (['硕士', '博士'].includes(fromStudentId(username).student_level)) return { state: 'graduate', plugin: ZDBK.plugin }
+    return { state: 'ready', plugin: ZDBK.plugin, owner: fingerprint(username) }
   }
 
   /** 这个账号存下的那份；换过账号或者没读过时没有。 */
@@ -312,6 +318,7 @@ export class Schedule {
     const source = data.sources[0]
     if (source.state === 'off') notes.push('「课程与作业」插件关着，课表和考试没查。')
     else if (source.state === 'account') notes.push('浙大统一身份认证的账号还没填，课表和考试没查；请用户去「插件」页填。')
+    else if (source.state === 'graduate') notes.push('用户是研究生，课表和考试在研究生院的系统里，本科教务网查不到，应用现在也读不到；不要再用 zdbk 去查。')
     for (const item of data.sources) if (item.error) notes.push(`${item.name}这次没从教务网读到（${item.error}）${item.fetchedAt ? `，用的是 ${item.fetchedAt.slice(0, 10)} 读到的` : ''}。`)
     for (const key of new Set(days.map(day => day.missing).filter(Boolean))) notes.push(`${key.replace('|', ' ')}学期的课表没读到，这几天的课没排上${data.failed[key] ? `：${data.failed[key]}` : ''}。`)
     if (days.some(day => day.loose)) notes.push(`校历里还没有 ${data.current?.replace('|', ' ')}学期，这些天的课是照课表每周都排上的，没算单双周、放假和调休。可以请用户在「日程表」里填校历，或者照学校的校历和放假通知用 campus_calendar_write 填。`)

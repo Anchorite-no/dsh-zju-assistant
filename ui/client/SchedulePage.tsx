@@ -37,7 +37,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 const PANEL_ID = 'schedules' as MainPanelId
 const TASKS_SLOT = 'campus.schedule.tasks'
 
-interface Source { id: 'timetable' | 'exams', name: string, state: 'ready' | 'account' | 'off', plugin: string, fetchedAt: string | null, error: string | null }
+interface Source { id: 'timetable' | 'exams', name: string, state: 'ready' | 'account' | 'off' | 'graduate', plugin: string, fetchedAt: string | null, error: string | null }
 /** 引擎侧 schedule.mjs 的 snapshot。 */
 interface Snapshot extends PlanData {
   today: string
@@ -263,7 +263,9 @@ function PlanView({ tabs, onCalendar }: { tabs: ReactNode, onCalendar: () => voi
   const notices: ReactNode[] = []
   if (error) notices.push(<Alert key="error">{error}</Alert>)
   if (handError) notices.push(<Alert key="hand">{handError}</Alert>)
-  if (source && source.state !== 'ready') {
+  // 研究生：本科教务网里没有他的课表和考试，引擎侧不去读（schedule.mjs 的 status）。
+  if (source?.state === 'graduate') notices.push(<Alert key="account" tone="warn">研究生的课表和考试在研究生院的系统里，现在还读不到。</Alert>)
+  else if (source && source.state !== 'ready') {
     notices.push(
       <Alert key="account" tone="warn">
         {source.state === 'off' ? '「课程与作业」插件关着，课表和考试没有读。' : '浙大统一身份认证的账号还没填，课表和考试读不到。'}
@@ -313,7 +315,7 @@ function PlanView({ tabs, onCalendar }: { tabs: ReactNode, onCalendar: () => voi
       </div>
       {notices.length > 0 && <div className="campus-plan-notices">{notices}</div>}
       <WeekGrid days={days} periods={periods} today={today} clock={here.time} />
-      {unpublished.length > 0 && <p className="campus-note">{unpublished.join('、')} 年的放假安排国务院还没公布，公布以后这里会自己排上放假和调休。</p>}
+      {unpublished.length > 0 && <p className="campus-note">{unpublished.join('、')} 年的放假安排还没公布。</p>}
     </div>
   )
 }
@@ -388,7 +390,6 @@ function CalendarEditor({ snapshot, today, onBack, onSaved }: { snapshot: Snapsh
         <Crumb text="日程" onBack={onBack} />
         <div className="campus-detail-main">
           <h1 className="campus-page-title">校历</h1>
-          <p className="campus-detail-desc">学期哪天开始、哪天放假和调休，应用照浙大本科生院公布的校历和国务院的放假安排自己排好了，下面列着。学校另外通知了停课、补课，或者有不对的，在「自己补充」里写上，补的优先。</p>
         </div>
         {error && <Alert>{error}</Alert>}
         <section className="campus-section" aria-label="学期">
@@ -413,7 +414,7 @@ function CalendarEditor({ snapshot, today, onBack, onSaved }: { snapshot: Snapsh
               </li>
             ))}
           </ul>
-          {snapshot && snapshot.unpublished.length > 0 && <p className="campus-note">{snapshot.unpublished.join('、')} 年的放假安排国务院还没公布，公布以后会自己排上。</p>}
+          {snapshot && snapshot.unpublished.length > 0 && <p className="campus-note">{snapshot.unpublished.join('、')} 年的放假安排还没公布。</p>}
         </section>
         <section className="campus-section" aria-label="自己补充">
           <div className="campus-section-head">
@@ -425,7 +426,7 @@ function CalendarEditor({ snapshot, today, onBack, onSaved }: { snapshot: Snapsh
                 onClick={() => { setDraft(old => ({ ...old, terms: [...old.terms, { year: lastYear, term: '', start: '', weeks: String(TERM_WEEKS) }] })) }}>加学期</Button>
             </div>
           </div>
-          {draft.terms.length === 0 && draft.days.length === 0 && <p className="campus-note">没有。比如学校通知某天开运动会停课、哪个周六补哪天的课，加一天写上。</p>}
+          {draft.terms.length === 0 && draft.days.length === 0 && <p className="campus-note">没有。</p>}
           {draft.days.length > 0 && (
             <div className="campus-calendar-rows" data-kind="days">
               <span className="campus-calendar-label">日期</span><span className="campus-calendar-label">怎么安排</span>

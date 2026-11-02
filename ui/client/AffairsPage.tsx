@@ -235,7 +235,6 @@ function TaskView({ task, source, now, problem, onBack, onHand }: {
                 </li>
               ))}
             </ul>
-            {data?.downloadable && <p className="campus-note">下载到「下载」文件夹的 CampusAgent 里，按课程和作业分开放。</p>}
           </section>
         )}
         {detail?.table && (

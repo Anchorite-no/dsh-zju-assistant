@@ -329,7 +329,7 @@ export function FeedColumn({ now, memos }: { now: number, memos: NoticeMemos }) 
     // 要去系统里读的来源（不算聊天和公众号，它们有自己的定时）一个都还没读过：是第一次读。
     const fetching = sources.filter(entry => entry.state === 'ready' && inTab(entry, tab) && entry.kind !== 'chat' && entry.id !== 'wechat')
     const first = fetching.length > 0 && fetching.every(entry => !entry.fetchedAt && !entry.error)
-    if (!readable) empty = tab === 'personal' ? '个人消息的来源还没有接上：邮箱、CC98 或者微信、钉钉的私聊，接上以后这里会显示。' : '校园通知的来源都没有接上。'
+    if (!readable) empty = tab === 'personal' ? '个人消息的来源都没有接上。' : '校园通知的来源都没有接上。'
     else if (busy && first) empty = '第一次读取，要等一会儿。'
     else empty = range === 'all' ? `没有${noun}。` : earlier > 0 ? `一周内没有${noun}，更早的还有 ${earlier} 条。` : `一周内没有${noun}。`
   }

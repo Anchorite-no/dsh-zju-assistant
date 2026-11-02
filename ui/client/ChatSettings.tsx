@@ -249,9 +249,6 @@ function ChatPicker({
             </Button>
           )}
         </div>
-        <p className="campus-note">
-          从添加时开始收集新消息。客户端运行时自动同步，本机没有同步过的消息暂时读不到。
-        </p>
       </div>
     </Modal>
   )
@@ -355,7 +352,6 @@ function PeoplePicker({
           </Button>
         </form>
         {error && <Alert>{error}</Alert>}
-        <p className="campus-note">本地可确认群主身份；其他管理员请在成员中指定。成员名单以本机缓存为准。</p>
         {people.length > 0 && (
           <div className="campus-chat-selected">
             {people.map((p) => (
@@ -583,7 +579,7 @@ export function ChatSettings({ platform }: { platform: Platform }) {
           </Button>
         </div>
         {!data.tracks.length && (
-          <p className="campus-note">选择重要的消息群、年级群或联系人，新消息会出现在「校园事务」的通知里。</p>
+          <p className="campus-note">还没有监控的聊天。</p>
         )}
         {data.tracks.map((track) => (
           <div className="campus-chat-track" key={track.key}>
@@ -647,12 +643,7 @@ export function ChatSettings({ platform }: { platform: Platform }) {
                 </Button>
               </div>
             )}
-            {track.mode === 'summary' && (
-              <p className="campus-note">
-                新消息交给当前模型按事项整理，一件事一条通知，附上对应的原文；闲聊不生成通知。整理失败时原样收集。
-                {track.skipped ? ` 这次整理跳过 ${track.skipped} 条闲聊。` : ''}
-              </p>
-            )}
+            {track.mode === 'summary' && !!track.skipped && <p className="campus-note">这次整理跳过 {track.skipped} 条闲聊。</p>}
           </div>
         ))}
       </section>

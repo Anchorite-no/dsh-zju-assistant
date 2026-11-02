@@ -1,5 +1,5 @@
 /** Official personal exam query: midterms and finals, including unpublished arrangements. */
-import { type Zdbk, MODULE } from "./client.ts";
+import { type Zdbk, MODULE, isGraduate } from "./client.ts";
 import { BadResponse, ConfigError } from "../core/errors.ts";
 import { selectOptions, htmlToText } from "../core/html.ts";
 
@@ -30,6 +30,7 @@ export async function getExams(z: Zdbk, options: { year?: string; term?: string;
   const term = options.term ? terms.find(t => t.value === options.term || t.label === options.term)?.value
     : (terms.find(t => t.selected) ?? terms[0])?.value;
   if (!term && options.term) throw new ConfigError(`学期不在教务页面的可选范围内：${options.term}`);
+  if ((!year || !term) && isGraduate(z.su)) throw new ConfigError("研究生的考试安排在研究生院的系统里，本科教务网查不到");
   if (!year || !term) throw new BadResponse("无法读取考试查询的学年学期", { requested: options });
   if (!/^\d{4}-\d{4}$/.test(year)) throw new ConfigError("学年格式应为 2026-2027");
   const rows: ExamRow[] = [], seen = new Set<string>();

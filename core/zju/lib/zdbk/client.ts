@@ -217,6 +217,14 @@ export function isExpired(res: HttpResponse): boolean {
   return false;
 }
 
+/**
+ * 学号首位是培养层次：3 本科，2 硕士，1 博士。本科教务网里没有研究生的课表、考试和学籍，
+ * 研究生登录后课表页、考试页拿到的是一页没有学年学期的页面（2026-11-02 研究生同学反馈）。
+ */
+export function isGraduate(su: string): boolean {
+  return /^[12]\d{7,11}$/.test(su);
+}
+
 /** 组装：CAS 上下文 + zdbk 会话（复用缓存，不主动探测；请求失效时自动重登） */
 export async function openZdbk(opts: ZdbkOptions = {}): Promise<Zdbk> {
   const su = credentials().username;

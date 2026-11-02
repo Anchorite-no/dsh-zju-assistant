@@ -52,7 +52,7 @@ export function Choice<Value extends string>({ label, value, options, disabled =
 }
 
 /** 表单里的一项：标签在上，控件在下。id 是输入框的 id；控件不是输入框时不给。aside 放在标签那一行的右边。 */
-export function Field({ id, label, hint, aside, children }: { id?: string, label: string, hint?: string, aside?: ReactNode, children: ReactNode }) {
+export function Field({ id, label, aside, children }: { id?: string, label: string, aside?: ReactNode, children: ReactNode }) {
   return (
     <div className="campus-field">
       <div className="campus-field-head">
@@ -60,7 +60,6 @@ export function Field({ id, label, hint, aside, children }: { id?: string, label
         {aside}
       </div>
       {children}
-      {hint ? <p className="campus-field-hint">{hint}</p> : null}
     </div>
   )
 }

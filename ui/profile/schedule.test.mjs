@@ -131,6 +131,21 @@ test('nothing is read without an account or with the plugin off, and a changed a
   assert.deepEqual(world.calls, ['zdbk timetable'])
 })
 
+test('a graduate student is not sent to the undergraduate system, and the assistant is told why', async (t) => {
+  const world = setup(t)
+  const schedule = world.create()
+  // 学号 2 开头是硕士、1 开头是博士：本科教务网里没有他们的课表和考试。
+  for (const zju_username of ['22451001', '12351002']) {
+    world.accounts = { zju_username, zju_password: 'x' }
+    const snapshot = await schedule.refresh({ source: 'timetable', force: true })
+    assert.deepEqual(snapshot.sources.map(source => source.state), ['graduate', 'graduate'])
+    await schedule.refresh({ source: 'exams', force: true })
+  }
+  const { notes } = await schedule.days({ from: '2026-10-19', to: '2026-10-25' })
+  assert.ok(notes.some(note => note.includes('研究生')))
+  assert.deepEqual(world.calls, [])
+})
+
 test('homework deadlines and memo times join the events in Beijing time', (t) => {
   const world = setup(t)
   world.tasks = [{ id: 'xuezai:作业|数据结构基础|实验三', source: 'xuezai', title: '实验三', course: '数据结构基础', kind: '作业', deadline: '2026-10-19T15:59:00.000Z' }, { id: 'pta:x', source: 'pta', title: '没有截止', course: '', kind: '作业', deadline: null }, { id: 'xuezai:作业|数据结构基础|实验二', source: 'xuezai', title: '实验二', course: '数据结构基础', kind: '作业', deadline: '2026-10-12T15:59:00.000Z', done: true }]

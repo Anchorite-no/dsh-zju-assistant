@@ -46,7 +46,7 @@ export function MailSettings({ onStatus }: { onStatus: (status: MailStatus) => v
       <form className="campus-form" onSubmit={event => { event.preventDefault(); void work(connect) }}>
         <div className="campus-form-grid">
           <Field id="mail-address" label="浙大邮箱地址"><input id="mail-address" type="email" className="campus-input" autoComplete="username" placeholder="学号@zju.edu.cn" value={address} disabled={busy} onChange={e => { addressEdited.current = true; setAddress(e.target.value) }} required /></Field>
-          <Field id="mail-password" label="客户端专用密码" hint="16 位，区分大小写；在本机加密保存。"><input id="mail-password" type="password" className="campus-input" autoComplete="new-password" placeholder={status?.connected ? '填写新密码以更新连接' : '填写网页版生成的专用密码'} value={password} disabled={busy} onChange={e => { setPassword(e.target.value) }} required minLength={16} maxLength={16} /></Field>
+          <Field id="mail-password" label="客户端专用密码"><input id="mail-password" type="password" className="campus-input" autoComplete="new-password" placeholder={status?.connected ? '填写新密码以更新连接' : '填写网页版生成的专用密码'} value={password} disabled={busy} onChange={e => { setPassword(e.target.value) }} required minLength={16} maxLength={16} /></Field>
         </div>
         <div className="campus-form-foot">
           <Button type="submit" size="sm" disabled={busy || !status || password.length !== 16 || !address.trim()}>{busy ? '处理中…' : status?.connected ? '更新连接' : '连接邮箱'}</Button>
@@ -63,7 +63,6 @@ export function MailSettings({ onStatus }: { onStatus: (status: MailStatus) => v
           <li>点击左下角「设置 → 安全设置 → 客户端专用密码」，选择「生成专用密码」。</li>
           <li>名称可填“校园智能体”，复制生成的 <strong>16 位专用密码</strong>，回到这里粘贴并连接。</li>
         </ol>
-        <p className="campus-field-hint">专用密码区分大小写，只显示一次。忘记后可在同一位置重新生成。</p>
         <div className="campus-mail-help-links">
           <a href="https://mail.zju.edu.cn" target="_blank" rel="noreferrer"><span>打开邮箱获取专用密码 ↗</span><small>https://mail.zju.edu.cn</small></a>
           <a href="https://mail.zju.edu.cn/coremail/help/2fa_zh_CN.html" target="_blank" rel="noreferrer"><span>打开官方图文教程 ↗</span><small>https://mail.zju.edu.cn/coremail/help/2fa_zh_CN.html</small></a>

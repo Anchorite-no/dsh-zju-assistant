@@ -127,7 +127,6 @@ export function NoticeDetail({ id, title, meta, back, memo, adding, direct = fal
                   )
                 })}
               </ul>
-              {content.attachments.some(file => file.index !== undefined) && <p className="campus-note">下载到「下载」文件夹的 CampusAgent 里，下好后会打开所在的文件夹。</p>}
             </section>
           )}
         </>

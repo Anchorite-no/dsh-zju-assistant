@@ -32,7 +32,7 @@ export function NoticeFilterSettings() {
         <span>让模型照个人档案判断</span>
         <Switch label="让模型照个人档案判断" checked={data.byProfile} onChange={(value) => { save({ byProfile: value }) }} />
       </div>
-      <Field id="notice-blocked" label="屏蔽词" hint="标题里有这些词的直接收起。">
+      <Field id="notice-blocked" label="屏蔽词">
         <TagPicker id="notice-blocked" label="屏蔽词" value={data.blocked} known={[]} placeholder="输入一个词后回车" onChange={(blocked) => { save({ blocked }) }} />
       </Field>
     </section>

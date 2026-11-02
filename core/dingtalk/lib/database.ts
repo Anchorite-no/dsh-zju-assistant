@@ -222,7 +222,26 @@ function globalUids(root: string, header: Buffer): string[] {
   }
 }
 
-/** Every v2/v3 account directory whose dingtalk.db header is verified by its version-specific key. */
+const GLOBAL_MISSING = '未找到钉钉全局数据库（globalStorage），可用 --data-dir 指定包含 globalStorage 的 DingTalk 目录。'
+
+/**
+ * Account uids from the v3 global store, or why it could not be read. A missing store keeps the database_missing
+ * status; a failed key or snapshot keeps its own error, so the caller can report the real reason.
+ */
+function readGlobalUids(base: string): { uids: string[] } | { error: unknown } {
+  let header: Buffer
+  try { header = readBytes(path.join(base, 'globalStorage', 'storage.db')).subarray(0, 16) } catch (error) {
+    return { error: error instanceof SkillError && error.status === 'database_missing' ? new SkillError('database_missing', GLOBAL_MISSING) : error }
+  }
+  if (header.length < 16) return { error: new SkillError('database_missing', GLOBAL_MISSING) }
+  try { return { uids: globalUids(base, header) } } catch (error) { return { error } }
+}
+
+/**
+ * Every v2/v3 account directory whose dingtalk.db header is verified by its version-specific key. When one uid verifies
+ * in both formats only the v3 directory is kept (references/local.md): the client writes new data there, and two
+ * identical entries would make the account picker and --profile <uid> ambiguous.
+ */
 export function discover(root?: string): Profile[] {
   // The desktop host supplies Windows' appData path. Standalone/headless launches can omit
   // APPDATA; never resolve that case relative to the command's working directory.
@@ -238,7 +257,8 @@ export function discover(root?: string): Profile[] {
   }
   if (!entries.length) throw new SkillError('database_missing', '钉钉数据目录中没有账号数据库；请先在这台电脑登录钉钉。')
   const profiles: Profile[] = []
-  let v3Uids: string[] | undefined
+  // The global store is decrypted at most once; a failure is kept and reported only if no account verifies.
+  let global: ReturnType<typeof readGlobalUids> | undefined
   for (const name of entries) {
     const directory = path.join(base, name)
     const dbFile = path.join(directory, 'DBFiles', 'dingtalk.db')
@@ -252,25 +272,25 @@ export function discover(root?: string): Profile[] {
       } catch { /* Another account may be incomplete or belong to a different client format. */ }
       continue
     }
+    global ??= readGlobalUids(base)
+    if ('error' in global) continue
     try {
-      if (!v3Uids) {
-        const globalHeader = readBytes(path.join(base, 'globalStorage', 'storage.db')).subarray(0, 16)
-        if (globalHeader.length < 16) throw new SkillError('database_missing', '未找到钉钉全局数据库。')
-        v3Uids = globalUids(base, globalHeader)
-      }
       const config = parseConfig(path.join(directory, 'user_config'))
       const salt = config.salt
       if (typeof salt !== 'string' || salt.length < 1 || salt.length > 256) continue
       const header = readBytes(dbFile).subarray(0, 16)
       if (header.length < 16) continue
-      for (const uid of v3Uids) {
+      for (const uid of global.uids) {
         const key = userKey(uid, salt)
         if (decrypt(header, key).equals(HEADER)) { profiles.push({ id: name, uid, path: directory, key }); break }
       }
     } catch { continue }
   }
-  if (!profiles.length) throw new SkillError('database_key_unavailable', '未找到可校验的钉钉 v2/v3 账号数据库；请确认已在这台电脑登录受支持的钉钉版本。')
-  return profiles
+  const upgraded = new Set(profiles.filter(profile => profile.id.endsWith('_v3')).map(profile => profile.uid))
+  const kept = profiles.filter(profile => !(profile.id.endsWith('_v2') && upgraded.has(profile.uid)))
+  if (kept.length) return kept
+  if (global && 'error' in global) throw global.error
+  throw new SkillError('database_key_unavailable', '未找到可校验的钉钉 v2/v3 账号数据库；请确认已在这台电脑登录受支持的钉钉版本。')
 }
 
 function parseConfig(file: string): { salt?: unknown } {

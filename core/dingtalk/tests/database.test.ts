@@ -166,7 +166,7 @@ test('key derivation and account selection', () => {
   assert.equal(selectProfile(profiles, '23456').id, 'b_v3')
 })
 
-test('discover verifies accounts with explicit paths and when a launcher omits APPDATA', t => {
+test('discover prefers v3 for the same UID and works when a launcher omits APPDATA', t => {
   const GLOBAL_KEY = Buffer.from('global-synth-key', 'latin1')
   setGlobalKeyProvider(() => GLOBAL_KEY)
   const home = mkdtempSync(path.join(tmpdir(), 'dingtalk-data-'))
@@ -183,24 +183,19 @@ test('discover verifies accounts with explicit paths and when a launcher omits A
   account.exec('CREATE TABLE marker (value TEXT)')
   const accountImage = Buffer.from(account.serialize())
   account.close()
-  mkdirSync(path.join(dir, '800000000001_v2', 'DBFiles'), { recursive: true })
-  writeFileSync(path.join(dir, '800000000001_v2', 'DBFiles', 'dingtalk.db'), encrypt(accountImage, v2UserKey('800000000001')))
+  mkdirSync(path.join(dir, '900000000002_v2', 'DBFiles'), { recursive: true })
+  writeFileSync(path.join(dir, '900000000002_v2', 'DBFiles', 'dingtalk.db'), encrypt(accountImage, v2UserKey('900000000002')))
   mkdirSync(path.join(dir, 'acct_v3', 'DBFiles'), { recursive: true })
   writeFileSync(path.join(dir, 'acct_v3', 'user_config'), Buffer.from(JSON.stringify({ salt: 's4lt' })).toString('base64'))
   writeFileSync(path.join(dir, 'acct_v3', 'DBFiles', 'dingtalk.db'), encrypt(accountImage, userKey('900000000002', 's4lt')))
 
   const profiles = discover(dir)
-  assert.deepEqual(profiles.map(profile => ({ id: profile.id, uid: profile.uid })), [
-    { id: '800000000001_v2', uid: '800000000001' },
-    { id: 'acct_v3', uid: '900000000002' },
-  ])
+  assert.deepEqual(profiles.map(profile => ({ id: profile.id, uid: profile.uid })), [{ id: 'acct_v3', uid: '900000000002' }])
+  assert.equal(selectProfile(profiles, '900000000002').id, 'acct_v3')
 
   const result = run(['profiles', '--data-dir', dir]) as { ok: boolean; profiles: { id: string; uid: string }[] }
   assert.equal(result.ok, true)
-  assert.deepEqual(result.profiles, [
-    { id: '800000000001_v2', uid: '800000000001' },
-    { id: 'acct_v3', uid: '900000000002' },
-  ])
+  assert.deepEqual(result.profiles, [{ id: 'acct_v3', uid: '900000000002' }])
 
   const previous = { APPDATA: process.env.APPDATA, DINGTALK_DATA_DIR: process.env.DINGTALK_DATA_DIR }
   t.after(() => {
@@ -231,4 +226,32 @@ test('v2 discovery does not require a v3 global store', () => {
 
   const profiles = discover(dir)
   assert.deepEqual(profiles.map(profile => ({ id: profile.id, uid: profile.uid })), [{ id: `${uid}_v2`, uid }])
+})
+
+test('a missing v3 global store retains the specific database error', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'dingtalk-v3-missing-global-'))
+  mkdirSync(path.join(dir, 'a_v3'), { recursive: true })
+  mkdirSync(path.join(dir, 'b_v3'), { recursive: true })
+
+  const error = caught<SkillError>(() => discover(dir))
+  assert.equal(error.status, 'database_missing')
+  assert.match(error.message, /globalStorage/)
+})
+
+test('a v3 global key failure is preserved and not retried for each account', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'dingtalk-v3-bad-global-'))
+  mkdirSync(path.join(dir, 'globalStorage'), { recursive: true })
+  writeFileSync(path.join(dir, 'globalStorage', 'storage.db'), Buffer.alloc(16))
+  mkdirSync(path.join(dir, 'a_v3'), { recursive: true })
+  mkdirSync(path.join(dir, 'b_v3'), { recursive: true })
+  let attempts = 0
+  setGlobalKeyProvider(() => {
+    attempts += 1
+    throw new SkillError('database_key_unavailable', 'synthetic global key failure')
+  })
+
+  const error = caught<SkillError>(() => discover(dir))
+  assert.equal(error.status, 'database_key_unavailable')
+  assert.equal(error.message, 'synthetic global key failure')
+  assert.equal(attempts, 1)
 })

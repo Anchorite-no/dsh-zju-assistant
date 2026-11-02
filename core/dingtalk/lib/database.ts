@@ -238,7 +238,17 @@ export function discover(root?: string): Profile[] {
   }
   if (!entries.length) throw new SkillError('database_missing', '钉钉数据目录中没有账号数据库；请先在这台电脑登录钉钉。')
   const profiles: Profile[] = []
-  let v3Uids: string[] | undefined
+  let v3Uids: string[] = []
+  let v3Failure: unknown
+  if (entries.some(name => name.endsWith('_v3'))) {
+    try {
+      let globalHeader: Buffer
+      try { globalHeader = readBytes(path.join(base, 'globalStorage', 'storage.db')).subarray(0, 16) }
+      catch { throw new SkillError('database_missing', '未找到钉钉数据目录，可用 --data-dir 指定包含 globalStorage 的 DingTalk 目录。') }
+      if (globalHeader.length < 16) throw new SkillError('database_missing', '未找到钉钉数据目录，可用 --data-dir 指定包含 globalStorage 的 DingTalk 目录。')
+      v3Uids = globalUids(base, globalHeader)
+    } catch (error) { v3Failure = error }
+  }
   for (const name of entries) {
     const directory = path.join(base, name)
     const dbFile = path.join(directory, 'DBFiles', 'dingtalk.db')
@@ -252,12 +262,8 @@ export function discover(root?: string): Profile[] {
       } catch { /* Another account may be incomplete or belong to a different client format. */ }
       continue
     }
+    if (v3Failure) continue
     try {
-      if (!v3Uids) {
-        const globalHeader = readBytes(path.join(base, 'globalStorage', 'storage.db')).subarray(0, 16)
-        if (globalHeader.length < 16) throw new SkillError('database_missing', '未找到钉钉全局数据库。')
-        v3Uids = globalUids(base, globalHeader)
-      }
       const config = parseConfig(path.join(directory, 'user_config'))
       const salt = config.salt
       if (typeof salt !== 'string' || salt.length < 1 || salt.length > 256) continue
@@ -269,8 +275,15 @@ export function discover(root?: string): Profile[] {
       }
     } catch { continue }
   }
-  if (!profiles.length) throw new SkillError('database_key_unavailable', '未找到可校验的钉钉 v2/v3 账号数据库；请确认已在这台电脑登录受支持的钉钉版本。')
-  return profiles
+  // An upgraded client can leave its old v2 directory behind. Prefer the verified v3 store so a UID remains
+  // selectable and monitoring follows the database that continues receiving messages.
+  const v3Ids = new Set(profiles.filter(profile => profile.id.endsWith('_v3')).map(profile => profile.uid))
+  const preferred = profiles.filter(profile => profile.id.endsWith('_v3') || !v3Ids.has(profile.uid))
+  if (!preferred.length) {
+    if (v3Failure) throw v3Failure
+    throw new SkillError('database_key_unavailable', '未找到可校验的钉钉 v2/v3 账号数据库；请确认已在这台电脑登录受支持的钉钉版本。')
+  }
+  return preferred
 }
 
 function parseConfig(file: string): { salt?: unknown } {

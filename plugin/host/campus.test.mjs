@@ -73,6 +73,8 @@ test('根服务挂上以后：档案在 $DSH_HOME/zju-campus，一条路、一�
   for (const module of ['sztz', 'tyys', 'cc98', 'notice']) assert.ok(off.includes(module), module)
   for (const module of ['zdbk', 'xuezai', 'doc', 'zjuam']) assert.ok(!off.includes(module), module)
   assert.ok(env.CAMPUS_MODEL_ENDPOINT)
+  assert.ok(env.PTA_BROWSER_ENDPOINT)
+  assert.equal(env.PTA_INTERACTIVE,'0')
   // 档案、账号走同一条路；关着的行的东西说清楚是哪一行关着。
   assert.equal((await call('snapshot')).memory.length, 0)
   assert.equal((await call('account-read')).values.transport, 'webvpn')

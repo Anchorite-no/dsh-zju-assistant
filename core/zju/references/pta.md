@@ -32,7 +32,9 @@ pta
 
 业务命令自动登录并复用 Cookie。按账号隔离到 `data/sessions/pta-<账号哈希>.json`，不缓存密码。只读请求明确认证失效后最多重登一次，业务写入不自动重试。
 
-`session login --fresh` 忽略缓存，仍可能触发 PTA 验证码或二次验证；此时返回 `NEEDS_USER`，不循环尝试，也不会删除磁盘上原有的会话。正常浏览器登录后，可将本人 PTA 请求的单行 Cookie 头放入私有文件，用 `session import-cookie --file 文件` 导入；只接收 `PTASession/JSESSIONID`，验证账号与填写的 PTA 邮箱一致后持久化。不要把 Cookie 放进命令参数、示例或 Git。
+`session login --fresh` 忽略缓存。登录触发腾讯验证码时，DSH 插件自动打开官方组件，由用户在内置浏览器完成验证（需启用 `dsh-builtin-browser`）。验证成功后命令带票据续登一次并保存会话，无需复制 Cookie。后台查询不开验证窗口，需要交互时返回 `NEEDS_USER`，让用户在对话里重新查询。
+
+验证取消、超时、再次拒绝或需要二次验证时停止，不循环尝试密码，也不会覆盖原有会话。浏览器不可用或需要二次验证时，仍可正常网页登录后将本人 PTA 请求的单行 Cookie 头放入私有文件，用 `session import-cookie --file 文件` 导入；只接收 `PTASession/JSESSIONID`，验证账号与填写的 PTA 邮箱一致后保存。不要把 Cookie 放进命令参数、示例或 Git。
 
 遇到 429 返回 `RATE_LIMITED` 和重试等待提示，停止当前扫描。
 

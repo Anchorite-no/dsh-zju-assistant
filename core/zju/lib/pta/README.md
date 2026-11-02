@@ -6,6 +6,10 @@
 
 登录走 `passport.pintia.cn/api/users/sessions`，身份探测走 `/api/u/current`；使用官方协议的 JSON、Origin/Referer 和客户端指纹头。请求按客户端串行，至少间隔 350ms。
 
+`X-Lollipop` 使用按本地数据目录、账号隔离的随机客户端标识，首次请求前保存到 `data/pta/fingerprints/<账号哈希>.json`。失败重试、Cookie 过期与退出登录均复用此标识；并发初始化只发布一个值。旧版所有用户共享的固定 UA 哈希会被替换，已有合法的独立指纹会被保留。这只消除客户端标识碰撞，不等同于官网的浏览器环境指纹，也不保证免验证。
+
+仅登录响应 `GATEWAY_WRONG_CAPTCHA` 触发 `verification.ts`：经 `PTA_BROWSER_ENDPOINT` 调用 DSH 插件，复用插件版微信读书的内置浏览器验证流程，PTA 使用独立页面与 appId `194593025`，不导入微信读书 Cookie。用户在官方组件完成验证后，管道只回传验证码票据，不传账号密码；保留原 Cookie/指纹，在原登录接口 JSON 中追加 `ticket/randStr`，最多续登一次，经当前账号回查成功后才保存。微信读书的 appId 与 `x-wr-*` 请求头不用于 PTA。`PTA_INTERACTIVE=1` 才打开验证窗口；插件宿主默认后台关闭交互，助手的 zju 工具为本次调用开启交互。
+
 ## 名称定位与输出（2026-10-03）
 
 - `view.ts` 负责把作业名、题号换成平台编号，并生成 CLI 的输出视图；题目集、小题、答题实例、提交四种编号不出现在公开参数里（提交详情的 `--id` 除外，它取自 `submission list`）。

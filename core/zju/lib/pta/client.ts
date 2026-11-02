@@ -1,13 +1,17 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { CookieJar, DEFAULT_UA, type HttpResponse, type RequestOptions } from "../core/http.ts";
-import { AuthExpired, BadResponse, NeedsUser, RateLimited, RemoteRejected } from "../core/errors.ts";
+import { CookieJar, type HttpResponse, type RequestOptions } from "../core/http.ts";
+import { AuthExpired, BadResponse, ConfigError, NeedsUser, RateLimited, RemoteRejected } from "../core/errors.ts";
+import { paths } from "../core/paths.ts";
 import { log } from "../core/output.ts";
 import type { ModuleRequirements } from "../core/module.ts";
 import { ACCOUNT_PAGE, ptaCredentials, readProfile } from "../profile/profile.ts";
 import { SessionStore } from "../zjuam/session.ts";
 import { openContext, type Context } from "../webvpn/transport.ts";
 import type { PtaApi } from "./types.ts";
+import { verifyCaptcha, type VerifyCaptcha } from "./verification.ts";
 
 export const ORIGIN = "https://pintia.cn";
 const PASSPORT = "https://passport.pintia.cn";
@@ -17,6 +21,38 @@ export function sessionStore(username = readProfile().pta_username ?? "") {
   return new SessionStore({ system: `pta-${accountKey(username)}`, username, ttlMs: 30 * 24 * 3600 * 1000 });
 }
 interface CurrentUser { user?: { id: string; email?: string; nickname?: string; [key: string]: unknown }; requireMfa?: boolean; [key: string]: unknown }
+
+// 旧版 MD5(固定 Chrome/142 User-Agent)，所有新用户得到同一个值，不能继续复用。
+const SHARED_FINGERPRINT = "3c9fc7ddec9b58823c1c96756dbd45d8";
+function validFingerprint(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{32}$/i.test(value) && value.toLowerCase() !== SHARED_FINGERPRINT;
+}
+function clientFingerprint(username: string, previous: unknown): string {
+  const file = path.join(paths.data(), "pta", "fingerprints", `${accountKey(username)}.json`);
+  const read = () => {
+    let raw: string;
+    try { raw = fs.readFileSync(file, "utf8"); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined; throw error; }
+    let saved: { version?: number; fingerprint?: unknown } | undefined;
+    try { saved = JSON.parse(raw); } catch { /* 损坏的标识不能静默轮换。 */ }
+    if (saved?.version === 1 && validFingerprint(saved.fingerprint)) return saved.fingerprint;
+    throw new ConfigError("PTA 本地客户端指纹文件损坏", `检查 ${file}；不会在登录重试时自动更换指纹`);
+  };
+  const saved = read();
+  if (saved) return saved;
+  const fingerprint = validFingerprint(previous) ? previous : crypto.randomBytes(16).toString("hex");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const temporary = `${file}.${crypto.randomUUID()}.tmp`;
+  fs.writeFileSync(temporary, JSON.stringify({ version: 1, fingerprint }) + "\n", { flag: "wx", mode: 0o600, flush: true });
+  try {
+    // 发布完整文件且不覆盖已有值；并发启动时所有进程读取同一份指纹。
+    try { fs.linkSync(temporary, file); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
+  } finally { fs.unlinkSync(temporary); }
+  const persisted = read();
+  if (!persisted) throw new ConfigError("PTA 客户端指纹未能保存", `检查 ${file} 的目录权限`);
+  return persisted;
+}
 
 export class Pta implements PtaApi {
   readonly username: string;
@@ -29,13 +65,16 @@ export class Pta implements PtaApi {
   private generation = 0;
   private queue: Promise<unknown> = Promise.resolve();
   private lastRequestAt = 0;
-  constructor(ctx: Context, credentials: { username: string; password: string }) {
+  private readonly verify: VerifyCaptcha;
+  constructor(ctx: Context, credentials: { username: string; password: string }, verify: VerifyCaptcha = verifyCaptcha) {
     this.ctx = ctx; this.username = credentials.username; this.password = credentials.password;
+    this.verify = verify;
     this.store = sessionStore(this.username);
     const saved = this.store.load();
     if (saved) ctx.http.jar = saved.jar;
-    // X-Lollipop 是官方客户端指纹头，不是密码或验证码。无此头登录会返回 WRONG_CAPTCHA。
-    this.fingerprint = typeof saved?.extra.fingerprint === "string" ? saved.extra.fingerprint : crypto.createHash("md5").update(DEFAULT_UA).digest("hex");
+    // 本地客户端标识按账号持久化，独立于 Cookie；失败或会话过期不会重新生成。
+    // 它不是浏览器环境指纹，也不能替代 PTA 要求的验证码。
+    this.fingerprint = clientFingerprint(this.username, saved?.extra.fingerprint);
   }
   private headers() {
     return { Accept: "application/json;charset=UTF-8", "Content-Type": "application/json;charset=UTF-8", "Accept-Language": "zh-CN", Origin: ORIGIN, Referer: `${ORIGIN}/`, "X-Lollipop": this.fingerprint, "X-Marshmallow": "" };
@@ -59,8 +98,12 @@ export class Pta implements PtaApi {
       const wait = Number.isFinite(seconds) ? seconds * 1000 : typeof raw === "string" ? Date.parse(raw) - Date.now() : 30000;
       throw new RateLimited("PTA 请求过于频繁，请稍后再试；可以 --keyword 缩小历史作业范围", Number.isFinite(wait) ? Math.max(1000, wait) : 30000);
     }
-    if (/CAPTCHA|MFA|WRONG_PASSWORD|INVALID_PASSWORD|INVALID_CREDENTIAL|WRONG_EMAIL|USER_NOT_FOUND/.test(code)) {
-      throw new NeedsUser(`PTA 认证需要处理（${code}）`, "检查 PTA 凭据；若要求验证码或二次验证，请在官网正常登录后导入 Cookie，不要反复尝试密码");
+    if (/CAPTCHA/.test(code)) {
+      throw new NeedsUser(`PTA 验证未通过（${code}）`, "本次已停止，不循环提交；稍后重新查询或在官网完成验证");
+    }
+    if (/MFA/.test(code)) throw new NeedsUser(`PTA 登录需要二次验证（${code}）`, "在官网完成二次验证后导入本人会话");
+    if (/WRONG_PASSWORD|INVALID_PASSWORD|INVALID_CREDENTIAL|WRONG_EMAIL|USER_NOT_FOUND/.test(code)) {
+      throw new NeedsUser(`PTA 账号或密码未通过（${code}）`, `核对${ACCOUNT_PAGE}中 PTA 的邮箱和密码，不要反复尝试`);
     }
     if (res.status === 401 || /NOT_LOGIN|NOT_LOGGED_IN|UNAUTHORIZED|SESSION_EXPIRED|NEED_LOGIN/.test(code)) throw new AuthExpired("pta");
     if (!data || typeof data !== "object" || Array.isArray(data)) throw new BadResponse(`PTA 返回非 JSON 对象（HTTP ${res.status}）`, { status: res.status });
@@ -85,9 +128,20 @@ export class Pta implements PtaApi {
     }
     this.ctx.http.jar = new CookieJar();
     await this.send(`${ORIGIN}/auth/login`);
-    const response = await this.send(`${PASSPORT}/api/users/sessions`, {
-      method: "POST", headers: this.headers(), body: JSON.stringify({ email: this.username, password: this.password, rememberMe: true }),
+    const credentials = { email: this.username, password: this.password, rememberMe: true };
+    const submit = (body: typeof credentials & { ticket?: string; randStr?: string }) => this.send(`${PASSPORT}/api/users/sessions`, {
+      method: "POST", headers: this.headers(), body: JSON.stringify(body),
     });
+    let response = await submit(credentials);
+    if (response.status !== 429 && response.json<{ error?: { code?: string } }>()?.error?.code === "GATEWAY_WRONG_CAPTCHA") {
+      log("PTA：登录需要验证，正在打开官方验证码组件");
+      const proof = await this.verify();
+      if (typeof proof?.ticket !== "string" || !proof.ticket || typeof proof.randStr !== "string" || !proof.randStr) {
+        throw new BadResponse("PTA 验证未返回有效票据，本次未再次提交密码");
+      }
+      // 保留同一次登录的 Cookie 和指纹，只带成功票据续登一次；再次拒绝就停止。
+      response = await submit({ ...credentials, ticket: proof.ticket, randStr: proof.randStr });
+    }
     const result = this.decode<CurrentUser>(response);
     if (result.requireMfa) throw new NeedsUser("PTA 登录需要二次验证", "在官网正常登录后使用 pta session import-cookie --file 导入");
     if (!result.user?.id) throw new NeedsUser("PTA 登录未返回用户", "检查账号密码，或在官网完成验证后导入 Cookie");

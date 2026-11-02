@@ -88,7 +88,7 @@ export function zjuTool(ctx, campus) {
       let cwd = os.homedir()
       try { if (session) cwd = ctx.get('workingDirectory')?.get(session) || cwd } catch { /* 取不到工作目录就从主目录跑 */ }
       const timeoutMs = Math.min(Math.max(Number(input.timeoutSeconds) || DEFAULT_TIMEOUT_S, 10), MAX_TIMEOUT_S) * 1000
-      const run = () => runOnce(args, { env: coreEnv({ env: write ? { ZJU_ALLOW_WRITE: '1' } : {} }), cwd, signal: exec.signal, timeoutMs })
+      const run = () => runOnce(args, { env: coreEnv({ env: { PTA_INTERACTIVE:'1', ...(write ? { ZJU_ALLOW_WRITE: '1' } : {}) } }), cwd, signal: exec.signal, timeoutMs })
       let result = await run()
       if (missingFfmpeg(result)) {
         await ensureFfmpeg(campus.dataDir())

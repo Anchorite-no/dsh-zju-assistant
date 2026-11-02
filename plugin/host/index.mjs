@@ -43,6 +43,7 @@ import { CampusContext } from './context.mjs'
 import { ContextSources } from './context-sources.mjs'
 import { askModel } from './model.mjs'
 import { startModelBridge } from './vision.mjs'
+import { WereadBridge } from './weread-bridge.mjs'
 import { Alerts, cc98Alert, mailAlert } from './alerts.mjs'
 import { CampusPage } from './campus-page.mjs'
 import { zjuTool } from './zju-tool.mjs'
@@ -78,12 +79,18 @@ export default class ZjuCampus extends Service {
 
     // 校园命令要的环境：档案和数据目录、关着的行管的模块、场馆验证码问模型的管道（vision.mjs，原来由桌面版的壳开）。
     const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\dsh-zju-campus-model-${randomUUID()}` : path.join(tmpdir(), `dsh-zju-model-${randomUUID().slice(0, 8)}.sock`)
+    const ptaEndpoint = process.platform === 'win32' ? `\\\\.\\pipe\\dsh-zju-pta-${randomUUID()}` : path.join(tmpdir(), `dsh-zju-pta-${randomUUID().slice(0, 8)}.sock`)
     ctx.effect(() => provideCoreEnv(() => ({
       DSH_HOME: resolveDshHome(), CAMPUS_PROFILE_DIR: this.store.root, ZJU_DATA_DIR: this.dataDir(),
       ZJU_DISABLED_MODULES: [...new Set([...(process.env.ZJU_DISABLED_MODULES ?? '').split(',').filter(Boolean), ...disabledModules(this.active)])].join(','),
       CAMPUS_MODEL_ENDPOINT: endpoint,
+      PTA_BROWSER_ENDPOINT: ptaEndpoint, PTA_INTERACTIVE: '0',
     })), 'zju-campus: campus command environment')
     ctx.effect(() => startModelBridge(ctx, { endpoint }), 'zju-campus: model bridge for campus commands')
+    const ptaBrowser = new WereadBridge({ dir:path.join(this.home,'pta-verification'), browser:()=>ctx.get('browser') })
+    ctx.effect(() => ptaBrowser.listen(ptaEndpoint, { onlyPta:true, guard:()=>{
+      if (!this.active.has('courses') || (process.env.ZJU_DISABLED_MODULES ?? '').split(',').includes('pta')) throw Object.assign(new Error('课程与学习插件已关闭。'), {code:'plugin_disabled'})
+    } }), 'zju-campus: PTA verification browser')
 
     this.fill = new IdentityFill(this.store, this.account)
     this.documents = new Documents()

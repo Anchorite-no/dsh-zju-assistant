@@ -26,6 +26,15 @@ const WAIT_MS = 290_000
 
 const error = (code, message) => Object.assign(new Error(message), { code })
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
+function withSignal(promise, signal) {
+  if (!signal) return promise
+  return new Promise((resolve,reject) => {
+    const abort=()=>reject(signal.reason)
+    if(signal.aborted){reject(signal.reason);return}
+    signal.addEventListener('abort',abort,{once:true})
+    promise.then(resolve,reject).finally(()=>signal.removeEventListener('abort',abort))
+  })
+}
 
 /** 一条 Set-Cookie 变成 ExportedCookie 那种写法；域名默认是请求的主机。 */
 export function parseSetCookie(header, url) {
@@ -97,13 +106,15 @@ export class WereadBridge {
   }
 
   /** 开一个看得见的窗口做一件事，做完关掉；一次只开一个。 */
-  windowed(browser, label, url, work) {
+  windowed(browser, label, url, work, { restore = true, signal } = {}) {
     const run = this.queue.then(async () => {
+      signal?.throwIfAborted()
       const session = await browser.open(label)
       try {
-        await browser.restoreAuth(session, this.jar()).catch(() => 0)
-        await browser.openUrl(session, { url })
-        return await work(session)
+        signal?.throwIfAborted()
+        if (restore) await withSignal(browser.restoreAuth(session, this.jar()).catch(() => 0),signal)
+        await withSignal(browser.openUrl(session, { url }),signal)
+        return await withSignal(work(session),signal)
       } finally { await browser.close(session).catch(() => {}) }
     })
     this.queue = run.catch(() => {})
@@ -132,26 +143,31 @@ export class WereadBridge {
   }
 
   /** 在微信读书的页面里装上官方的验证组件，等用户做完，返回票据。 */
-  async captcha(_input, { interactive }) {
-    const browser = this.needBrowser(interactive, 'verification_required', '微信读书要先完成一次验证。')
-    return this.windowed(browser, '微信读书验证', `${ORIGIN}/`, async (session) => {
-      await browser.waitFor(session, {}).catch(() => {})
+  captcha(_input, call) { return this.verifySite('weread',call) }
+  ptaCaptcha(_input, call) { return this.verifySite('pta',call) }
+  async verifySite(site, { interactive, signal }) {
+    const pta=site==='pta', origin=pta?'https://pintia.cn':ORIGIN, appId=pta?'194593025':'2044038556'
+    const browser = this.needBrowser(interactive, 'verification_required', `${pta?'PTA':'微信读书'}要先完成一次验证，请在对话里重新查询以打开验证窗口。`)
+    return this.windowed(browser, pta?'PTA 登录验证':'微信读书验证', pta?`${origin}/auth/login`:`${origin}/`, async (session) => {
+      await withSignal(browser.waitFor(session, {}).catch(() => {}),signal)
       await browser.execute(session, { script: `(async () => {
-        if (typeof TencentCaptcha !== 'function') await new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = 'https://captcha.gtimg.com/TCaptcha.js'; s.onload = resolve; s.onerror = reject; document.head.append(s) })
+        if (location.origin !== ${JSON.stringify(origin)}) throw new Error('验证页面已离开本站')
+        if (typeof TencentCaptcha !== 'function') await new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = ${JSON.stringify(pta?'https://turing.captcha.qcloud.com/TCaptcha.js':'https://captcha.gtimg.com/TCaptcha.js')}; s.onload = resolve; s.onerror = reject; document.head.append(s) })
         window.__zjuProof = null
-        new TencentCaptcha('2044038556', r => { window.__zjuProof = r }, { needFeedBack: true }).show()
+        new TencentCaptcha(${JSON.stringify(appId)}, r => { window.__zjuProof = r }, { needFeedBack: true }).show()
         return true
       })()` })
       const deadline = Date.now() + WAIT_MS
       while (Date.now() < deadline) {
+        signal?.throwIfAborted()
         if (!browser.exists(session)) throw error('verification_cancelled', '验证窗口已关闭。')
-        const { value } = await browser.execute(session, { script: 'window.__zjuProof' }).catch(() => ({ value: null }))
+        const { value } = await browser.execute(session, { script: `location.origin === ${JSON.stringify(origin)} ? window.__zjuProof : { ret: 2 }` }).catch(() => ({ value: null }))
         if (value && value.ret === 0 && value.ticket && value.randstr) return { ticket: value.ticket, randstr: value.randstr }
         if (value && value.ret !== 0) throw error('verification_cancelled', '验证没有完成。')
         await pause(500)
       }
       throw error('verification_timeout', '没有在限定时间内完成验证。')
-    })
+    }, { restore:!pta,signal })
   }
 
   async article({ url }, { interactive }) {
@@ -197,21 +213,23 @@ export class WereadBridge {
   }
 
   /** 在 endpoint 上开始听，返回停下来用的函数。 */
-  listen(endpoint) {
+  listen(endpoint, { onlyPta = false, guard = () => {} } = {}) {
     if (process.platform !== 'win32') fs.rmSync(endpoint, { force: true })
-    const actions = { cookie: name => this.cookie(name), request: input => this.request(input), article: (input, call) => this.article(input, call), login: (input, call) => this.login(input, call), captcha: (input, call) => this.captcha(input, call), logout: () => this.logout() }
+    const actions = onlyPta ? { ptaCaptcha:(input,call)=>this.ptaCaptcha(input,call) } : { cookie: name => this.cookie(name), request: input => this.request(input), article: (input, call) => this.article(input, call), login: (input, call) => this.login(input, call), captcha: (input, call) => this.captcha(input, call), logout: () => this.logout() }
     const sockets = new Set()
     const server = net.createServer((socket) => {
+      const gone=new AbortController()
       sockets.add(socket)
-      socket.on('close', () => { sockets.delete(socket) })
+      socket.on('close', () => { sockets.delete(socket);gone.abort() })
       socket.on('error', () => {})
       const send = value => { if (!socket.destroyed) socket.write(JSON.stringify(value) + '\n') }
       createInterface({ input: socket }).on('line', async (line) => {
         let message
         try { message = JSON.parse(line) } catch { return }
         try {
+          guard()
           if (!Object.hasOwn(actions, message.action)) throw error('invalid_action', '不支持的浏览器操作。')
-          send({ id: message.id, result: await actions[message.action](message.input, { interactive: message.interactive !== false }) })
+          send({ id: message.id, result: await actions[message.action](message.input, { interactive: message.interactive !== false, signal:AbortSignal.any([gone.signal,AbortSignal.timeout(WAIT_MS)]) }) })
         } catch (e) {
           const code = typeof e.code === 'string' ? e.code : e.name === 'TimeoutError' ? 'browser_timeout' : 'browser_error'
           send({ id: message.id, error: { code, message: typeof e.code === 'string' ? e.message : code === 'browser_timeout' ? '请求超时。' : '浏览器没有完成这次操作。' } })

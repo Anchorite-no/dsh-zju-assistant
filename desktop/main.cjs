@@ -200,6 +200,8 @@ async function main() {
   })
   // 学习页上点播放的讲解另开一个窗口放（film.cjs），别的链接照旧进阅读窗口。appOrigin 是引擎起来以后应用自己的地址。
   let appOrigin = ''
+  const { installShortcuts } = await import('./shortcuts.mjs')
+  installShortcuts({ window, ipcMain, file: path.join(app.getPath('userData'), 'keybindings.json'), origin: () => appOrigin })
   const narration = async (action, input = {}) => {
     if (!appOrigin || window.isDestroyed()) return null
     const response = await window.webContents.session.fetch(`${appOrigin}/api/campus/profile`, {

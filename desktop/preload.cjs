@@ -9,6 +9,28 @@
  */
 const { contextBridge, ipcRenderer } = require('electron')
 
+// The engine's Desktop shortcut service requires these capabilities before activation.
+// IPC events themselves never cross the isolation boundary.
+if (process.isMainFrame) {
+  const subscribe = channel => listener => {
+    const handler = (_event, value) => listener(value)
+    ipcRenderer.on(channel, handler)
+    return () => ipcRenderer.removeListener(channel, handler)
+  }
+  contextBridge.exposeInMainWorld('dshDesktop', {
+    shortcuts: {
+      get: definitions => ipcRenderer.invoke('campus:shortcuts:get', definitions),
+      edit: (edit, revision) => ipcRenderer.invoke('campus:shortcuts:edit', edit, revision),
+      recording: active => ipcRenderer.invoke('campus:shortcuts:recording', active),
+      subscribe: subscribe('campus:shortcuts:changed'),
+    },
+    keyboard: {
+      subscribe: subscribe('campus:keyboard:input'),
+      closeWindow: revision => ipcRenderer.invoke('campus:keyboard:close', revision),
+    },
+  })
+}
+
 const TITLEBAR_HEIGHT = 40
 
 /** 壳开窗口时经命令行参数交过来的值（main.cjs 的 additionalArguments）。 */

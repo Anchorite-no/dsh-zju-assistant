@@ -59,3 +59,12 @@ test('ZJU Core 叫用户去哪个插件里填，说的都是插件页上真有�
   }
   assert.ok(seen >= 8, `只找到 ${seen} 处，匹配的写法可能变了`)
 })
+
+test('本地聊天插件在 Windows 和 macOS 可启用，仍需主动开启', async () => {
+  const { LOCAL_PLUGINS } = await import('./catalog.mjs')
+  for (const id of ['campus.wechat-chat', 'campus.dingtalk']) {
+    const plugin = LOCAL_PLUGINS.find(item => item.id === id)
+    assert.deepEqual(plugin.platforms, ['win32', 'darwin'])
+    assert.equal(plugin.optIn, true)
+  }
+})

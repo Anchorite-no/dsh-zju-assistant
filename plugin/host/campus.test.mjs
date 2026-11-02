@@ -1,7 +1,7 @@
 import { testVault } from '../../core/zju/tests/fixtures/vault.mjs'
 /**
  * 插件版自己的那几样：根服务挂上以后给的路由、工具和技能，zju 工具的写操作审批，校园命令的环境变量，
- * 公众号的浏览器桥，应用内看校园网页的地址，讲解的播放，FFmpeg 的下载，邮箱密码的存法，页面上的提醒。
+ * 公众号的浏览器桥，页面上校内链接的地址，讲解的播放，FFmpeg 的下载，邮箱密码的存法，页面上的提醒。
  * 照 ui/profile 搬过来的各部件，各自的测试在同一个文件夹里。
  */
 import { test } from 'node:test'
@@ -16,7 +16,7 @@ import { ROWS } from '../rows.mjs'
 import { coreEnv, provideCoreEnv } from './core.mjs'
 import { isWrite, zjuTool } from './zju-tool.mjs'
 import { WereadBridge, parseSetCookie } from './weread-bridge.mjs'
-import { exportedCookie, routeUrl, wrapUrl } from './campus-page.mjs'
+import { routeUrl, wrapUrl } from './campus-page.mjs'
 import { filmName, filmResponse } from './film.mjs'
 import { ensureFfmpeg, ffmpegFile, missingFfmpeg } from './ffmpeg.mjs'
 import { mailVault } from './mail-vault.mjs'
@@ -79,6 +79,10 @@ test('根服务挂上以后：档案在 $DSH_HOME/zju-campus，一条路、一�
   // 档案、账号走同一条路；关着的行的东西说清楚是哪一行关着。
   assert.equal((await call('snapshot')).memory.length, 0)
   assert.equal((await call('account-read')).values.transport, 'webvpn')
+  // 页面上的链接用默认浏览器开，这里只换地址：标注表里不是公网可达的校内站点经 WebVPN，标了公网可达的直连。
+  assert.equal((await call('page-url', { url: 'http://bksy.zju.edu.cn/x' })).url, wrapUrl('http://bksy.zju.edu.cn/x'))
+  assert.equal((await call('page-url', { url: 'http://www.cs.zju.edu.cn/x' })).url, 'http://www.cs.zju.edu.cn/x')
+  await assert.rejects(call('page-url', { url: 'javascript:alert(1)' }), /只能打开网页地址/)
   await assert.rejects(call('wechat-read'), /「微信公众号」在插件页「ZJU All-in-One Assistant」里关着/)
 })
 
@@ -141,7 +145,7 @@ test('公众号的浏览器桥：cookie 存在插件自己的目录里，请求�
   assert.deepEqual(parseSetCookie('a=b=c; Secure; HttpOnly', 'https://weread.qq.com/x'), { name: 'a', value: 'b=c', domain: 'weread.qq.com', path: '/', secure: true, httpOnly: true, url: 'https://weread.qq.com/' })
 })
 
-test('应用内看校园网页：经 WebVPN 时校内地址换成 WebVPN 形式，统一身份认证和公网可达的直连；cookie 只放 zju.edu.cn 的', () => {
+test('页面上的校内链接：经 WebVPN 时校内地址换成 WebVPN 形式，统一身份认证和公网可达的直连', () => {
   assert.equal(routeUrl('https://zdbk.zju.edu.cn/a', 'webvpn'), 'https://zdbk.zju.edu.cn/a')
   assert.equal(routeUrl('https://zjuam.zju.edu.cn/cas/login', 'webvpn'), 'https://zjuam.zju.edu.cn/cas/login')
   assert.equal(routeUrl('http://www.cs.zju.edu.cn/x?y=1', 'webvpn'), wrapUrl('http://www.cs.zju.edu.cn/x?y=1'))
@@ -149,8 +153,6 @@ test('应用内看校园网页：经 WebVPN 时校内地址换成 WebVPN 形式�
   assert.equal(routeUrl('http://www.cs.zju.edu.cn/x', 'direct'), 'http://www.cs.zju.edu.cn/x')
   assert.equal(routeUrl('https://example.com/', 'webvpn'), 'https://example.com/')
   assert.equal(routeUrl('javascript:alert(1)', 'webvpn'), undefined)
-  assert.deepEqual(exportedCookie({ domain: '.zju.edu.cn', name: 'iPlanetDirectoryPro', value: 'v', secure: true, expires: 2000 }), { url: 'https://zju.edu.cn/', name: 'iPlanetDirectoryPro', value: 'v', path: '/', secure: true, domain: 'zju.edu.cn', expirationDate: 2 })
-  assert.equal(exportedCookie({ domain: 'example.com', name: 'a', value: 'b' }), undefined)
 })
 
 test('讲解只认讲解目录 dist 里的 .html 文件名，页面带着 CSP 沙箱，不能联网', async (t) => {

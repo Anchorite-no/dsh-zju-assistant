@@ -20,7 +20,7 @@ import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { ROWS, disabledModules } from '../rows.mjs'
 import { ProfileStore } from './store.mjs'
 import { AccountSettings } from './account.mjs'
-import { CORE_ROOT, provideCoreEnv, runCore } from './core.mjs'
+import { CORE_ROOT, provideCoreEnv } from './core.mjs'
 import { IdentityFill } from './identity-fill.mjs'
 import { collegeOptions } from './colleges.mjs'
 import { Documents } from './documents.mjs'
@@ -124,7 +124,9 @@ export default class ZjuCampus extends Service {
     this.noticeContent = new NoticeContent({ feed: this.feed, mail: this.mail, article, reveal: file => downloads.reveal(file) })
     this.contextSources = new ContextSources({ store: this.store, account: this.account, plugins: this.plugins, chatWatches: () => Object.fromEntries(this.watches().map(watch => [watch.platform, watch])), mail: this.mail, fill: this.fill })
     this.context = new CampusContext({ store: this.store, observe: () => this.contextSources.observe() })
-    this.page = new CampusPage({ browser: () => ctx.get('browser'), account: this.account, dataDir: () => this.dataDir(), coreRoot: CORE_ROOT, run: runCore })
+    this.page = new CampusPage({ account: this.account, coreRoot: CORE_ROOT })
+    // 装没装 dsh-builtin-browser：只有微信公众号的扫码、验证和 PTA 的验证码要用它的窗口，页面上的链接不用。
+    this.hasBrowser = () => !!ctx.get('browser')
 
     ctx.connection.fetch.register({
       path: '/api/zju-campus', methods: ['POST'], requestBody: 'buffered',
@@ -231,13 +233,13 @@ export default class ZjuCampus extends Service {
       return operation === 'read' ? part.snapshot() : part[operation](input)
     }
     switch (action) {
-      case 'status': return { rows: this.rows(), browser: this.page.available(), platform: process.platform }
+      case 'status': return { rows: this.rows(), browser: this.hasBrowser(), platform: process.platform }
       case 'account-read': return this.account.snapshot()
       case 'account-save': return this.saveAccount(input)
       case 'identity-refresh': return this.fill.refresh({ overwrite: true })
       case 'colleges': return collegeOptions()
       case 'alerts-read': return this.alerts.since(input)
-      case 'open-page': return this.page.open(input?.url)
+      case 'page-url': return this.page.url(input?.url)
       case 'documents-root': return { root: await this.documents.root() }
       case 'affairs-read': return this.affairs.snapshot()
       case 'affairs-refresh': return this.affairs.refresh(input)

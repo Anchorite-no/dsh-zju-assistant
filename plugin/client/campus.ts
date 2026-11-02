@@ -1,5 +1,5 @@
 /**
- * 各页共用的几样：哪些行开着（页面、页签、配置据此显示或藏起来）、去插件页、应用内看网页、交给助手、页面上的提醒。
+ * 各页共用的几样：哪些行开着（页面、页签、配置据此显示或藏起来）、去插件页、用默认浏览器看网页、交给助手、页面上的提醒。
  * 引擎的服务在 index.tsx 的 apply 里交进来（bind），页面组件不直接拿 ctx。
  */
 import { useSyncExternalStore } from 'react'
@@ -42,7 +42,7 @@ export const rowTitle = (idOrKey: string) => ROWS.find(row => row.id === idOrKey
  * 引擎在页面上的几个服务。插件只声明要 slots，这几个用到时才有：bind 里各自 inject，就绪了记在这里，撤下时清掉。
  * ctx.get 拿不到没在 inject 里声明的服务，所以不能用的时候再去取。
  */
-const OPTIONAL = ['pluginNavigation', 'uiWorkspace', 'sidebarRight', 'layout'] as const
+const OPTIONAL = ['pluginNavigation', 'uiWorkspace', 'layout'] as const
 const services = new Map<string, unknown>()
 const get = <T>(name: (typeof OPTIONAL)[number]) => services.get(name) as T | undefined
 
@@ -62,18 +62,20 @@ export function openPlugins(): void {
 const isCampusHost = (host: string) => host === 'zju.edu.cn' || host.endsWith('.zju.edu.cn')
 
 /**
- * 应用内看一个网页。装了内置浏览器（dsh-builtin-browser）、又是要校园登录的地址时，在它的窗口里打开，带上统一身份认证和 WebVPN 的登录；
- * 不然开在右侧栏的浏览器里（要有对话在屏幕上，侧栏的三页上没有，那时开新标签页）。
+ * 看一个网页：一律用系统的默认浏览器打开，登录状态留在用户自己的浏览器里，dsh 重开也还在。
+ * 右侧栏的浏览器重开 dsh 就丢了登录（它的 cookie 只在内存里），dsh-builtin-browser 是另一个插件，都不用。
+ * 校内地址先问根服务按访问方式换好（默认经 WebVPN），问不到就打开原来的地址。
+ * 桌面版里 window.open 由 dsh 交给系统浏览器，dsh web 里是这个浏览器的新标签页。
  */
 export async function openPage(url: string): Promise<void> {
   let target: URL
   try { target = new URL(url) } catch { return }
-  if (status.browser && isCampusHost(target.hostname)) {
-    try { await campusApi('open-page', { url: target.href }); return } catch { /* 开不了就照下面的办法 */ }
+  if (target.protocol !== 'http:' && target.protocol !== 'https:') return
+  let href = target.href
+  if (isCampusHost(target.hostname)) {
+    try { href = (await campusApi<{ url: string }>('page-url', { url: href })).url } catch { /* 照原来的地址开 */ }
   }
-  try {
-    get<{ openTab: (kind: string, options: object) => void }>('sidebarRight')!.openTab('browser', { params: { url: target.href } })
-  } catch { window.open(target.href, '_blank', 'noopener') }
+  window.open(href, '_blank', 'noopener,noreferrer')
 }
 
 /** 页面上的链接都经 openPage 打开，不让浏览器自己开。 */

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { credentialVault, isSealed } from './credential-vault.mjs'
+import { atomicRename } from './atomic-rename.mjs'
 
 const FORMAT = 'campus-accounts-v1'
 const PURPOSE = 'campus-accounts'
@@ -61,7 +62,7 @@ export function writeAccountFile(file, data, { expectedRaw, vault = credentialVa
     let written = false
     try {
       fs.writeFileSync(temp, raw, { flag: 'wx', mode: 0o600, flush: true })
-      fs.renameSync(temp, file)
+      atomicRename(temp, file)
       written = true
       return { raw, data }
     } finally {

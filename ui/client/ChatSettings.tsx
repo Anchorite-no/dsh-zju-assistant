@@ -32,6 +32,8 @@ interface Snapshot {
   platform: Platform
   enabled: boolean
   busy: boolean
+  /** 正在同步（立即同步或定时同步）；busy 连查找聊天、改设置也算上。 */
+  syncing: boolean
   running: boolean | null
   checkedAt: string | null
   error: string | null
@@ -105,8 +107,10 @@ function ChatPicker({
   const [query, setQuery] = useState(''),
     [profile, setProfile] = useState(''),
     [profiles, setProfiles] = useState<{ id: string; uid: string }[]>([])
+  // 查找和添加分开记：点一个聊天的「监控」只让那一个按钮等着，查找和别的聊天照常能点。
   const [data, setData] = useState<Page | null>(null),
-    [busy, setBusy] = useState(false),
+    [searching, setSearching] = useState(false),
+    [adding, setAdding] = useState<string[]>([]),
     [error, setError] = useState(''),
     [added, setAdded] = useState<string[]>([])
   const generation = useRef(0),
@@ -138,7 +142,7 @@ function ChatPicker({
   }, [query, profile])
   const search = async (more = false) => {
     const current = ++generation.current
-    setBusy(true)
+    setSearching(true)
     setError('')
     try {
       const next = await call<Page>(platform, 'find', {
@@ -154,11 +158,11 @@ function ChatPicker({
     } catch (e) {
       if (current === generation.current) setError(errorText(e))
     } finally {
-      setBusy(false)
+      setSearching(false)
     }
   }
   const add = async (chat: Chat) => {
-    setBusy(true)
+    setAdding((old) => [...old, chat.id])
     setError('')
     try {
       onAdded(await call<Snapshot>(platform, 'add', { id: chat.id, profile }))
@@ -166,7 +170,7 @@ function ChatPicker({
     } catch (e) {
       setError(errorText(e))
     } finally {
-      setBusy(false)
+      setAdding((old) => old.filter((id) => id !== chat.id))
     }
   }
   return (
@@ -209,9 +213,9 @@ function ChatPicker({
           <Button
             variant="outline"
             type="submit"
-            disabled={busy || !ready || (profiles.length > 1 && !profile)}
+            disabled={searching || !ready || (profiles.length > 1 && !profile)}
           >
-            {busy ? '读取中…' : '查找'}
+            {searching ? '读取中…' : '查找'}
           </Button>
         </form>
         {error && <Alert>{error}</Alert>}
@@ -226,12 +230,12 @@ function ChatPicker({
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={busy || added.includes(chat.id)}
+                  disabled={adding.includes(chat.id) || added.includes(chat.id)}
                   onClick={() => {
                     void add(chat)
                   }}
                 >
-                  {added.includes(chat.id) ? '已添加' : '监控'}
+                  {added.includes(chat.id) ? '已添加' : adding.includes(chat.id) ? '添加中…' : '监控'}
                 </Button>
               </li>
             ))}
@@ -240,7 +244,7 @@ function ChatPicker({
           {data?.hasMore && (
             <Button
               variant="outline"
-              disabled={busy}
+              disabled={searching}
               onClick={() => {
                 void search(true)
               }}
@@ -268,12 +272,13 @@ function PeoplePicker({
   const [query, setQuery] = useState(''),
     [people, setPeople] = useState<Person[]>(track.senders),
     [data, setData] = useState<Page | null>(null),
-    [busy, setBusy] = useState(false),
+    [searching, setSearching] = useState(false),
+    [saving, setSaving] = useState(false),
     [error, setError] = useState('')
   const generation = useRef(0)
   const search = async (more = false) => {
     const current = ++generation.current
-    setBusy(true)
+    setSearching(true)
     setError('')
     try {
       const next = await call<Page>(platform, 'members', {
@@ -290,7 +295,7 @@ function PeoplePicker({
     } catch (e) {
       if (current === generation.current) setError(errorText(e))
     } finally {
-      setBusy(false)
+      setSearching(false)
     }
   }
   useEffect(() => {
@@ -299,15 +304,16 @@ function PeoplePicker({
       generation.current++
     }
   }, [])
+  // 勾选只改这个窗口里的名单，读成员时照样能勾；只有保存时才锁住。
   const save = async () => {
-    setBusy(true)
+    setSaving(true)
     setError('')
     try {
       await onSave(people)
       onClose()
     } catch (e) {
       setError(errorText(e))
-      setBusy(false)
+      setSaving(false)
     }
   }
   return (
@@ -319,7 +325,7 @@ function PeoplePicker({
       footer={
         <Button
           variant="outline"
-          disabled={busy}
+          disabled={saving}
           onClick={() => {
             void save()
           }}
@@ -347,8 +353,8 @@ function PeoplePicker({
               setQuery(e.target.value)
             }}
           />
-          <Button type="submit" variant="outline" disabled={busy}>
-            查找
+          <Button type="submit" variant="outline" disabled={searching || saving}>
+            {searching ? '读取中…' : '查找'}
           </Button>
         </form>
         {error && <Alert>{error}</Alert>}
@@ -359,7 +365,7 @@ function PeoplePicker({
                 type="button"
                 className="campus-textlink"
                 key={p.id}
-                disabled={busy}
+                disabled={saving}
                 aria-label={`取消选择 ${p.name}`}
                 onClick={() => setPeople((old) => old.filter((v) => v.id !== p.id))}
               >
@@ -377,7 +383,7 @@ function PeoplePicker({
                   <input
                     type="checkbox"
                     checked={people.some((v) => v.id === p.id)}
-                    disabled={busy}
+                    disabled={saving}
                     onChange={(e) =>
                       setPeople((old) =>
                         e.target.checked ? [...old, { id: p.id, name: p.name }] : old.filter((v) => v.id !== p.id)
@@ -401,7 +407,7 @@ function PeoplePicker({
                   <input
                     type="checkbox"
                     checked={people.some((v) => v.id === p.id)}
-                    disabled={busy}
+                    disabled={saving}
                     onChange={(e) =>
                       setPeople((old) => (e.target.checked ? [...old, p] : old.filter((v) => v.id !== p.id)))
                     }
@@ -417,7 +423,7 @@ function PeoplePicker({
           {data?.hasMore && (
             <Button
               variant="outline"
-              disabled={busy}
+              disabled={searching || saving}
               onClick={() => {
                 void search(true)
               }}
@@ -501,7 +507,7 @@ function History({ platform, track, onClose }: { platform: Platform; track: Trac
 export function ChatSettings({ platform }: { platform: Platform }) {
   const [data, setData] = useState<Snapshot | null>(null),
     [error, setError] = useState(''),
-    [pending, setPending] = useState(false),
+    [pending, setPending] = useState<string[]>([]),
     [adding, setAdding] = useState(false),
     [people, setPeople] = useState<Track | null>(null),
     [history, setHistory] = useState<Track | null>(null)
@@ -525,8 +531,9 @@ export function ChatSettings({ platform }: { platform: Platform }) {
       window.clearInterval(timer)
     }
   }, [reload])
-  const change = async (op: string, input: Record<string, unknown> = {}) => {
-    setPending(true)
+  // pending 记着在等结果的是哪一处：'refresh'、'interval'，或者某个聊天的 key。只锁住那一处，别的照常能点。
+  const change = async (where: string, op: string, input: Record<string, unknown> = {}) => {
+    setPending((old) => [...old, where])
     setError('')
     try {
       const next = await call<Snapshot>(platform, op, input)
@@ -535,22 +542,23 @@ export function ChatSettings({ platform }: { platform: Platform }) {
       if (alive.current) setError(errorText(e))
       throw e
     } finally {
-      if (alive.current) setPending(false)
+      if (alive.current) setPending((old) => old.filter((item) => item !== where))
     }
   }
-  const run = (op: string, input: Record<string, unknown> = {}) => {
-    void change(op, input).catch(() => {})
+  const run = (where: string, op: string, input: Record<string, unknown> = {}) => {
+    void change(where, op, input).catch(() => {})
   }
   if (!data) return error ? <Alert>{error}</Alert> : <p className="campus-note">正在读取设置…</p>
-  const busy = pending || data.busy
+  // 「同步中…」只看同步本身，后台在查找聊天、改设置不算。
+  const syncing = pending.includes('refresh') || data.syncing
   return (
     <>
       {(error || data.error) && <Alert>{error || data.error}</Alert>}
       <section className="campus-section">
         <div className="campus-section-head">
           <h2 className="campus-section-title">自动同步</h2>
-          <Button variant="outline" size="sm" disabled={busy} onClick={() => run('refresh')}>
-            {busy ? '同步中…' : '立即同步'}
+          <Button variant="outline" size="sm" disabled={syncing} onClick={() => run('refresh', 'refresh')}>
+            {syncing ? '同步中…' : '立即同步'}
           </Button>
         </div>
         <p className="campus-note">
@@ -565,87 +573,92 @@ export function ChatSettings({ platform }: { platform: Platform }) {
           <Select
             label="同步间隔"
             value={String(data.intervalMinutes)}
-            disabled={busy}
+            disabled={pending.includes('interval')}
             options={[1, 3, 5, 10, 15, 30, 60].map((n) => ({ value: String(n), label: `每 ${n} 分钟` }))}
-            onChange={(value) => run('set', { intervalMinutes: Number(value) })}
+            onChange={(value) => run('interval', 'set', { intervalMinutes: Number(value) })}
           />
         </Field>
       </section>
       <section className="campus-section">
         <div className="campus-section-head">
           <h2 className="campus-section-title">监控的聊天</h2>
-          <Button variant="outline" size="sm" disabled={busy} onClick={() => setAdding(true)}>
+          <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
             添加聊天
           </Button>
         </div>
         {!data.tracks.length && (
           <p className="campus-note">还没有监控的聊天。</p>
         )}
-        {data.tracks.map((track) => (
-          <div className="campus-chat-track" key={track.key}>
-            <div className="campus-section-head">
-              <button
-                type="button"
-                className="campus-textlink campus-chat-name"
-                onClick={() => setHistory(track)}
-              >
-                {track.name}
-              </button>
-              <button
-                type="button"
-                className="campus-textlink"
-                disabled={busy}
-                onClick={() => run('remove', { key: track.key })}
-              >
-                停止监控
-              </button>
-            </div>
-            {track.error && <Alert tone="warn">{track.error}</Alert>}
-            <div className="campus-chat-options">
-              <Field label="接收谁的消息">
-                <Select
-                  label={`${track.name}的发送者`}
-                  value={track.audience}
-                  disabled={busy}
-                  options={[
-                    { value: 'all', label: '所有人' },
-                    ...(track.kind === 'group'
-                      ? [
-                          { value: 'managers', label: '群主和指定管理员' },
-                          { value: 'selected', label: '指定成员' }
-                        ]
-                      : [])
-                  ]}
-                  onChange={(value) => run('set', { key: track.key, audience: value })}
-                />
-              </Field>
-              <Field label="放进通知的方式">
-                <Select
-                  label={`${track.name}的整理方式`}
-                  value={track.mode}
-                  disabled={busy}
-                  options={[
-                    { value: 'original', label: '原样收集' },
-                    { value: 'summary', label: 'AI 总结整理' }
-                  ]}
-                  onChange={(value) => run('set', { key: track.key, mode: value })}
-                />
-              </Field>
-            </div>
-            {track.audience !== 'all' && (
-              <div className="campus-chat-selected">
-                <span className="campus-note">
-                  {track.senders.map((p) => p.name).join('、') ||
-                    (track.audience === 'managers' ? '当前仅接收群主' : '尚未选择成员')}
-                </span>
-                <Button variant="outline" size="sm" disabled={busy} onClick={() => setPeople(track)}>
-                  选择成员
-                </Button>
+        {data.tracks.map((track) => {
+          const locked = pending.includes(track.key)
+          return (
+            <div className="campus-chat-track" key={track.key}>
+              <div className="campus-section-head">
+                <button
+                  type="button"
+                  className="campus-textlink campus-chat-name"
+                  onClick={() => setHistory(track)}
+                >
+                  {track.name}
+                </button>
+                <button
+                  type="button"
+                  className="campus-textlink"
+                  disabled={locked}
+                  onClick={() => run(track.key, 'remove', { key: track.key })}
+                >
+                  停止监控
+                </button>
               </div>
-            )}
-            {track.mode === 'summary' && !!track.skipped && <p className="campus-note">这次整理跳过 {track.skipped} 条闲聊。</p>}
-          </div>
-        ))}
+              {track.error && <Alert tone="warn">{track.error}</Alert>}
+              {/* 改动排在同步后面做，同步要读消息、AI 整理时会等上一阵。 */}
+              {locked && syncing && <p className="campus-note">正在同步，同步完就改好。</p>}
+              <div className="campus-chat-options">
+                <Field label="接收谁的消息">
+                  <Select
+                    label={`${track.name}的发送者`}
+                    value={track.audience}
+                    disabled={locked}
+                    options={[
+                      { value: 'all', label: '所有人' },
+                      ...(track.kind === 'group'
+                        ? [
+                            { value: 'managers', label: '群主和指定管理员' },
+                            { value: 'selected', label: '指定成员' }
+                          ]
+                        : [])
+                    ]}
+                    onChange={(value) => run(track.key, 'set', { key: track.key, audience: value })}
+                  />
+                </Field>
+                <Field label="放进通知的方式">
+                  <Select
+                    label={`${track.name}的整理方式`}
+                    value={track.mode}
+                    disabled={locked}
+                    options={[
+                      { value: 'original', label: '原样收集' },
+                      { value: 'summary', label: 'AI 总结整理' }
+                    ]}
+                    onChange={(value) => run(track.key, 'set', { key: track.key, mode: value })}
+                  />
+                </Field>
+              </div>
+              {track.audience !== 'all' && (
+                <div className="campus-chat-selected">
+                  <span className="campus-note">
+                    {track.senders.map((p) => p.name).join('、') ||
+                      (track.audience === 'managers' ? '当前仅接收群主' : '尚未选择成员')}
+                  </span>
+                  <Button variant="outline" size="sm" disabled={locked} onClick={() => setPeople(track)}>
+                    选择成员
+                  </Button>
+                </div>
+              )}
+              {track.mode === 'summary' && !!track.skipped && <p className="campus-note">这次整理跳过 {track.skipped} 条闲聊。</p>}
+            </div>
+          )
+        })}
       </section>
       {adding && <ChatPicker platform={platform} onClose={() => setAdding(false)} onAdded={setData} />}
       {people && (
@@ -653,7 +666,7 @@ export function ChatSettings({ platform }: { platform: Platform }) {
           platform={platform}
           track={people}
           onClose={() => setPeople(null)}
-          onSave={(senders) => change('set', { key: people.key, senders })}
+          onSave={(senders) => change(people.key, 'set', { key: people.key, senders })}
         />
       )}
       {history && <History platform={platform} track={history} onClose={() => setHistory(null)} />}

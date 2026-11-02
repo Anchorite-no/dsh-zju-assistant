@@ -106,6 +106,27 @@ test('only messages after selection, all pages, stable ids and restart deduplica
   assert.equal(world.alerts.length, 1)
   assert.ok(world.calls.filter((a) => a[1] === 'read').every((a) => a.includes('--until')))
 })
+test('a sync waits behind a chat lookup instead of being dropped, and only the sync counts as syncing', async (t) => {
+  const { world, service, add } = fixture(t)
+  await add()
+  let release
+  const gate = new Promise((resolve) => (release = resolve))
+  world.hold = (signal, args) => (args[1] === 'list' ? gate : undefined)
+  const finding = service.find({})
+  assert.equal(service.snapshot().busy, true)
+  assert.equal(service.snapshot().syncing, false, 'looking up chats is not a sync')
+  const synced = service.refresh(),
+    again = service.refresh()
+  assert.equal(service.snapshot().syncing, true)
+  release()
+  await finding
+  const [first, second] = await Promise.all([synced, again])
+  assert.equal(world.calls.filter((a) => a[0] === 'status').length, 1, 'a second click joins the pending sync')
+  assert.ok(world.calls.findIndex((a) => a[0] === 'status') > world.calls.findIndex((a) => a[1] === 'list'))
+  assert.equal(first.syncing, false, 'the result of a sync already says it is over')
+  assert.equal(second.syncing, false)
+  assert.equal(service.snapshot().busy, false)
+})
 test('a chosen chat data folder is checked before it is saved, then every read goes there', async (t) => {
   const calls = []
   const run = async (platform, args, { dataDir }) => {

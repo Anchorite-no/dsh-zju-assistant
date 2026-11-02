@@ -316,6 +316,8 @@ export class ChatWatch {
     })
     this.queue = Promise.resolve()
     this.busy = 0
+    /** 排着或做着的那一次同步（refresh），没有时是 null。 */
+    this.syncing = null
     this.disposed = false
     this.generation = 0
     this.controllers = new Set()
@@ -357,7 +359,9 @@ export class ChatWatch {
     return {
       platform: this.platform,
       enabled: this.enabled(),
+      // busy 是队列里有事（查找聊天、改设置也算），syncing 只算同步：页面的「立即同步」看后者，别的按钮各管各的。
       busy: this.busy > 0,
+      syncing: this.syncing !== null,
       intervalMinutes: settings.intervalMinutes,
       running: cache.running,
       error: cache.error,
@@ -769,14 +773,15 @@ export class ChatWatch {
     return notices
   }
   refresh() {
-    if (this.busy) return this.queue.then(() => this.snapshot())
-    return this.serial(async () => {
+    // 同一时间只排一次同步，已经排着或做着就等那一次；队列里只是查找聊天、改设置时照样排上，不然这次「立即同步」会落空。
+    // 做完先把 syncing 清掉再取 snapshot，页面拿到的结果里同步已经结束。
+    this.syncing ??= this.serial(async () => {
       const at = new Date(this.now()).toISOString()
       let fresh = []
       try {
         const status = await this.call(['status'])
         this.save({ running: status.running === true, error: null, checkedAt: at })
-        if (!status.running) return this.snapshot()
+        if (!status.running) return
         for (const track of this.settings().tracks) {
           try {
             fresh.push(...(await this.syncTrack(track, at)))
@@ -802,8 +807,10 @@ export class ChatWatch {
           })
         } catch {}
       }
-      return this.snapshot()
+    }).finally(() => {
+      this.syncing = null
     })
+    return this.syncing.then(() => this.snapshot())
   }
   async tick() {
     if (!this.enabled() || this.busy) return

@@ -12,6 +12,10 @@ if (process.env.DINGTALK_CHAT_DISABLED === '1') {
     }) + '\n'
   )
   process.exitCode = 1
+} else if (process.platform === 'darwin' && !args.includes('--help')) {
+  const { main, argumentsFor } = await import('../../chat/common.mjs')
+  const { macChat } = await import('../../chat/macos.mjs')
+  await main(() => macChat('dingtalk', argumentsFor(args)))
 } else if (args.length === 1 && args[0] === 'status') {
   try {
     const output =

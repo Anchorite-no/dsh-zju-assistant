@@ -23,6 +23,7 @@ interface Track extends Chat {
   audience: 'all' | 'managers' | 'selected'
   mode: 'original' | 'summary'
   senders: Person[]
+  memberSelection?: boolean
   error: string | null
   checkedAt: string | null
   /** 最近一次 AI 整理跳过了几条闲聊（没有生成通知的）。 */
@@ -110,10 +111,9 @@ function ChatPicker({
     [error, setError] = useState(''),
     [added, setAdded] = useState<string[]>([])
   const generation = useRef(0),
-    [ready, setReady] = useState(platform === 'wechat')
+    [ready, setReady] = useState(false)
   useEffect(() => {
     let active = true
-    if (platform === 'dingtalk')
       call<{ profiles: { id: string; uid: string }[] }>(platform, 'profiles').then(
         (r) => {
           if (active) {
@@ -613,7 +613,7 @@ export function ChatSettings({ platform }: { platform: Platform }) {
                   disabled={busy}
                   options={[
                     { value: 'all', label: '所有人' },
-                    ...(track.kind === 'group'
+                    ...(track.kind === 'group' && track.memberSelection !== false
                       ? [
                           { value: 'managers', label: '群主和指定管理员' },
                           { value: 'selected', label: '指定成员' }

@@ -8,6 +8,7 @@ const TYPES = new Map<number, string>([
   [1500, 'forward'], [1600, 'ding'], [2900, 'card'], [2950, 'card'], [3100, 'richtext'],
 ])
 export const MESSAGE_TYPES = [...new Set([...TYPES.values(), 'system', 'unknown'])].sort()
+export const messageType = (rawType: number): string => TYPES.get(rawType) ?? 'unknown'
 
 export interface Attachment { name?: unknown; size?: unknown; extension?: unknown; duration?: unknown; width?: unknown; height?: unknown }
 export interface Content {
@@ -68,7 +69,7 @@ const METADATA: [string, keyof Attachment][] = [['f_name', 'name'], ['fileName',
 
 export function parseContent(row: Row): Content {
   const rawType = int(or(row.contentType, 0))
-  const kind = eqNum(row.type, 3) ? 'system' : TYPES.get(rawType) ?? 'unknown'
+  const kind = eqNum(row.type, 3) ? 'system' : messageType(rawType)
   const result: Content = { type: kind, rawType: str(rawType), text: '', contentStatus: 'metadata_only' }
   if (truthy(row.recallStatus)) return { ...result, text: '[消息已撤回]', contentStatus: 'recalled' }
   if (truthy(row.shieldStatus)) return { ...result, text: '[消息已屏蔽]', contentStatus: 'shielded' }

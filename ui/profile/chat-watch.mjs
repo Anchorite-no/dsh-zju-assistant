@@ -408,7 +408,7 @@ export class ChatWatch {
   }
   async profiles() {
     return this.serial(() =>
-      this.platform === 'dingtalk' ? this.call(['profiles']) : Promise.resolve({ ok: true, profiles: [] })
+      this.call(['profiles'])
     )
   }
   async find(input = {}) {
@@ -498,6 +498,7 @@ export class ChatWatch {
         name: chat.name,
         kind: chat.kind,
         profile: resolvedProfile,
+        ...(result.roleCoverage === 'unavailable' ? { memberSelection: false } : {}),
         audience: 'all',
         senders: [],
         mode: 'original',
@@ -524,6 +525,8 @@ export class ChatWatch {
         if (!track) throw Error('这个聊天没有在监控列表中')
         if (input.audience !== undefined) {
           if (!['all', 'managers', 'selected'].includes(input.audience)) throw Error('请选择接收哪些人的消息')
+          if (track.memberSelection === false && input.audience !== 'all')
+            throw Error('此本地读取后端不支持成员或群主筛选，请选择所有人')
           track.audience = input.audience
         }
         if (input.mode !== undefined) {

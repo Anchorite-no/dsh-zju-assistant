@@ -43,4 +43,4 @@ description: 读微信公众号的文章。给一个 mp.weixin.qq.com 的文章�
 
 `verification_required`、`login_required` 表示要用户本人验证或扫码，而这次没有开窗口。不要重试，请用户到「插件」页的「微信公众号」里处理。
 
-配置及常见错误见 [运行说明](references/runtime.md)，架构见 [架构与接口](dev/architecture.md)，验收范围见 [验证依据](dev/verification.md)。
+配置及常见错误见 [运行说明](references/runtime.md)。

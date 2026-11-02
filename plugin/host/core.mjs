@@ -1,6 +1,6 @@
 /**
  * 跑 ZJU Core 和别的 core 脚本（weread、聊天读取器）的地方。插件不经 dsh 的命令行工具，由宿主进程直接起子进程，不走 shell，
- * 也不包住 ctx.shell、ctx.fs（plans/dsh插件版-Plan.md 第 5 节）。
+ * 也不包住 ctx.shell、ctx.fs。
  *
  * core 代码在哪：发到 npm 的包里，打包前把仓库的 core/ 拷进本包的 core/（pack-core.mjs）；开发时用链接装进 profile，
  * 本包就是仓库里的 plugin/，core 在它旁边的 ../core，依赖也是仓库里 npm 装好的那一份。先找包里的，没有再找仓库的。

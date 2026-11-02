@@ -1,6 +1,6 @@
 /**
- * 根行给助手的工具。工具声明在用户的每个对话里都占 token，所以桌面版的十几个 campus_* 合成了几个，每个用 action 分开做什么
- * （plans/dsh插件版-Plan.md 第 7 节）。系统提示里不再有档案和校历，助手要的时候自己用 campus_profile、campus_schedule 读。
+ * 根行给助手的工具。工具声明在用户的每个对话里都占 token，所以桌面版的十几个 campus_* 合成了几个，每个用 action 分开做什么。
+ * 系统提示里不再有档案和校历，助手要的时候自己用 campus_profile、campus_schedule 读。
  * 执行校园命令的 zju 在 zju-tool.mjs，邮箱的两个在 rows/mail.mjs，只在「浙大邮箱」开着时登记。
  */
 import { defineTool } from '@deepseek-ai/dsh-tools'

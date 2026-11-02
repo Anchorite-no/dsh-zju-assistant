@@ -40,8 +40,6 @@ AI 使用入口为 [SKILL.md](SKILL.md)。所有模块通过同一个 CLI 调用
 - **成功以回查为准。** 提交、预约、选课都回查本人记录后才报告成功；无法确认时如实返回 `unknown`，不把“已提交”说成“已完成”。
 - **写操作有两道闸。** 环境变量 `ZJU_ALLOW_WRITE=1` 加命令的 `--confirm`，缺一个就在登录之前拒绝。
 
-详细约束见 [开发原则](AGENTS.md)。
-
 ## 快速开始
 
 平时不用单独运行：应用启动后助手按 SKILL.md 调用。开发时在项目根目录直接跑命令，需要 **Node.js 24 LTS**（最低 22.13），TypeScript 直接运行，无需构建；依赖已经在 `core/zju/node_modules` 里。
@@ -279,7 +277,6 @@ CLI 将一个结构化 JSON 结果写入 stdout，进度和帮助写入 stderr�
 |---|---|
 | SKILL.md | 技能入口和任务路由 |
 | README.md | 接入、配置和用法 |
-| AGENTS.md | 开发原则 |
 | scripts | 唯一 CLI 入口 `zju.ts`、命令总表生成器和模块内部的处理脚本 |
 | lib | 运行代码，一个模块一个目录；各模块 README 记录实际请求与协议 |
 | references | 助手按需阅读的 CLI 用法与成稿模板 |
@@ -304,7 +301,6 @@ CLI 将一个结构化 JSON 结果写入 stdout，进度和帮助写入 stderr�
 npm run typecheck
 ```
 
-- [开发原则](AGENTS.md)：任务接口的设计约束。
 - [lib/README](lib/README.md)：各组件的唯一职责。
 - [命令总表](references/commands.md)：由 `scripts/command-docs.ts` 从 CLI 注册表生成。
 - [自带技能](../skills/README.md)：选课等跨几个系统、多步骤的事。

@@ -1,6 +1,6 @@
 /**
- * 组合包的 10 行，顺序就是官方插件页上的顺序：同一类的挨在一起，组和组之间、组内都按重要性从上往下排
- * （plans/dsh插件版-Plan.md 第 3 节）。官方插件页不能分组，只照 bundle/cordis.patch.yml 里声明的先后列成一列。
+ * 组合包的 10 行，顺序就是官方插件页上的顺序：同一类的挨在一起，组和组之间、组内都按重要性从上往下排。
+ * 官方插件页不能分组，只照 bundle/cordis.patch.yml 里声明的先后列成一列。
  * bundle/cordis.patch.yml、package.json 的 exports 和各行的 locale 都照这里写，rows.test.mjs 核对它们对得上。
  *
  * 分两个包：BUNDLE（bundle/）是插件页上那张「ZJU All-in-One Assistant」卡片，只带 patch，自己不占一行；PACKAGE（本目录）是十行的实现。

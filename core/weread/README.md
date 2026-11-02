@@ -8,7 +8,7 @@
 
 ## 开始使用
 
-需要 Node.js 24+。在项目目录安装依赖，会同时安装固定版本的 Electron 44.0.0，无需系统 Edge/Chrome 或其他应用提供浏览器。Electron 是可选依赖：由别的应用提供浏览器时（见 [架构与接口](dev/architecture.md#被应用托管)）用 `npm install --omit=optional` 跳过它。
+需要 Node.js 24+。在项目目录安装依赖，会同时安装固定版本的 Electron 44.0.0，无需系统 Edge/Chrome 或其他应用提供浏览器。Electron 是可选依赖：由别的应用提供浏览器时用 `npm install --omit=optional` 跳过它。
 
 ```sh
 npm install
@@ -85,8 +85,6 @@ flowchart TD
 | `lib/captcha/` | 站点验证处理器、题型适配与识别模型调用 |
 | `lib/browser/` | 会话、窗口和登录（service.cjs），自带 Electron 的入口，以及连到宿主应用的通信 |
 
-详细的接口、回执绑定和宿主复用边界见 [架构与接口](dev/architecture.md)。
-
 ## 当前验证范围
 
 截至 2026-10-12，类型检查和 46 项自动测试通过，其中包含真实 Electron 与合成页面的集成测试。
@@ -100,7 +98,7 @@ flowchart TD
 
 2026-10-12 已修复隐藏验证时的页面初始化冲突：微信读书首页会延迟移动页面节点，提前插入的验证码 iframe 会被重载；现在等首页滚动条组件初始化完成后再启动验证。原文免交互、微信读书六图验证、取文及图片导出均已有全程隐藏的成功样本。配置了识别模型时自动验证保持后台运行，扫码登录或未配置识别模型时才显示窗口。其他题型的隐藏模式仍需补充线上样本；这里使用隐藏 Electron 窗口，不是 Headless 浏览器。
 
-共享题型实现包含六图/九宫格选图、文字和图形顺序点选、单拼块滑块、语音数字；这些实现和离线测试不代表所有站点、所有题型都已在线上通过。完整证据和待验收事项见 [验证依据](dev/verification.md)。当前不支持 `/web/reader/…` 阅读页链接，请使用微信原文链接或 `list` 返回的链接。
+共享题型实现包含六图/九宫格选图、文字和图形顺序点选、单拼块滑块、语音数字；这些实现和离线测试不代表所有站点、所有题型都已在线上通过。当前不支持 `/web/reader/…` 阅读页链接，请使用微信原文链接或 `list` 返回的链接。
 
 ## 开发与文档
 
@@ -113,5 +111,4 @@ Skill 可以独立使用，也可以由应用托管：应用用自己的 Electro
 
 - [SKILL.md](SKILL.md)：智能体调用约定与命令用法。
 - [运行说明](references/runtime.md)：运行环境、配置、会话与错误处理。
-- [架构与接口](dev/architecture.md) · [验证依据](dev/verification.md)。
-- [第三方声明](THIRD_PARTY_NOTICES.txt) · [腾讯相关许可](dev/Tencent-LICENSE)。
+- [第三方声明](THIRD_PARTY_NOTICES.txt) · [腾讯相关许可](LICENSE-Tencent)。

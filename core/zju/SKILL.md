@@ -118,4 +118,4 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 
 几步连起来、跨几个系统的事照应用自带的技能走：[选课](../skills/course-selection/SKILL.md) · [考前复习](../skills/exam-prep/SKILL.md) · [课程学习](../skills/course-study/SKILL.md) · [我的一周](../skills/my-week/SKILL.md) · [交作业](../skills/homework-submit/SKILL.md)。它们在技能目录里各有一项，里面的命令照本技能的写法执行。比较教学班与老师是选课技能的一部分。
 
-提醒和定时见 [定时任务](references/schedule.md)。修改本技能时遵循 [开发原则](AGENTS.md)。
+提醒和定时见 [定时任务](references/schedule.md)。

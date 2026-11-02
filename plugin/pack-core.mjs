@@ -16,7 +16,7 @@ const source = path.join(here, '..', 'core'), target = path.join(here, 'core')
 /** 每一份拷哪些；路径相对 core/。 */
 const PARTS = [
   'zju/SKILL.md', 'zju/package.json', 'zju/lib', 'zju/scripts', 'zju/references',
-  'weread/SKILL.md', 'weread/package.json', 'weread/THIRD_PARTY_NOTICES.txt', 'weread/lib', 'weread/scripts', 'weread/references',
+  'weread/SKILL.md', 'weread/package.json', 'weread/THIRD_PARTY_NOTICES.txt', 'weread/LICENSE-Tencent', 'weread/lib', 'weread/scripts', 'weread/references',
   'wechat/SKILL.md', 'wechat/package.json', 'wechat/THIRD_PARTY_NOTICES.txt', 'wechat/lib', 'wechat/scripts', 'wechat/references',
   'dingtalk/SKILL.md', 'dingtalk/package.json', 'dingtalk/lib', 'dingtalk/scripts', 'dingtalk/references',
   'chat/common.mjs',

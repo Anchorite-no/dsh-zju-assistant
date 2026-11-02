@@ -1,6 +1,6 @@
 /**
  * 给助手的 zju 工具：执行一条 ZJU Core 命令（core/zju/scripts/zju.ts），参数就是命令行上 zju 后面那一串。
- * 由宿主起子进程，不经 dsh 的命令行工具，也就不受它的沙箱影响（plans/dsh插件版-Plan.md 第 5 节）。
+ * 由宿主起子进程，不经 dsh 的命令行工具，也就不受它的沙箱影响。
  *
  * 写操作：命令带 --confirm 的（选课、预约和取消、二课报名、交作业、签到、发帖和私信）先经 dsh 的审批（ctx.approval）请用户点头，
  * 点了才给这一次开 ZJU_ALLOW_WRITE=1；没有审批渠道、用户拒绝或者取消，命令都不执行。core 自己的写闸（--confirm 加 ZJU_ALLOW_WRITE）照旧在。

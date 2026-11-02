@@ -1,7 +1,7 @@
 'use strict';
 /* Player: owns the clock, dispatches scenes, draws captions, wires the controls. It makes no sound.
    Expects globals from the bundle: V (engine), SCRIPT, and optionally LESSON, DURATIONS, AUDIO, SPOKEN.
-   The voice-over belongs to the reader app (tools/tts/app.html), which shows the film in a frame and works it
+   An optional external reader may show the film in a frame and control it
    through window.film, at the end of this file: it has the texts in SPOKEN read aloud ({ zh: { key: text }, ja: … }),
    gives back each line's real length (retime) and keeps the clock out of the lines whose sound has not come (gate).
    Opened by itself the film plays silent, on the lengths it was built with: DURATIONS where given, else estimates. */

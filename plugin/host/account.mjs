@@ -1,25 +1,20 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { TRANSPORT, accountKeys, isAccountKey } from '../accounts.mjs'
+import { readAccountFile, writeAccountFile } from './security.mjs'
 
 const FIELDS = accountKeys()
 const TRANSPORTS = TRANSPORT.options.map(option => option.value)
 const revision = raw => createHash('sha256').update(raw).digest('hex')
 
 /**
- * 各校园系统的账号、密码和校内站点的访问方式，存在档案目录的 accounts.json，ZJU Core 直接读这份文件。照 ui/profile/account.mjs 搬过来。
+ * accounts.json 只保存密文，密钥由系统凭据库保管；旧明文在首次读取时原子迁移。
  * 只有插件页的配置读写它，密码原样给页面（页面默认遮住）；不进个人档案，也不给模型工具。
  */
 export class AccountSettings {
-  constructor(store) { this.store = store }
+  constructor(store, { vault } = {}) { this.store = store; this.vault = vault }
   file() { return this.store.file('accounts.json') }
   read() {
-    const raw = fs.existsSync(this.file()) ? fs.readFileSync(this.file(), 'utf8') : ''
-    let data = {}
-    try { if (raw.trim()) data = JSON.parse(raw) } catch { throw new Error('账号文件 accounts.json 的内容读不了，请检查它是不是完整的 JSON。') }
-    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('账号文件 accounts.json 的格式不对。')
-    return { raw, data }
+    return readAccountFile(this.file(), { vault: this.vault })
   }
   snapshot() {
     const { raw, data } = this.read()
@@ -43,10 +38,7 @@ export class AccountSettings {
       }
       if (next[TRANSPORT.key] && !TRANSPORTS.includes(next[TRANSPORT.key])) throw new Error('访问方式只能是 WebVPN 或校园网直连')
       if (next.zju_username && !/^\d{8,12}$/.test(next.zju_username)) throw new Error('统一认证学号应为 8–12 位数字')
-      const file = this.file(), temp = `${file}.${randomUUID()}.tmp`
-      fs.mkdirSync(path.dirname(file), { recursive: true })
-      try { fs.writeFileSync(temp, JSON.stringify(next, null, 2) + '\n', { mode: 0o600 }); fs.renameSync(temp, file) }
-      finally { if (fs.existsSync(temp)) fs.unlinkSync(temp) }
+      writeAccountFile(this.file(), next, { expectedRaw: raw, vault: this.vault })
       return this.snapshot()
     })
   }

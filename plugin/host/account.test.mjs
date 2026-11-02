@@ -5,20 +5,23 @@ import os from 'node:os'
 import path from 'node:path'
 import { AccountSettings } from './account.mjs'
 import { ProfileStore } from './store.mjs'
+import { testVault } from '../../core/zju/tests/fixtures/vault.mjs'
+import { readAccountFile } from '../../core/zju/lib/core/account-file.mjs'
 
 function fixture(t) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'campus-account-'))
   t.after(() => { assert.ok(path.resolve(base).startsWith(path.resolve(os.tmpdir()) + path.sep)); fs.rmSync(base, { recursive: true, force: true }) })
   const store = new ProfileStore(path.join(base, 'profile'))
   fs.writeFileSync(store.file('accounts.json'), JSON.stringify({ zju_username: '32200000', zju_password: 'old-secret', webvpn_password: 'vpn-secret', cc98_username_2: 'keep-other-account', transport: 'webvpn' }))
-  return { settings: new AccountSettings(store), store, file: store.file('accounts.json') }
+  return { settings: new AccountSettings(store, { vault: testVault }), store, file: store.file('accounts.json') }
 }
-const saved = file => JSON.parse(fs.readFileSync(file, 'utf8'))
+const saved = file => readAccountFile(file, { vault: testVault }).data
 
 test('账号页拿到密码原文；保存只动给出的项，页面上没有的键原样留着', t => {
   const { settings, file, store } = fixture(t)
   const before = settings.snapshot()
   assert.equal(before.values.zju_password, 'old-secret')
+  assert.ok(!fs.readFileSync(file, 'utf8').includes('old-secret'))
   assert.equal(before.values.pta_username, '')
   // 账号只走账号页这一条路，不混进个人档案。
   assert.ok(!JSON.stringify(store.snapshot()).includes('old-secret'))
@@ -67,7 +70,7 @@ test('清空一项就是删掉它；过期版本和非法字段都不能写进�
 test('还没有账号文件时给空表单，第一次保存才建文件', t => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'campus-account-'))
   t.after(() => fs.rmSync(base, { recursive: true, force: true }))
-  const store = new ProfileStore(path.join(base, 'profile')), settings = new AccountSettings(store)
+  const store = new ProfileStore(path.join(base, 'profile')), settings = new AccountSettings(store, { vault: testVault })
   const empty = settings.snapshot()
   assert.equal(empty.values.zju_username, '')
   assert.equal(empty.values.transport, 'webvpn')

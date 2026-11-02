@@ -1,6 +1,6 @@
 /**
  * 账号与学籍，也就是原来的 profile.env。都由桌面端维护，这里只读：
- *   <档案目录>/accounts.json   各系统的账号、密码和校内站点的访问方式，在「插件」页各个插件里填写
+ *   <档案目录>/accounts.json   系统凭据库保护的账号密文，旧明文首次读取时自动迁移
  *   <档案目录>/identity.json   学院、专业、年级、培养层次，在设置的「个人档案」最上面的基础信息里填写
  * 哪个键在哪个插件里填，以应用的 ui/profile/catalog.mjs 为准；那边的 catalog.test.mjs 核对两处的键和插件名对得上。
  */
@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { profileDir } from "../core/paths.ts";
 import { ConfigError, NeedsUser } from "../core/errors.ts";
+import { readAccountFile } from "../core/account-file.mjs";
 
 export type Transport = "webvpn" | "direct";
 
@@ -54,7 +55,10 @@ function readObject(file: string): Record<string, unknown> {
 /** 账号文件和学籍合在一起的全部键（小写）。多账号等动态键用这个。 */
 export function readProfileAll(): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(readObject(path.join(profileDir(), "accounts.json")))) if (typeof v === "string" && v) out[k.toLowerCase()] = v;
+  let accounts: Record<string, unknown>;
+  try { accounts = readAccountFile(path.join(profileDir(), "accounts.json")).data; }
+  catch (err) { throw new ConfigError("无法解锁校园账号", err instanceof Error ? err.message : "请检查系统凭据库。安全存储失败时不会退回明文。"); }
+  for (const [k, v] of Object.entries(accounts)) if (typeof v === "string" && v) out[k.toLowerCase()] = v;
   const identity = readObject(path.join(profileDir(), "identity.json"))["values"];
   if (identity && typeof identity === "object") {
     for (const k of IDENTITY_KEYS) {

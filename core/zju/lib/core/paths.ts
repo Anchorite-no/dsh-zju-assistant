@@ -1,6 +1,6 @@
 /**
- * 路径约定。账号和个人档案在应用的档案目录（桌面端启动时经 CAMPUS_PROFILE_DIR 给出，
- * 默认 %APPDATA%/CampusAgent/profile）；所有可变数据在它旁边的 zju 目录下，可用 ZJU_DATA_DIR 覆盖。
+ * 路径约定。DSH 插件经 CAMPUS_PROFILE_DIR 给出档案目录，默认 $DSH_HOME/zju-campus/profile。
+ * 所有可变数据在它旁边的 zju 目录下，可用 ZJU_DATA_DIR 覆盖。
  */
 import os from "node:os";
 import path from "node:path";
@@ -11,7 +11,7 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 export function profileDir(): string {
   const given = process.env["CAMPUS_PROFILE_DIR"];
   if (given && given.trim()) return path.resolve(given);
-  return path.join(process.env["APPDATA"] || path.join(os.homedir(), ".config"), "CampusAgent", "profile");
+  return path.join(process.env["DSH_HOME"] || path.join(os.homedir(), ".dsh"), "zju-campus", "profile");
 }
 
 export function dataDir(): string {

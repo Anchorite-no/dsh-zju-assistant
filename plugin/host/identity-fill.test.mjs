@@ -6,6 +6,7 @@ import path from 'node:path'
 import { AccountSettings } from './account.mjs'
 import { IdentityFill, fromStudentId } from './identity-fill.mjs'
 import { ProfileStore } from './store.mjs'
+import { testVault } from '../../core/zju/tests/fixtures/vault.mjs'
 
 function fixture(t, accounts, student = { name: '张三', college: '计算机科学与技术学院', major: '计算机科学与技术' }) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'campus-fill-'))
@@ -13,7 +14,7 @@ function fixture(t, accounts, student = { name: '张三', college: '计算机科
   const store = new ProfileStore(path.join(base, 'profile'))
   fs.writeFileSync(store.file('accounts.json'), JSON.stringify(accounts))
   let calls = 0
-  const fill = new IdentityFill(store, new AccountSettings(store), async () => { calls++; if (student instanceof Error) throw student; return student })
+  const fill = new IdentityFill(store, new AccountSettings(store, { vault: testVault }), async () => { calls++; if (student instanceof Error) throw student; return student })
   return { fill, store, calls: () => calls }
 }
 const edit = (store, values) => store.saveIdentity({ values, revision: store.identity().revision })

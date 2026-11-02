@@ -15,6 +15,7 @@
     "zju": "node scripts/zju.ts"
   },
   "dependencies": {
+    "@napi-rs/keyring": "2.1.2",
     "decimal.js": "10.6.0",
     "parse5": "8.0.1",
     "pdf-lib": "1.17.1",

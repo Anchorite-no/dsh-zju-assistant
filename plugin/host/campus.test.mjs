@@ -1,3 +1,4 @@
+import { testVault } from '../../core/zju/tests/fixtures/vault.mjs'
 /**
  * 插件版自己的那几样：根服务挂上以后给的路由、工具和技能，zju 工具的写操作审批，校园命令的环境变量，
  * 公众号的浏览器桥，应用内看校园网页的地址，讲解的播放，FFmpeg 的下载，邮箱密码的存法，页面上的提醒。
@@ -191,10 +192,11 @@ test('邮箱专用密码存在 dsh 的凭据服务里，mail.json 只记一个�
     readRecord: async key => records.get(key),
     deleteRecord: async (key) => { records.delete(key) },
   }
-  const vault = mailVault(() => credentials)
+  const vault = mailVault(() => credentials, testVault)
   const mark = await vault.seal('abcdefghijklmnop')
   assert.equal(mark, 'credentials:dsh-zju-campus/mail')
-  assert.deepEqual(records.get('dsh-zju-campus/mail'), { kind: 'grant', payload: { password: 'abcdefghijklmnop' } })
+  assert.ok(!JSON.stringify(records.get('dsh-zju-campus/mail')).includes('abcdefghijklmnop'))
+  assert.equal(records.get('dsh-zju-campus/mail').payload.sealed.version, 1)
   assert.equal(await vault.open(mark), 'abcdefghijklmnop')
   await assert.rejects(vault.open('ciphertext-from-desktop'), /重新连接/)
   await vault.forget()

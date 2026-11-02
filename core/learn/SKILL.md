@@ -58,7 +58,7 @@ description: 把用户想学的一份资料（课件和课堂字幕、教材章�
 | 1 知识点 | 由 subagent 把资料中的知识提炼成鱼骨图；主代理把例题做一遍，把原因问到底，再换条路讲出来 | [知识提炼与讲稿](references/teaching.md) 第一节 | `plan/points.md`，`plan/code/` |
 | 2 讲稿 | 排出底稿，写成剧本式的讲稿（画面提示加口述），由 subagent 核对 | [知识提炼与讲稿](references/teaching.md) 第二节 | `plan/outline.md`，`plan/narration.md` |
 | 3 画面 | 讲稿切分为字幕行，按讲稿里的〔画面〕行制作画面，检查 | [画面制作](references/animation.md) | `film/script.js`，`film/scenes/` |
-| 4 朗读文本 | 给带公式、负数和记号的字幕行加中文读法。只写文本，不合成音频 | [配音说明](tools/tts/README.md) 的“配音语言和译文” | `script.js` 中的 `tts` |
+| 4 朗读文本 | 给带公式、负数和记号的字幕行加中文读法。只写文本，不合成音频 | [配音说明](references/narration.md) | `script.js` 中的 `tts` |
 | 5 打包交付 | 打包，交付 | 本文“交付”一节 | `dist/<主题> <标题>.html` |
 
 先后的原因：
@@ -130,11 +130,11 @@ description: 把用户想学的一份资料（课件和课堂字幕、教材章�
 
 ## 配音
 
-配音是独立的一条线，不在上述流程内，做法和现状以 `tools/tts/README.md` 为准，制作讲解时不修改它。
+DSH 插件当前只制作画面、字幕和朗读文本，不合成配音。朗读文本约定见 `references/narration.md`。
 
 配音在应用的「课程讲解」插件中选装，默认不安装。启用配音后，学习页的播放窗口使用朗读器逐句合成；未安装或未启用时仍播放画面和字幕。成片中每句的时长先按字数估算，声音到了再换成真实时长。
 
-字幕和配音都是中文，用户听着解说看画面。中文音色读字幕，有 `tts` 的句子读 `tts`；`script.js` 的 `LESSON.dub` 写 `zh`。别的语言的配音默认不做：用户说要时，才按 `tools/tts/README.md` 的“配音语言和译文”逐句写译文 `dub.<语言>.json`，由那门语言的音色来读。
+字幕和朗读文本默认使用中文，有 `tts` 的句子以 `tts` 作为朗读文本；`script.js` 的 `LESSON.dub` 写 `zh`。别的语言的配音默认不做：用户说要时，才按 `references/narration.md`逐句写译文 `dub.<语言>.json`；写出译文不代表已生成音频。
 
 讲解流程为配音做两件事：
 

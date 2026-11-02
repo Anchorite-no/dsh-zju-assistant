@@ -1,5 +1,5 @@
 /**
- * 把 client/ 打成引擎能加载的单个文件 lib/client.js，做法和 ui/build.mjs 一样：
+ * 把 client/ 打成 DSH 能加载的单个文件 lib/client.js：
  * CommonJS 包在 window.__ModuleLoader__.load 的工厂函数里，页面已经有的共享模块走注入的 require。
  * 用法：node plugin/build.mjs
  */
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const id = JSON.parse(readFileSync(join(here, 'package.json'), 'utf8')).name
 
-/** 页面已经加载好的共享模块，不能打进包里（和 ui/build.mjs 的 SHARED 是同一份）。 */
+/** DSH 页面已经加载好的共享模块，不重复打进插件。 */
 const SHARED = [
   'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-store',

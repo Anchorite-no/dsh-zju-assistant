@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { copyPublicTree } from '../scripts/private-paths.cjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const source = path.join(here, '..', 'core'), target = path.join(here, 'core')
@@ -20,23 +21,14 @@ const PARTS = [
   'wechat/SKILL.md', 'wechat/package.json', 'wechat/THIRD_PARTY_NOTICES.txt', 'wechat/lib', 'wechat/scripts', 'wechat/references',
   'dingtalk/SKILL.md', 'dingtalk/package.json', 'dingtalk/lib', 'dingtalk/scripts', 'dingtalk/references',
   'chat/common.mjs',
-  'learn/SKILL.md', 'learn/references', 'learn/engine', 'learn/tools/prep', 'learn/tools/tts/README.md',
+  'learn/SKILL.md', 'learn/references', 'learn/engine', 'learn/tools/prep',
   'skills/course-selection', 'skills/course-study', 'skills/exam-prep', 'skills/homework-submit', 'skills/my-week',
   'initialize',
 ]
-/** 这些名字的文件夹和文件不拷。 */
-const SKIP = new Set(['node_modules', 'tests', 'dev', '__pycache__', '.env'])
 /** 讲解引擎自带的依赖里只要这两个；esbuild 带着当前系统的二进制，改由 dependencies 装 esbuild-wasm（没有安装脚本，pnpm 不会拦）。 */
 const VENDOR = ['gsap', 'three']
 
-function copy(from, to) {
-  const stat = fs.statSync(from)
-  if (!stat.isDirectory()) { fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(from, to); return }
-  for (const entry of fs.readdirSync(from)) {
-    if (SKIP.has(entry) || entry.endsWith('.test.mjs') || entry.endsWith('.pyc')) continue
-    copy(path.join(from, entry), path.join(to, entry))
-  }
-}
+const copy = (from, to) => copyPublicTree(from, to, source)
 
 fs.rmSync(target, { recursive: true, force: true })
 if (!process.argv.includes('--clean')) {

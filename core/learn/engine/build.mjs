@@ -3,7 +3,7 @@
 // 目录里需要 script.js（LESSON 和 SCRIPT）和 scenes/*.js。
 // 成品写到哪：lessons/<主题>/film 的成品是 <根目录>/dist/<主题> <标题>.html，所有讲解的成品都在那一个文件夹里；别的目录（试验）
 // 的成品打在它自己的 build/ 下。工具生成的其余东西（解说词清单、字幕、公式缓存、截图、配音）一律在 <成片>/build/ 里，整个删掉可以重来。
-// 成品自己不出声：配音由朗读器（tools/tts/app.html）在播放时向本机的配音服务逐句要。有 build/audio/manifest.json 时把配音和它的真实时长嵌进去，
+// 成品自己不出声：DSH 插件默认只提供字幕和画面。有 build/audio/manifest.json 时把配音和它的真实时长嵌进去，
 // 时间轴就按真实时长排，声音仍由朗读器来放（它从成品里取，不用再合成）。
 // 字幕和画面文字里的 $…$ 是公式：本机有 TeX 就在这里排好嵌进去（见 tex.mjs），没有或排不出来的，播放时由引擎自带的后备排版来画。
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, openSync, readSync, closeSync } from 'node:fs';

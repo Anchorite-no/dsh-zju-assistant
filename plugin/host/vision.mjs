@@ -2,7 +2,7 @@
  * 校园命令（core/zju）要模型看一张图时走的管道。命令是引擎启动的另一个进程，够不着引擎的模型服务，
  * 所以引擎在这里听一条管道：命令把一句话和一张图交过来，这里用用户现在选的那个模型问一次，把回答还回去。
  * 填的是 DeepSeek Key 还是登录的 ChatGPT 账号都一样用。现在只有体育场馆预约认验证码用它（core/zju/lib/tyys/captcha.ts）。
- * 管道的地址在引擎进程一启动就定好（desktop/host.mjs 放进 CAMPUS_MODEL_ENDPOINT），引擎启动的命令从环境变量里读到。
+ * 管道地址由 DSH 插件根服务设置，通过 CAMPUS_MODEL_ENDPOINT 传给校园命令。
  * 和微信公众号插件的那条管道一样，只有这台电脑上同一个用户的程序够得着。
  *
  * 一条连接问一次。命令写一行 JSON：{ text, image, mediaType }，image 是 base64。
@@ -45,7 +45,7 @@ async function answer(line, look) {
 }
 
 /**
- * 在 endpoint 上开始听，返回停下来用的函数。没有给地址（引擎不是从 desktop/host.mjs 起的）就不开。
+ * 在 endpoint 上开始听，返回停下来用的函数。没有给地址时不开。
  * look 是真正去问模型的那一步，测试时换成假的。
  */
 export function startModelBridge(ctx, { endpoint = process.env[MODEL_ENDPOINT], look = input => lookAt(ctx, input) } = {}) {

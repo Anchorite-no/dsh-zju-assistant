@@ -1,10 +1,6 @@
 # ZJU All-in-One Assistant
 
-浙大学生的一站式校园 AI 助手。原来是一个自己打包的桌面应用（Windows 和 macOS），现在改成了 [DeepSeek Harness](https://www.deepseek.com/harness/) 的插件，名字不变，Windows 和 macOS 上都能装。
-
-[![ZJU All-in-One Assistant 宣传片](docs/cover.jpg)](https://github.com/Anchorite-no/dsh-zju-assistant/releases/download/demo-video/campus-agent-demo-1080p.mp4)
-
-宣传片 8 分 24 秒，点上面的封面看完整版（1080p，约 60 MB）。片子是比赛时用桌面版录的，界面数据是演示实例里编的，人物都是化名。
+浙大学生的一站式校园 AI 助手，以 [DeepSeek Harness](https://www.deepseek.com/harness/) 插件形式提供，支持 Windows 和 macOS。
 
 把散在各处的校园信息串成你自己的日常。教务网、学在浙大、智云课堂、学习通、PTA、学校和学院的通知、公众号，再加上你选定的钉钉群和微信群，接到一起，按课程整理成一份个人档案。问一句话，它去各个网站查、比对，把结果交给你。
 
@@ -15,7 +11,6 @@
 | 形态 | 给谁用 | 状态 |
 |---|---|---|
 | DeepSeek Harness 插件（`dsh-zju-assistant`） | 装了 DeepSeek Harness 的同学，有界面 | 桌面版的功能已经搬过来，在 DeepSeek Harness 0.2.1-rc.5 上测过；已发到 npm（[dsh-zju-assistant](https://www.npmjs.com/package/dsh-zju-assistant)），在插件页填包名就能装 |
-| 桌面版 CampusAgent 0.1.7 | 已经装了的同学 | 停在 0.1.7，不再更新，建议换成 dsh 插件（[下载 DeepSeek Harness](https://www.deepseek.com/harness/)）。0.1.7 的 Mac 版打开会停在「插件加载失败」，Mac 上直接换 dsh 插件 |
 | [ZJU Skill](https://github.com/Anchorite-no/zju-skill-public) | 用 Codex、Claude Code 这类命令行助手的同学 | 照常维护，另一个仓库 |
 
 插件和 Skill 底下是同一套校园命令，区别在有没有界面。
@@ -86,9 +81,9 @@
 
 两个聊天的 Mac 支持是 2026-11-02 从 weread-skill、dingtalk-skill 迁过来的，我们手上没有 Mac，迁过来以后只用合成数据测过。
 
-### 和桌面版的不同
+### 运行方式
 
-- 数据放在 `~/.dsh/zju-campus`，和桌面版的 `%APPDATA%\CampusAgent` 不通用，账号要在插件里重新填。浙大邮箱的客户端专用密码也要重新连接一次。
+- 插件数据放在 `~/.dsh/zju-campus`；指定了 `DSH_HOME` 时跟随该目录。账号在 DSH 插件页填写。
 - 没有托盘。dsh 开着时才会在后台检查通知、邮件和聊天，新消息在侧栏「校园事务」上出一个圆点，允许过的话也弹浏览器通知。
 - 课程讲解暂时没有配音。
 - 讲解在新标签页里播放，讲解里的脚本放在沙箱里跑，碰不到 dsh 的接口。
@@ -98,20 +93,12 @@
 
 这个项目没有自己的服务器，数据都在你的电脑上。
 
-- 校园账号和密码存在 `~/.dsh/zju-campus/profile/accounts.json`，没有加密，只用来登录学校的系统；个人资料、记忆、备忘录也在这个文件夹里，是一条一个的 Markdown 文件。
+- 校园账号和密码加密保存在 `~/.dsh/zju-campus/profile/accounts.json`，密钥由 Windows 凭据管理器或 macOS 钥匙串保管，旧明文在更新后的插件首次读取时自动迁移；个人资料、记忆、备忘录也在这个文件夹里，是一条一个的 Markdown 文件。
 - 各系统的登录状态和缓存在 `~/.dsh/zju-campus/zju` 和 `cache`。
-- 浙大邮箱的客户端专用密码存在 dsh 的凭据服务里，和 dsh 自己的 API Key 放在一处。
+- 浙大邮箱的客户端专用密码先经同样的系统凭据库保护，再将密文存入 dsh 的凭据服务。dsh 自己的模型 API Key 仍由宿主管理。详见 [凭据与本地数据](SECURITY.md)。
 - 下载的课件、转写和讲解在「文档」文件夹的 `CampusAgent` 下（macOS 上是 `~/Documents/CampusAgent`），在页面上点「下载」存的文件在「下载」文件夹的 `CampusAgent` 下。
 
 对话内容会发给你在 dsh 里选的模型服务，助手查到的校园数据也会随对话一起发过去。
-
-## 桌面版 0.1.7（不再更新）
-
-建议换成 dsh 插件：到 [DeepSeek Harness 官网](https://www.deepseek.com/harness/) 下载 DeepSeek Harness，再照上面「插件版 → 安装」的步骤添加 `dsh-zju-assistant`，账号要重新填一遍。
-
-已经装好的 0.1.7 可以接着用，但 Releases 里的桌面版安装包已经撤下，不再提供下载，新装请直接用 dsh 插件。桌面版以后检查更新时，设置里那一行会显示读不到更新，不影响别的功能。Mac 的 0.1.7 有上面说的插件加载失败的问题，源码里已经修了（`c08e780`），但没有重新发版，Mac 上直接换 dsh 插件。
-
-桌面版的数据在 `%APPDATA%\CampusAgent`（Mac 上是 `~/Library/Application Support/CampusAgent`），账号是其中 `profile\accounts.json`，邮箱专用密码用系统的安全存储加密。
 
 ## 从源码运行
 
@@ -125,7 +112,7 @@ npm ci
 npm run verify
 ```
 
-`npm run verify` 跑类型检查和全部测试，插件和桌面版都在里面。
+`npm run verify` 检查 DSH 插件及共用核心的类型和测试。`npm run build` 构建插件页面，`npm run security` 检查凭据与发布范围。
 
 插件在 `plugin/`（实现包 `dsh-zju-campus`）和 `plugin/bundle/`（插件页上那张「ZJU All-in-One Assistant」卡片，组合包 `dsh-zju-assistant`）。开发时装进本机的 dsh 用链接安装，改了代码不用重装：
 
@@ -134,8 +121,6 @@ npm run verify
 3. `dsh plugin --profile <名字> add <仓库的绝对路径>\plugin\bundle`。装进官方桌面版时先完全退出桌面版，用它自带的 `resources\runtime\cli\bin\dsh.cmd`，profile 名是 `desktop`。
 
 改了引擎侧的代码重开 dsh 生效，改了页面先重新跑第 1 步。
-
-桌面版还能用 `npm start` 从源码打开，打包命令（`npm run installer`、`npm run installer:mac`）也都还在。
 
 ## 项目结构
 
@@ -148,9 +133,6 @@ npm run verify
 | `core/weread/` | WeRead Core：从微信读书找公众号文章，读正文、存成 Markdown |
 | `core/chat/`、`core/wechat/`、`core/dingtalk/` | 本机微信、钉钉聊天记录的只读查询，Windows 和 macOS 版客户端 |
 | `core/initialize/`、`core/skills/` | 初始化和几条工作流：选课、考前复习、课程学习、我的一周、交作业 |
-| `desktop/`、`ui/`、`app.patch.yml` | 桌面版的 Electron 壳、界面包和组合层；插件版发布以后删掉 |
-| `build/` | 图标和打包配置；`icon/` 是图标的源文件和导出脚本 |
-| `docs/` | 项目介绍使用的图片 |
 
 引擎是 DeepSeek Harness（`@deepseek-ai/dsh`）。第三方代码和素材的许可见 [第三方声明](THIRD_PARTY_NOTICES.md)。
 

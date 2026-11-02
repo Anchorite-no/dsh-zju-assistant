@@ -1,11 +1,9 @@
 {
-  "name": "campus-agent",
-  "productName": "CampusAgent",
-  "version": "0.1.7",
+  "name": "dsh-zju-assistant-workspace",
+  "version": "0.1.1",
   "private": true,
   "license": "GPL-3.0-only",
-  "description": "ZJU All-in-One Assistant：浙大学生的一站式校园 AI 助手（Windows / macOS 桌面端）。自写 Electron 壳 + 界面包 + ZJU / Learning / WeRead core，引擎用 DeepSeek Harness",
-  "main": "desktop/main.cjs",
+  "description": "ZJU All-in-One Assistant: DeepSeek Harness plugin for Windows and macOS",
   "engines": {
     "node": ">=24.18.0 <25",
     "npm": ">=11 <12"
@@ -13,48 +11,33 @@
   "scripts": {
     "postinstall": "node scripts/setup.mjs",
     "setup": "node scripts/setup.mjs",
-    "check:runtime": "node scripts/runtime-deps.cjs",
-    "start": "node ui/build.mjs --app",
-    "ui": "node ui/build.mjs",
-    "typecheck": "tsc --noEmit -p ui",
+    "build": "node plugin/build.mjs",
+    "typecheck": "npm run typecheck:plugin && npm run typecheck:core && npm run typecheck:weread && npm run typecheck:dingtalk",
+    "typecheck:plugin": "tsc --noEmit -p plugin",
     "typecheck:core": "node core/zju/node_modules/typescript/bin/tsc --noEmit -p core/zju",
     "typecheck:weread": "node core/weread/node_modules/typescript/bin/tsc --noEmit -p core/weread",
-    "typecheck:plugin": "tsc --noEmit -p plugin",
-    "verify": "npm run typecheck && npm run typecheck:core && npm run typecheck:weread && npm run typecheck:dingtalk && npm run typecheck:plugin && node --test plugin/*.test.mjs plugin/host/*.test.mjs plugin/client/*.test.mjs desktop/*.test.mjs scripts/*.test.mjs ui/profile/*.test.mjs ui/client/*.test.mjs ui/client/trace/*.test.mjs core/zju/tests/*.test.ts core/weread/tests/*.test.ts core/weread/tests/*.test.mjs core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts && node core/learn/tools/tts/test_reader.mjs",
-    "test:profile": "node --test ui/profile/*.test.mjs",
-    "test:trace": "node --test ui/client/trace/*.test.mjs ui/client/*.test.mjs",
-    "test:credentials": "node --test desktop/config.test.mjs",
-    "test:plugins": "node --test desktop/profile.test.mjs desktop/ffmpeg.test.mjs desktop/node.test.mjs desktop/film.test.mjs desktop/reader.test.mjs desktop/tray.test.mjs desktop/update.test.mjs desktop/weread.test.mjs scripts/after-pack.test.mjs ui/profile/account.test.mjs ui/profile/plugins.test.mjs ui/profile/wechat.test.mjs",
+    "typecheck:dingtalk": "node core/dingtalk/node_modules/typescript/bin/tsc --noEmit -p core/dingtalk",
+    "verify": "npm run typecheck && node --test plugin/*.test.mjs plugin/host/*.test.mjs plugin/client/*.test.mjs scripts/private-paths.test.mjs scripts/learn.test.mjs core/zju/tests/*.test.ts core/zju/tests/*.test.mjs core/weread/tests/*.test.ts core/weread/tests/*.test.mjs core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts",
+    "test:plugin": "node --test plugin/*.test.mjs plugin/host/*.test.mjs plugin/client/*.test.mjs",
+    "test:core": "node --test core/zju/tests/*.test.ts core/zju/tests/*.test.mjs",
     "test:weread": "node --test core/weread/tests/*.test.ts core/weread/tests/*.test.mjs",
-    "test:core": "node --test core/zju/tests/*.test.ts",
-    "eval:review": "node scripts/review-eval/run.mjs",
-    "package": "node ui/build.mjs && node scripts/runtime-deps.cjs && electron-builder --dir --publish never",
-    "installer": "node ui/build.mjs && node scripts/runtime-deps.cjs && electron-builder --win nsis --publish never",
-    "installer:mac": "node ui/build.mjs && node scripts/runtime-deps.cjs && electron-builder --mac dmg --publish never",
-    "test:chats": "node --test core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts ui/profile/chat-watch.test.mjs",
-    "typecheck:dingtalk": "node core/dingtalk/node_modules/typescript/bin/tsc --noEmit -p core/dingtalk"
+    "test:chats": "node --test core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts plugin/host/chat-watch.test.mjs",
+    "pack:plugin": "npm pack ./plugin",
+    "security": "node scripts/check-security.mjs"
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.2.1-rc.5",
-    "electron-updater": "^6.8.9",
-    "ffmpeg-static": "5.3.0",
+    "@napi-rs/keyring": "2.1.2",
     "imapflow": "^2.5.2",
     "js-yaml": "^4.3.2",
     "mailparser": "^3.9.40",
     "nodemailer": "^10.1.2"
-  },
-  "optionalDependencies": {
-    "electron-liquid-glass": "1.1.1",
-    "node-bin-darwin-arm64": "24.19.0",
-    "node-darwin-x64": "24.19.0",
-    "node-win-x64": "24.19.0"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.5",
     "@types/react": "18.3",
     "electron": "44.10.1",
-    "electron-builder": "26.18.1",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
   },
@@ -62,118 +45,6 @@
     "@modelcontextprotocol/client": "2.4.0",
     "@deepseek-ai/libreoffice-kit": {
       "fflate": "0.8.3"
-    },
-    "@electron/asar": {
-      ".": "4.3.1",
-      "glob": "14.0.3"
-    },
-    "@electron/universal": "3.0.6",
-    "ejs": "7.0.2",
-    "minimatch": "11.0.2",
-    "rimraf@2": {
-      "glob": "file:../../scripts/build-deps/legacy-glob"
-    }
-  },
-  "build": {
-    "appId": "cn.campusagent.desktop",
-    "productName": "CampusAgent",
-    "asar": false,
-    "npmRebuild": false,
-    "files": [
-      "LICENSE",
-      "THIRD_PARTY_NOTICES.md",
-      "build/licenses/NODE-LICENSE.txt",
-      "desktop/**/*",
-      "!desktop/**/*.test.mjs",
-      "ui/package.json",
-      "ui/host.js",
-      "ui/profile/*.mjs",
-      "!ui/profile/*.test.mjs",
-      "ui/lib/**/*",
-      "core/**/*",
-      "!core/**/AGENTS.md",
-      "!core/**/CLAUDE.md",
-      "!core/**/dev/**",
-      "!core/**/.env",
-      "!core/**/.env.*",
-      "!core/**/profile.env",
-      "!core/**/profile.env.*",
-      "!core/**/data/**",
-      "!core/**/downloads/**",
-      "!core/**/out/**",
-      "!core/learn/tools/tts/test*",
-      "!core/learn/tools/tts/voicelab/**",
-      "!core/learn/tools/tts/app.py",
-      "!core/learn/**/__pycache__/**",
-      "!core/learn/**/*.pyc",
-      "core/learn/engine/vendor/node_modules/**/*",
-      "!core/weread/tests/**",
-      "core/weread/node_modules/**/*",
-      "core/zju/node_modules/**/*",
-      "!core/zju/node_modules/{typescript,@types,.bin}/**",
-      "!core/zju/node_modules/pdfjs-dist/{build,web}/**",
-      "!core/zju/node_modules/pdfjs-dist/legacy/web/**",
-      "!core/zju/node_modules/pdf-lib/{dist,es,src,ts3.4}/**",
-      "!core/zju/tests/**",
-      "!core/zju/dev/**",
-      "app.patch.yml",
-      "api-keys.example.yaml",
-      "package.json",
-      "core/wechat/node_modules/**/*",
-      "!core/wechat/tests/**",
-      "!core/dingtalk/tests/**",
-      "!core/chat/*.test.mjs"
-    ],
-    "directories": {
-      "output": "dist"
-    },
-    "beforePack": "scripts/before-pack.cjs",
-    "afterPack": "scripts/after-pack.cjs",
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "Anchorite-no",
-        "repo": "dsh-zju-assistant",
-        "private": false
-      }
-    ],
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    },
-    "nsis": {
-      "artifactName": "CampusAgent-Setup-${version}.${ext}",
-      "useZip": true,
-      "differentialPackage": false,
-      "oneClick": false,
-      "perMachine": true,
-      "packElevateHelper": true,
-      "allowToChangeInstallationDirectory": true,
-      "installerLanguages": [
-        "zh_CN",
-        "en_US"
-      ],
-      "include": "scripts/installer.nsh"
-    },
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "icon": "build/icon-mac.png",
-      "category": "public.app-category.education",
-      "minimumSystemVersion": "12.0",
-      "darkModeSupport": true,
-      "identity": "-",
-      "hardenedRuntime": false,
-      "artifactName": "CampusAgent-${version}-mac-${arch}.${ext}",
-      "extendInfo": {
-        "NSDocumentsFolderUsageDescription": "校园智能体把下载的课件、转写、讲解和每次对话的文件存在「文稿」里的 CampusAgent 文件夹。",
-        "NSDownloadsFolderUsageDescription": "校园智能体把你在页面上点「下载」存下来的课件和附件放在「下载」里的 CampusAgent 文件夹。"
-      }
-    },
-    "dmg": {
-      "title": "${productName} ${version}"
     }
   }
 }

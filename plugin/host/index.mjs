@@ -215,7 +215,7 @@ export default class ZjuCampus extends Service {
   async dispatch(action, input) {
     const chat = () => {
       const watch = this.part(input?.platform === 'dingtalk' ? 'dingtalk' : 'wechat-chat'), operation = action.slice('chat-watch-'.length)
-      if (!['snapshot', 'profiles', 'find', 'members', 'read', 'add', 'set', 'remove', 'refresh'].includes(operation)) throw new Error('无效的聊天操作')
+      if (!['snapshot', 'profiles', 'find', 'members', 'read', 'add', 'set', 'remove', 'refresh', 'location', 'relocate'].includes(operation)) throw new Error('无效的聊天操作')
       return watch[operation](input)
     }
     const wechat = () => {

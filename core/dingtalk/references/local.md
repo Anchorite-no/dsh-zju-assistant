@@ -2,7 +2,7 @@
 
 同步自 `D:\Code\Projects\dingtalk-skill` 的 2026-10-16 工作区。保留其只读查询行为，Python 数据库、消息和内容解析已改写为 Node。全局数据库密钥按已知 x64 CPU vendor 格式生成候选并以数据库页头校验，不需要本机编译器或 PowerShell 7。
 
-默认数据根目录 `%APPDATA%/DingTalk`。桌面壳用 Windows 应用数据目录补齐缺失的 APPDATA；独立命令缺少 APPDATA 时使用当前用户的 `AppData/Roaming`，不会相对工作目录查找。开发诊断可用 `--data-dir` 或 `DINGTALK_DATA_DIR` 指定 DingTalk 数据根目录。v2 账号从目录名取得数字 UID，以 `MD5(uid)` 的十六进制前 16 个字符派生密钥；v3 账号从全局库选取 UID（不读取令牌字段），再结合 `user_config` 的 salt 派生密钥。两种格式都逐个验证数据库页头，多账号必须明确选择。
+默认数据根目录 `%APPDATA%/DingTalk`。桌面壳用 Windows 应用数据目录补齐缺失的 APPDATA；独立命令缺少 APPDATA 时使用当前用户的 `AppData/Roaming`，不会相对工作目录查找。数据不在默认位置时用 `--data-dir` 或 `DINGTALK_DATA_DIR` 指定 DingTalk 数据根目录（插件把配置里的「聊天数据位置」经这个变量传进来）；指到某个 `_v2`/`_v3` 账号文件夹或它的 `DBFiles` 时退回根目录，指到 DingTalk 的上一层时进到 DingTalk。v2 账号从目录名取得数字 UID，以 `MD5(uid)` 的十六进制前 16 个字符派生密钥；v3 账号从全局库选取 UID（不读取令牌字段），再结合 `user_config` 的 salt 派生密钥。两种格式都逐个验证数据库页头，多账号必须明确选择。
 
 同一个 UID 的 `_v2` 和 `_v3` 目录都校验通过时只列 v3。v3 是较新的格式，钉钉升级后新消息写进 v3，旧的 `_v2` 目录可能还留在磁盘上；两个都列出来，账号选择框里会出现两项一模一样的 UID，按 UID 选账号也选不出唯一一个。只留 v3 还和加入 v2 支持之前的行为一致，已有的监控不受影响。只有 v2 目录的账号照常列出。
 

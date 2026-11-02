@@ -16,6 +16,13 @@ export function chatRow(key, platform) {
   return row(key, {
     inject: ['tools'],
     start(ctx, campus) {
+      const watch = new ChatWatch({
+        platform, plugins: campus.plugins, settingsFile: campus.store.file(`${platform}-chats.json`), cacheFile: path.join(campus.home, 'cache', `${platform}-chats.json`),
+        // 一批最多一万二千字、几百条消息，整理出的事项可能有十几条：比别处多留些 token 和时间。
+        ask: input => askModel(ctx, { ...input, reasoningEffort: 'low', maxTokens: 8000, timeoutMs: 90_000 }), onNew: alert => campus.push(alert),
+        // AI 整理时告诉模型这位学生是谁（基础信息，不含学号、姓名）和这个群已确认对应哪门课。
+        identity: () => campus.store.identity().values, courses: track => campus.context.confirmedCourses(chatContextId(platform, track.key)),
+      })
       // 给助手的：只读地查本机客户端的聊天（core/wechat、core/dingtalk 的读取器），命令说明在技能里链到的 SKILL.md。
       ctx.tools.register(defineTool({
         name: platform === 'wechat' ? 'campus_wechat_chat' : 'campus_dingtalk',
@@ -25,16 +32,10 @@ export function chatRow(key, platform) {
         presentCall: () => ({ card: 'generic', title: `查${NAMES[platform]}聊天`, kind: 'other' }),
         execute: async (args, exec) => {
           if (!args.args.length || args.args.some(arg => typeof arg !== 'string')) throw new Error('args 要是一串参数，一项一个字符串。')
-          return runChat(platform, args.args, { signal: exec.signal })
+          // 和监控读同一处：配置里选了聊天数据位置就用它。
+          return runChat(platform, args.args, { signal: exec.signal, dataDir: watch.settings().dataDir })
         },
       }))
-      const watch = new ChatWatch({
-        platform, plugins: campus.plugins, settingsFile: campus.store.file(`${platform}-chats.json`), cacheFile: path.join(campus.home, 'cache', `${platform}-chats.json`),
-        // 一批最多一万二千字、几百条消息，整理出的事项可能有十几条：比别处多留些 token 和时间。
-        ask: input => askModel(ctx, { ...input, reasoningEffort: 'low', maxTokens: 8000, timeoutMs: 90_000 }), onNew: alert => campus.push(alert),
-        // AI 整理时告诉模型这位学生是谁（基础信息，不含学号、姓名）和这个群已确认对应哪门课。
-        identity: () => campus.store.identity().values, courses: track => campus.context.confirmedCourses(chatContextId(platform, track.key)),
-      })
       ctx.effect(() => campus.provide(key, watch), `zju-campus: ${platform} chat watch`)
       ctx.effect(() => watch.start(), `zju-campus: ${platform} chat checking lifecycle`)
     },

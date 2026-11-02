@@ -6,7 +6,7 @@
  * (github.com/RedTeamExp/dingding), and the SQLite WAL format (sqlite.org/fileformat2.html#walformat).
  */
 import { createDecipheriv, pbkdf2Sync, createHash } from 'node:crypto'
-import { openSync, readSync, fstatSync, closeSync, readFileSync, readdirSync } from 'node:fs'
+import { openSync, readSync, fstatSync, closeSync, readFileSync, readdirSync, existsSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import os from 'node:os'
 import path from 'node:path'
@@ -222,7 +222,36 @@ function globalUids(root: string, header: Buffer): string[] {
   }
 }
 
-const GLOBAL_MISSING = '未找到钉钉全局数据库（globalStorage），可用 --data-dir 指定包含 globalStorage 的 DingTalk 目录。'
+const GLOBAL_MISSING = '未找到钉钉全局数据库（globalStorage），请把聊天数据位置设成包含 globalStorage 的 DingTalk 文件夹（命令行用 --data-dir）。'
+const FOLDER_EMPTY = '这个文件夹里没有钉钉账号数据，请选里面有 globalStorage 和 …_v3 账号文件夹的 DingTalk 文件夹。'
+
+const isAccountName = (name: string) => name.endsWith('_v2') || name.endsWith('_v3')
+
+/** A DingTalk data root holds globalStorage or at least one <id>_v2/_v3 account folder. */
+function looksLikeRoot(dir: string): boolean {
+  try {
+    return readdirSync(dir, { withFileTypes: true }).some(entry => entry.isDirectory() && (entry.name === 'globalStorage' || isAccountName(entry.name)))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The DingTalk folder to read: the given one, else DINGTALK_DATA_DIR, else %APPDATA%/DingTalk. A picked folder may be
+ * one level off, so an account folder (…_v3, or its DBFiles) steps up to the root and a folder holding DingTalk steps
+ * down into it.
+ */
+export function dataRoot(root?: string): string {
+  const given = root || process.env.DINGTALK_DATA_DIR
+  // The desktop host supplies Windows' appData path. Standalone/headless launches can omit
+  // APPDATA; never resolve that case relative to the command's working directory.
+  if (!given) return path.resolve(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'DingTalk')
+  let at = path.resolve(given)
+  if (path.basename(at).toLowerCase() === 'dbfiles') at = path.dirname(at)
+  if (isAccountName(path.basename(at)) && existsSync(path.join(at, 'DBFiles'))) return path.dirname(at)
+  if (!looksLikeRoot(at) && looksLikeRoot(path.join(at, 'DingTalk'))) return path.join(at, 'DingTalk')
+  return at
+}
 
 /**
  * Account uids from the v3 global store, or why it could not be read. A missing store keeps the database_missing
@@ -243,19 +272,17 @@ function readGlobalUids(base: string): { uids: string[] } | { error: unknown } {
  * identical entries would make the account picker and --profile <uid> ambiguous.
  */
 export function discover(root?: string): Profile[] {
-  // The desktop host supplies Windows' appData path. Standalone/headless launches can omit
-  // APPDATA; never resolve that case relative to the command's working directory.
-  const roaming = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming')
-  const base = path.resolve(root || process.env.DINGTALK_DATA_DIR || path.join(roaming, 'DingTalk'))
+  const chosen = Boolean(root || process.env.DINGTALK_DATA_DIR)
+  const base = dataRoot(root)
   let entries: string[]
   try {
     entries = readdirSync(base, { withFileTypes: true })
-      .filter(entry => entry.isDirectory() && (entry.name.endsWith('_v2') || entry.name.endsWith('_v3')))
+      .filter(entry => entry.isDirectory() && isAccountName(entry.name))
       .map(entry => entry.name).sort(compareNames)
   } catch {
-    throw new SkillError('database_missing', '未找到钉钉数据目录，可用 --data-dir 指定 DingTalk 数据根目录。')
+    throw new SkillError('database_missing', chosen ? FOLDER_EMPTY : '未找到钉钉数据目录。数据不在默认位置的，请把聊天数据位置设成里面有 globalStorage 的 DingTalk 文件夹（命令行用 --data-dir）。')
   }
-  if (!entries.length) throw new SkillError('database_missing', '钉钉数据目录中没有账号数据库；请先在这台电脑登录钉钉。')
+  if (!entries.length) throw new SkillError('database_missing', chosen ? FOLDER_EMPTY : '钉钉数据目录中没有账号数据库；请先在这台电脑登录钉钉。')
   const profiles: Profile[] = []
   // The global store is decrypted at most once; a failure is kept and reported only if no account verifies.
   let global: ReturnType<typeof readGlobalUids> | undefined

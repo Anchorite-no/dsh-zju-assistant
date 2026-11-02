@@ -7,9 +7,12 @@ import { argumentsFor, main, fail } from '../../chat/common.mjs'
 import { messageTypes } from '../lib/content.mjs'
 const explanations = {
   wechat_not_running: '电脑版微信没有运行，请打开并登录微信。',
-  wechat_database_missing: '未找到本机微信已同步的聊天数据库。',
+  wechat_database_missing:
+    '未找到本机微信的聊天数据。在微信「设置 → 账号与存储」里改过存储位置的，请把聊天数据位置设成那里（命令行用 --data-dir）。',
+  wechat_folder_unrecognized:
+    '这个文件夹里没有微信聊天数据。请选微信「设置 → 账号与存储」里显示的存储位置，或者它下面 xwechat_files 里的账号文件夹。',
   multiple_wechat_processes: '同时运行了多个微信，请保留一个账号后重试。',
-  multiple_wechat_profiles: '本机有多个微信账号数据目录，暂不支持自动选择。',
+  multiple_wechat_profiles: '找到了多个微信账号的数据，请把聊天数据位置选到正在登录的那个账号的文件夹（xwechat_files 下面那一层）。',
   wechat_key_unavailable: '未取得数据库密钥，请确认微信已登录；当前微信版本也可能不兼容。',
   wechat_offline_key_unavailable: '尚未准备好离线密钥，请打开微信后再试。',
   wechat_key_cache_failed: '无法保存由 Windows 当前用户加密保护的密钥缓存。',
@@ -25,9 +28,11 @@ await main(async () => {
     return {
       ok: true,
       usage:
-        'status | chat list/contacts/info/members/read/search [--chat ID] [--query 关键词] [--since ISO] [--sender ID] [--type 类型] [--limit 1..500] [--cursor 游标] [--offline] | chat download --message ID --out 目录'
+        'status | profiles | chat list/contacts/info/members/read/search [--chat ID] [--query 关键词] [--since ISO] [--sender ID] [--type 类型] [--limit 1..500] [--cursor 游标] [--offline] | chat download --message ID --out 目录；都可加 --data-dir 文件夹'
     }
   if (process.platform !== 'win32') fail('unsupported_platform', '微信聊天读取只支持 Windows。')
+  // 插件设置里选的聊天数据位置经这个变量传进来；命令行的 --data-dir 优先。
+  if (!query['data-dir'] && process.env.WECHAT_DATA_DIR) query['data-dir'] = process.env.WECHAT_DATA_DIR
   if (query.op === 'status') {
     const { stdout } = await promisify(execFile)(
       path.join(process.env.SystemRoot || 'C:\\Windows', 'System32/tasklist.exe'),

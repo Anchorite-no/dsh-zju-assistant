@@ -3,20 +3,61 @@ param([string]$NodePath,[string]$QueryBase64)
 $ErrorActionPreference='Stop'
 $OutputEncoding=[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
 function Fail([string]$Code){'{"error":"'+$Code+'"}';exit 1}
+$appData=if($env:APPDATA){$env:APPDATA}else{[Environment]::GetFolderPath('ApplicationData')}
+# One account's data is <account>\db_storage. The folder is usually wxid_*, but not for every account.
+function IsAccount([string]$Path){Test-Path -LiteralPath (Join-Path $Path 'db_storage\contact\contact.db') -PathType Leaf}
+# The accounts in a folder someone points at: an account folder, its db_storage, the xwechat_files folder
+# holding the accounts, or the storage folder above xwechat_files that Weixin's settings show.
+function AccountsIn([string]$Folder){
+ if(-not $Folder -or -not (Test-Path -LiteralPath $Folder -PathType Container)){return}
+ $item=Get-Item -LiteralPath $Folder -Force
+ if(IsAccount $item.FullName){return $item}
+ if($item.Name -eq 'db_storage' -and $item.Parent -and (IsAccount $item.Parent.FullName)){return $item.Parent}
+ foreach($root in @($item.FullName,(Join-Path $item.FullName 'xwechat_files'))){
+  $found=@(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue|Where-Object{IsAccount $_.FullName}|Sort-Object Name)
+  if($found.Count){return $found}
+ }
+}
+# Where Weixin keeps xwechat_files. Settings > Account and Storage records it in config\*.ini: the default place
+# reads "Appdata:Tencent\xwechat", a moved one the folder's full path. The two usual default places follow.
+function StorageFolders{
+ foreach($ini in @(Get-ChildItem -LiteralPath (Join-Path $appData 'Tencent\xwechat\config') -Filter '*.ini' -File -ErrorAction SilentlyContinue|Sort-Object LastWriteTimeUtc -Descending)){
+  try{
+   $line=@([IO.File]::ReadAllLines($ini.FullName)|Where-Object{$_.Trim()})[0]
+   if(-not $line){continue}
+   $line=$line.Trim(" `t`0".ToCharArray())
+   if($line -match '^appdata:(.*)$'){[IO.Path]::Combine($appData,$Matches[1].TrimStart('\','/'))}
+   elseif($line -match '^mydocuments?:(.*)$'){[IO.Path]::Combine([Environment]::GetFolderPath('MyDocuments'),$Matches[1].TrimStart('\','/'))}
+   elseif($line -match '^(?:[a-z]:[\\/]|\\\\)'){$line}
+  }catch{}
+ }
+ Join-Path $appData 'Tencent\xwechat'
+ [Environment]::GetFolderPath('MyDocuments')
+}
 try {
  $query=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($QueryBase64))|ConvertFrom-Json
- if($query.op -notin @('list','contacts','info','members','read','search','download')){Fail 'invalid_input'}
+ if($query.op -notin @('profiles','list','contacts','info','members','read','search','download')){Fail 'invalid_input'}
  $offline=$query.offline -eq $true
  $query.PSObject.Properties.Remove('offline')
+ # A chosen folder (--data-dir, or the plugin's setting) replaces the search; pointing at one account folder
+ # also settles which account to read when there are several.
+ $chosen=[string]$query.'data-dir'
+ $query.PSObject.Properties.Remove('data-dir')
+ if($chosen){
+  try{$profiles=@(AccountsIn $chosen)}catch{$profiles=@()}
+  if($profiles.Count -eq 0){Fail 'wechat_folder_unrecognized'}
+ }else{
+  $profiles=@()
+  foreach($folder in @(StorageFolders)){$profiles=@(AccountsIn $folder);if($profiles.Count){break}}
+  if($profiles.Count -eq 0){Fail 'wechat_database_missing'}
+ }
+ if($query.op -eq 'profiles'){@{ok=$true;profiles=@($profiles|ForEach-Object{@{id=$_.Name;path=$_.FullName}})}|ConvertTo-Json -Compress -Depth 4;exit 0}
+ if($profiles.Count -ne 1){Fail 'multiple_wechat_profiles'}
  $owners=@(if(-not $offline){Get-CimInstance Win32_Process|Where-Object{$_.Name -eq 'Weixin.exe' -and $_.CommandLine -notmatch '--type='}})
  if($owners.Count -gt 1){Fail 'multiple_wechat_processes'}
  $ownerPid=0
  if($owners.Count -eq 1){$ownerPid=[int]$owners[0].ProcessId}
  if($query.op -eq 'download' -and $ownerPid -eq 0){Fail 'wechat_not_running'}
- $dataRoot=Join-Path $env:APPDATA 'Tencent\xwechat\xwechat_files'
- $profiles=@(if(Test-Path -LiteralPath $dataRoot){Get-ChildItem -LiteralPath $dataRoot -Directory|Where-Object{$_.Name -like 'wxid_*' -and (Test-Path -LiteralPath (Join-Path $_.FullName 'db_storage\contact\contact.db'))}})
- if($profiles.Count -eq 0){Fail 'wechat_database_missing'}
- if($profiles.Count -ne 1){Fail 'multiple_wechat_profiles'}
  $query|Add-Member -NotePropertyName profile -NotePropertyValue $profiles[0].Name -Force
  if($query.op -eq 'download'){$query|Add-Member -NotePropertyName profilePath -NotePropertyValue $profiles[0].FullName}
  $QueryBase64=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($query|ConvertTo-Json -Compress -Depth 8)))

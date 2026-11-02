@@ -16,7 +16,7 @@ description: 只读查询 Windows 钉钉本机已同步的个人与群聊、联�
 | 聊天记录 | `chat read --chat ID [--since 2026-10-16]` |
 | 查消息 | `chat search --query 关键词 [--chat ID]`；`chat search --type file` |
 
-本机有多个账号时，先 `profiles`，用 `--profile` 指定准确账号，不自动选最近登录账号。名称有歧义时使用候选中的准确 ID。查询优先使用用户指定的会话、时间和关键词。
+本机有多个账号时，先 `profiles`，用 `--profile` 指定准确账号，不自动选最近登录账号。数据不在默认的 `%APPDATA%\DingTalk` 时，每条命令加 `--data-dir 文件夹`（装着 globalStorage 和各账号文件夹的 DingTalk 文件夹，选到账号文件夹或上一层也行），`profiles` 结果的 `root` 是实际读的位置。名称有歧义时使用候选中的准确 ID。查询优先使用用户指定的会话、时间和关键词。
 
 `read/search` 支持 `--sender 名称或UID`、`--type`、`--since`、`--until`。日期按 UTC+8 零点解释，范围含起点、不含终点。集合命令支持 `--limit 1..500`（默认 50）和 `--cursor`，有 `hasMore` 时沿 `nextCursor` 翻页，保持账号及查询条件不变。
 

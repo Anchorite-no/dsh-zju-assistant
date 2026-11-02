@@ -106,6 +106,47 @@ test('only messages after selection, all pages, stable ids and restart deduplica
   assert.equal(world.alerts.length, 1)
   assert.ok(world.calls.filter((a) => a[1] === 'read').every((a) => a.includes('--until')))
 })
+test('a chosen chat data folder is checked before it is saved, then every read goes there', async (t) => {
+  const calls = []
+  const run = async (platform, args, { dataDir }) => {
+    calls.push({ op: args[0] === 'chat' ? args[1] : args[0], dataDir })
+    if (args[0] === 'profiles') {
+      if (dataDir === 'D:\\微信') return { ok: true, profiles: [{ id: 'wxid_a', path: 'D:\\微信\\xwechat_files\\wxid_a' }] }
+      if (dataDir === 'D:\\两个') return { ok: true, profiles: [{ id: 'a', path: 'D:\\两个\\a' }, { id: 'b', path: 'D:\\两个\\b' }] }
+      return dataDir
+        ? { ok: false, status: 'wechat_folder_unrecognized', message: '这个文件夹里没有微信聊天数据。' }
+        : { ok: false, status: 'wechat_database_missing', message: '未找到本机微信的聊天数据。' }
+    }
+    if (args[0] === 'status') return { ok: true, running: false }
+    return { ok: true, chats: [], hasMore: false, nextCursor: null }
+  }
+  const { service } = fixture(t, { options: { run } })
+  assert.deepEqual(await service.location(), { dataDir: '', folder: '', error: '未找到本机微信的聊天数据。' })
+
+  service.save({ error: '未找到本机微信的聊天数据。' })
+  await assert.rejects(service.relocate({ dataDir: 'D:\\空的' }), /没有微信聊天数据/)
+  await assert.rejects(service.relocate({ dataDir: 'D:\\两个' }), /2 个微信账号/)
+  await assert.rejects(service.relocate({ dataDir: '微信' }), /完整路径/)
+  assert.equal(service.settings().dataDir, '', 'a folder that cannot be read is not saved')
+
+  assert.deepEqual(await service.relocate({ dataDir: ' D:\\微信 ' }), { dataDir: 'D:\\微信', folder: 'D:\\微信\\xwechat_files\\wxid_a', error: null })
+  assert.equal(service.settings().dataDir, 'D:\\微信')
+  await service.find({})
+  assert.equal(service.cache().error, null, 'the old not-found error is dropped')
+  assert.ok(calls.some((c) => c.op === 'status' && c.dataDir === 'D:\\微信'), 'saving starts a sync from the new folder')
+  assert.deepEqual(calls.at(-1), { op: 'list', dataDir: 'D:\\微信' })
+
+  // 改回自动查找：自动也找不到时照样保存，只把原因交回去。
+  assert.deepEqual(await service.relocate({ dataDir: '' }), { dataDir: '', folder: '', error: '未找到本机微信的聊天数据。' })
+  assert.equal(service.settings().dataDir, '')
+})
+test('the DingTalk data location is the folder holding its accounts', async (t) => {
+  const run = async (platform, args, { dataDir }) =>
+    args[0] === 'profiles' ? { ok: true, root: dataDir || 'C:\\Users\\a\\AppData\\Roaming\\DingTalk', profiles: [{ id: 'a_v3', uid: '1' }] } : { ok: true, running: false }
+  const { service } = fixture(t, { options: { run, platform: 'dingtalk' } })
+  assert.deepEqual(await service.location(), { dataDir: '', folder: 'C:\\Users\\a\\AppData\\Roaming\\DingTalk', error: null })
+  assert.deepEqual(await service.relocate({ dataDir: 'E:\\DingTalk' }), { dataDir: 'E:\\DingTalk', folder: 'E:\\DingTalk', error: null })
+})
 test('closed client skips reads; failed pagination retains progress and retries', async (t) => {
   const { world, service, message, add } = fixture(t)
   const track = await add()

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { campusApi, errorText } from './api.ts'
+import { pickFolder } from './campus.ts'
 import { Alert, Field, Select } from './controls.tsx'
 import { dateText, clock } from './when.ts'
 
@@ -498,6 +499,104 @@ function History({ platform, track, onClose }: { platform: Platform; track: Trac
   )
 }
 
+/** 聊天数据从哪读（host 的 ChatWatch.location）：dataDir 是用户选的文件夹，空串是自动找；folder 是实际读的那一处。 */
+interface Place {
+  dataDir: string
+  folder: string
+  error: string | null
+}
+/** 聊天数据位置：很多人把微信、钉钉的数据挪出了 C 盘，自动找不到时在这里选文件夹，或者把路径粘贴进来。 */
+function DataFolder({ platform, disabled }: { platform: Platform; disabled: boolean }) {
+  const [place, setPlace] = useState<Place | null>(null),
+    [draft, setDraft] = useState(''),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState('')
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    call<Place>(platform, 'location').then(
+      (next) => {
+        if (alive.current) setPlace(next)
+      },
+      (e) => {
+        if (alive.current) setError(errorText(e))
+      }
+    )
+    return () => {
+      alive.current = false
+    }
+  }, [platform])
+  const choose = async (dataDir: string) => {
+    setBusy(true)
+    setError('')
+    try {
+      const next = await call<Place>(platform, 'relocate', { dataDir })
+      if (alive.current) {
+        setPlace(next)
+        setDraft('')
+      }
+    } catch (e) {
+      if (alive.current) setError(errorText(e))
+    } finally {
+      if (alive.current) setBusy(false)
+    }
+  }
+  const browse = async () => {
+    setError('')
+    let picked: string | null
+    try {
+      picked = await pickFolder()
+    } catch {
+      setError('没能打开选择文件夹的窗口，可以把文件夹路径粘贴到下面。')
+      return
+    }
+    if (picked) await choose(picked)
+  }
+  const locked = busy || disabled
+  return (
+    <section className="campus-section">
+      <div className="campus-section-head">
+        <h2 className="campus-section-title">聊天数据位置</h2>
+        <Button variant="outline" size="sm" disabled={locked} onClick={() => void browse()}>
+          {busy ? '查找中…' : '选择文件夹'}
+        </Button>
+      </div>
+      {place ? (
+        <p className="campus-note campus-chat-folder">
+          {place.folder || '没有找到聊天数据'}
+          {place.dataDir ? ' · 选定的位置 · ' : ' · 自动查找'}
+          {place.dataDir && (
+            <button type="button" className="campus-textlink" disabled={locked} onClick={() => void choose('')}>
+              改回自动查找
+            </button>
+          )}
+        </p>
+      ) : (
+        !error && <p className="campus-note">正在查找…</p>
+      )}
+      {(error || place?.error) && <Alert tone="warn">{error || place?.error}</Alert>}
+      <form
+        className="campus-chat-search"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (draft.trim()) void choose(draft.trim())
+        }}
+      >
+        <input
+          className="campus-input"
+          aria-label="聊天数据文件夹路径"
+          placeholder="或者粘贴文件夹路径"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+        <Button variant="outline" type="submit" disabled={locked || !draft.trim()}>
+          使用
+        </Button>
+      </form>
+    </section>
+  )
+}
+
 export function ChatSettings({ platform }: { platform: Platform }) {
   const [data, setData] = useState<Snapshot | null>(null),
     [error, setError] = useState(''),
@@ -571,6 +670,7 @@ export function ChatSettings({ platform }: { platform: Platform }) {
           />
         </Field>
       </section>
+      <DataFolder platform={platform} disabled={busy} />
       <section className="campus-section">
         <div className="campus-section-head">
           <h2 className="campus-section-title">监控的聊天</h2>

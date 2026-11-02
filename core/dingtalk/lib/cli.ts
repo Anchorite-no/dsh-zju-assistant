@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { ChatReader, dateMs, type Query } from './chat.ts'
 import { MESSAGE_TYPES } from './content.ts'
-import { discover, selectProfile, snapshot } from './database.ts'
+import { dataRoot, discover, selectProfile, snapshot } from './database.ts'
 import { SkillError } from './errors.ts'
 import { codePoints, stringify, strip } from './values.ts'
 
@@ -119,7 +119,7 @@ export function run(argv: string[]): object {
   const args = parseArgs(argv)
   const query = validate(args)
   const profiles = discover(args.dataDir)
-  if (args.command === 'profiles') return { ok: true, profiles: profiles.map(profile => ({ id: profile.id, uid: profile.uid })) }
+  if (args.command === 'profiles') return { ok: true, root: dataRoot(args.dataDir), profiles: profiles.map(profile => ({ id: profile.id, uid: profile.uid })) }
   const profile = selectProfile(profiles, args.profile)
   const open = snapshot(path.join(profile.path, 'DBFiles', 'dingtalk.db'), profile.key)
   const closers = [() => open.db.close()]

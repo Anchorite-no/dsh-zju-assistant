@@ -272,6 +272,27 @@ test('an account present in both v2 and v3 is listed once, as v3, and selectable
   ])
 })
 
+test('a picked folder one level off still reads the DingTalk root, and profiles say which folder was read', () => {
+  const GLOBAL_KEY = Buffer.from('global-synth-key', 'latin1')
+  setGlobalKeyProvider(() => GLOBAL_KEY)
+  const above = mkdtempSync(path.join(tmpdir(), 'dingtalk-picked-'))
+  const dir = path.join(above, 'DingTalk')
+  mkdirSync(dir)
+  const store = dataRoot(['900000000005'], GLOBAL_KEY)
+  mkdirSync(path.join(dir, 'globalStorage'))
+  writeFileSync(path.join(dir, 'globalStorage', 'storage.db'), readFileSync(path.join(store, 'globalStorage', 'storage.db')))
+  addV3(dir, 'acct_v3', '900000000005')
+  const expected = { ok: true, root: dir, profiles: [{ id: 'acct_v3', uid: '900000000005' }] }
+  for (const picked of [dir, above, path.join(dir, 'acct_v3'), path.join(dir, 'acct_v3', 'DBFiles')])
+    assert.deepEqual(run(['profiles', '--data-dir', picked]), expected, picked)
+
+  // A folder with nothing of DingTalk's in it says so, rather than asking the user to log in.
+  const empty = mkdtempSync(path.join(tmpdir(), 'dingtalk-unrelated-'))
+  const error = caught<SkillError>(() => discover(empty))
+  assert.equal(error.status, 'database_missing')
+  assert.match(error.message, /这个文件夹里没有钉钉账号数据/)
+})
+
 test('v3 accounts without a global store still report database_missing', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'dingtalk-no-global-'))
   addV3(dir, 'acct_v3', '900000000003')

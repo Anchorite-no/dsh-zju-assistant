@@ -219,7 +219,9 @@ export function batches(items) {
   if (group.length) groups.push(group)
   return groups
 }
-export function runChat(platform, args, { signal, timeoutMs = 180_000 } = {}) {
+/** 读取器认的数据文件夹变量：设置里选了聊天数据位置时带上，没选就让读取器自己找。 */
+const DATA_DIRS = { wechat: 'WECHAT_DATA_DIR', dingtalk: 'DINGTALK_DATA_DIR' }
+export function runChat(platform, args, { signal, timeoutMs = 180_000, dataDir = '' } = {}) {
   if (!CHAT_PLUGINS[platform]) return Promise.reject(new Error('未知聊天插件'))
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
@@ -232,7 +234,7 @@ export function runChat(platform, args, { signal, timeoutMs = 180_000 } = {}) {
       {
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'ignore'],
-        env: nodeEnv()
+        env: nodeEnv(dataDir ? { [DATA_DIRS[platform]]: dataDir } : {})
       }
     )
     let output = '',
@@ -330,6 +332,8 @@ export class ChatWatch {
       intervalMinutes: Number.isInteger(value.intervalMinutes)
         ? Math.max(1, Math.min(60, value.intervalMinutes))
         : 5,
+      // 聊天数据位置：用户选的文件夹，空串是让读取器自己找（默认位置和客户端设置里记的存储位置）。
+      dataDir: str(value.dataDir),
       tracks: Array.isArray(value.tracks) ? value.tracks : []
     }
   }
@@ -383,13 +387,13 @@ export class ChatWatch {
     this.queue = work.catch(() => {})
     return work.finally(() => this.busy--)
   }
-  async call(args) {
+  async call(args, dataDir = this.settings().dataDir) {
     this.require()
     const generation = this.generation,
       controller = new AbortController()
     this.controllers.add(controller)
     try {
-      const result = await this.run(this.platform, args, { signal: controller.signal })
+      const result = await this.run(this.platform, args, { signal: controller.signal, dataDir })
       this.require()
       if (generation !== this.generation) throw Error('操作已停止')
       if (!result.ok) {
@@ -410,6 +414,50 @@ export class ChatWatch {
     return this.serial(() =>
       this.platform === 'dingtalk' ? this.call(['profiles']) : Promise.resolve({ ok: true, profiles: [] })
     )
+  }
+  /**
+   * 在这个文件夹（空串是自动找）里找到的聊天数据：folder 是读的那一处，微信是那个账号的文件夹，钉钉是装着各账号的 DingTalk 文件夹。
+   * 读取器找不到时抛出它的原因；微信同时有几个账号时读不了，也当找不到。
+   */
+  async place(dataDir) {
+    const result = await this.call(['profiles'], dataDir)
+    if (this.platform === 'dingtalk') return { dataDir, folder: str(result.root) }
+    const accounts = Array.isArray(result.profiles) ? result.profiles : []
+    if (accounts.length !== 1)
+      throw Error(`${dataDir ? '这个文件夹里' : '本机'}有 ${accounts.length} 个微信账号的数据，请把聊天数据位置选到正在登录的那个账号的文件夹（xwechat_files 下面那一层）。`)
+    return { dataDir, folder: str(accounts[0].path) }
+  }
+  /** 现在读的是哪里；找不到时 folder 是空串，error 说原因。 */
+  async location() {
+    const dataDir = this.settings().dataDir
+    try {
+      return { ...(await this.place(dataDir)), error: null }
+    } catch (error) {
+      if (!this.enabled()) throw error
+      return { dataDir, folder: '', error: error.message }
+    }
+  }
+  /** 换聊天数据位置，空串改回自动查找。选的文件夹里读不到聊天数据时不保存，原因照读取器的说。 */
+  async relocate(input = {}) {
+    const found = await this.serial(async () => {
+      const dataDir = str(input.dataDir)
+      if (dataDir && !path.isAbsolute(dataDir)) throw Error('请填文件夹的完整路径，比如 D:\\微信数据')
+      let found
+      try {
+        found = { ...(await this.place(dataDir)), error: null }
+      } catch (error) {
+        if (dataDir) throw error
+        found = { dataDir, folder: '', error: error.message }
+      }
+      const settings = this.settings()
+      settings.dataDir = dataDir
+      write(this.settingsFile, settings)
+      // 上回同步没找到数据的错误不再作数；下面马上按新位置同步一次。
+      this.save({ error: null })
+      return found
+    })
+    void this.refresh().catch(() => {})
+    return found
   }
   async find(input = {}) {
     return this.serial(() =>

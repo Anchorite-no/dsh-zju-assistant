@@ -34,7 +34,7 @@ if (process.env.DINGTALK_CHAT_DISABLED === '1') {
     JSON.stringify({
       ok: true,
       usage:
-        'status | profiles | chat list/contacts/info/members/read/search [--chat ID] [--query 关键词] [--profile ID] [--since ISO] [--until ISO] [--sender ID] [--type 类型] [--limit 1..500] [--cursor 游标]'
+        'status | profiles | chat list/contacts/info/members/read/search [--chat ID] [--query 关键词] [--profile ID] [--since ISO] [--until ISO] [--sender ID] [--type 类型] [--limit 1..500] [--cursor 游标]；profiles 和 chat 都可加 --data-dir 文件夹'
     }) + '\n'
   )
 } else process.exitCode = queryMain(args)

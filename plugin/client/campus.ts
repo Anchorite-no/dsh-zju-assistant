@@ -92,6 +92,17 @@ export async function handToAssistant(text: string): Promise<void> {
   ui.startSession(undefined, { prompt: text, whenDraftExists: 'replace' })
 }
 
+/**
+ * 弹系统的选择文件夹窗口，和 dsh 给工作区选文件夹用的是同一个：桌面版由它的窗口弹，网页版由 dsh 在这台电脑上弹。取消时给 null。
+ */
+export async function pickFolder(): Promise<string | null> {
+  const desktop = (globalThis as { __DSH_DIRECTORY_PICKER__?: { pick: () => Promise<string | null> } }).__DSH_DIRECTORY_PICKER__
+  if (desktop) return desktop.pick()
+  const ui = get<{ pickDirectory: () => Promise<string | null> }>('uiWorkspace')
+  if (!ui) throw new Error('dsh 还没准备好，稍等一下再试。')
+  return ui.pickDirectory()
+}
+
 // ── 提醒：侧栏「校园事务」的角标和浏览器通知 ──
 
 let unread = 0

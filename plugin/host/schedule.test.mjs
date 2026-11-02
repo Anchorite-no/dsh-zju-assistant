@@ -275,6 +275,21 @@ test('the assistant reads laid-out days, and the schedule fetches what it needs 
   await assert.rejects(schedule.days({ from: '10-01' }), /日期要写成/)
 })
 
+test('the phone calendar export reuses the laid-out days and gives each event a stable key', async (t) => {
+  const world = setup(t)
+  const schedule = world.create()
+  schedule.saveCalendar({ terms: [{ year: '2026-2027', term: '秋', start: '2026-09-14' }], days: [{ date: '2026-10-21', off: true, note: '运动会' }] })
+  const result = await schedule.phoneCalendar({ from: '2026-10-19', to: '2026-10-21' })
+  assert.equal(result.from, '2026-10-19')
+  assert.equal(result.to, '2026-10-21')
+  assert.deepEqual(result.events.map(event => event.title), ['数据结构基础', '数据结构基础 期末考试（考试）'])
+  assert.equal(result.events[0].begin, '2026-10-19T10:00:00+08:00')
+  assert.equal(result.events[1].begin, '2026-10-21T10:30:00+08:00')
+  assert.match(result.events[0].key, /^dsh-zju:class:2026-10-19:1000:[0-9a-f]{12}$/)
+  const again = await schedule.phoneCalendar({ from: '2026-10-19', to: '2026-10-21' })
+  assert.deepEqual(again.events.map(event => event.key), result.events.map(event => event.key))
+})
+
 test('without the term in the calendar the assistant is told the classes are not checked against weeks', async (t) => {
   const world = setup(t)
   // 应用带着的校历只到 2026—2027 学年，再下一年的还没有。

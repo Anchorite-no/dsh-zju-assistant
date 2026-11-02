@@ -20,6 +20,7 @@ import {
   TERM_NAMES, WEEKDAY_NAMES, addDays, beijing, dayNumber, isDate, layerCalendars, memoEvents, normalizeCalendar, normalizeEvent, ownEvents,
   planDays, semesterKey, termAt, termKey, weekdayOf,
 } from '../calendar.mjs'
+import { phoneCalendarExport } from './phone-calendar.mjs'
 
 /** 读成功以后，这么久之内再进页面不重新读（教务网的课表 core 自己还缓存 6 小时）；页面上点刷新不受限制。 */
 const FRESH_MS = 10 * 60_000
@@ -472,6 +473,19 @@ export class Schedule {
         })),
       })),
       ...(notes.length ? { notes } : {}),
+    }
+  }
+
+  /** 给手机日历的导出清单；日期范围和 campus_schedule read 一样。 */
+  async phoneCalendar(args = {}) {
+    const result = await this.days(args)
+    const days = result.days ?? []
+    return {
+      today: result.today,
+      from: days[0]?.date ?? null,
+      to: days.at(-1)?.date ?? null,
+      ...(result.notes ? { notes: result.notes } : {}),
+      ...phoneCalendarExport(days),
     }
   }
 

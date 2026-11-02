@@ -94,6 +94,7 @@ export function installTools(ctx, campus) {
       '用户问哪天有什么课、这周有什么安排时先用它，不要自己拿课表按星期去对。不给日期是今天起的七天，一次最多 42 天；notes 里是没查到或不确定的地方，照实告诉用户。',
       'calendar：在校历里补学校另外通知的停课、补课，或者还没有的新学年的学期。浙大当学年的校历和国家的放假调休已经带着，不用写。只写学校正式公布的或用户亲口说的，写之前把要写的几条和出处告诉用户，等用户同意。',
       'events：在日程表里加、改、删用户自己的日程（items）。用户让你记下的事，或者两个教务网都没有的课（kind 写 class，放假那天不排）；从聊天、通知、智云里整理出来的先列给用户看，等用户同意再写。',
+      'phone_calendar：给手机日历的导出清单，事件带稳定 key、begin/end、全天、地点和提醒。用户要把课程、考试或截止写进手机日历时用；有 mcp__calendar__upsert 就逐条原样写入，没有才用 mcp__phone__intent kind=calendar 逐条打开系统新建页。',
     ].join(''),
     parameters: {
       from: { type: 'string', description: 'read：从哪天起，北京时间，如 2026-10-19' },
@@ -107,6 +108,7 @@ export function installTools(ctx, campus) {
       read: { title: '查看日程', run: async args => ({ ...(await schedule.days(args)), today: schedule.promptText() }) },
       calendar: { title: '更新校历', run: args => schedule.updateCalendar(args) },
       events: { title: '更新日程', run: args => { need(args, 'items'); return { events: schedule.changeOwn(args.items) } } },
+      phone_calendar: { title: '导出到手机日历', run: args => schedule.phoneCalendar(args) },
     },
   }))
 

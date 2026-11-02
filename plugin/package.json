@@ -142,5 +142,59 @@
         "@deepseek-ai/dsh-client-ui-plugin-manager"
       ]
     }
+  },
+  "dshGo": {
+    "v": 1,
+    "title": {
+      "zh": "今日校园",
+      "en": "Campus today"
+    },
+    "icon": "school",
+    "contributes": {
+      "composer.actions": [
+        {
+          "id": "campus-ask",
+          "label": {
+            "zh": "今日校园",
+            "en": "Campus"
+          },
+          "icon": "school",
+          "effect": {
+            "type": "insert",
+            "text": "看看我今天的课表和最近的截止时间。"
+          }
+        },
+        {
+          "id": "campus-calendar",
+          "label": {
+            "zh": "写入日历",
+            "en": "Calendar"
+          },
+          "icon": "calendar"
+        }
+      ],
+      "composer.strip": [
+        {
+          "id": "campus-strip",
+          "icon": "school",
+          "text": "今日校园",
+          "panel": "campus"
+        }
+      ],
+      "panels": [
+        {
+          "id": "campus",
+          "title": {
+            "zh": "今日校园",
+            "en": "Campus today"
+          },
+          "icon": "school",
+          "placement": [
+            "features",
+            "chat.panel"
+          ]
+        }
+      ]
+    }
   }
 }

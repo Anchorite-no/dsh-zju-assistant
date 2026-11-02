@@ -25,6 +25,19 @@ test('外层的组合包只带 patch、依赖实现包；实现包不是组合�
   assert.equal(ROWS[0].key, '', '包根那一行排第一')
 })
 
+test('dshGo 清单在两个包里一致，贡献 id 不重复且都有实现', () => {
+  assert.ok(manifest.dshGo, '实现包声明 dshGo')
+  assert.deepEqual(bundle.dshGo, manifest.dshGo, '组合包带同一份原生清单，市场检查才能识别')
+  const dshGo = manifest.dshGo
+  assert.equal(dshGo.v, 1)
+  const ids = Object.values(dshGo.contributes).flat().map(item => item.id)
+  assert.equal(new Set(ids).size, ids.length, '所有插槽的 id 不重复')
+  assert.ok(ids.includes('campus'))
+  assert.ok(ids.includes('campus-strip'))
+  assert.ok(ids.includes('campus-calendar'))
+  assert.equal(dshGo.contributes['composer.strip'][0].panel, 'campus')
+})
+
 test('两个包都有图标和中英文的标题、描述', () => {
   for (const [dir, pkg] of [['bundle', bundle], ['.', manifest]]) {
     assert.ok(pkg.icon && fs.existsSync(path.join(here, dir, pkg.icon)), `${pkg.name} 的图标`)

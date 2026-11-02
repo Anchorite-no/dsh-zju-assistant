@@ -49,6 +49,7 @@ import { CampusPage } from './campus-page.mjs'
 import { zjuTool } from './zju-tool.mjs'
 import { installTools } from './tools.mjs'
 import { filmResponse } from './film.mjs'
+import { installDshGo } from './dsh-go.mjs'
 
 const SKILL_DIR = fileURLToPath(new URL('../skill/', import.meta.url))
 const SKILL_FILE = path.join(SKILL_DIR, 'SKILL.md')
@@ -137,6 +138,8 @@ export default class ZjuCampus extends Service {
       path: '/api/zju-campus/film', methods: ['GET'], requestBody: 'buffered',
       fetch: async request => filmResponse(request, (await this.learning.roots()).films),
     })
+    // dsh-go 原生面板和状态条；没有桥接的主机不会注册。
+    installDshGo(ctx, { schedule: this.schedule, affairs: this.affairs })
     ctx.tools.register(zjuTool(ctx, this))
     installTools(ctx, this)
     // 整个插件只往用户的技能目录里放这一个技能，也不进输入框的 / 菜单（Plan 第 7 节）。

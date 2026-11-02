@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addDays, beijing, datesIn, meetsIn, memoEvents, mondayOf, normalizeCalendar, parseWeeks, planDay, planDays, termAt, weekdayOf } from './calendar.mjs'
+import { addDays, beijing, datesIn, meetsIn, memoEvents, mondayOf, normalizeCalendar, normalizeEvent, ownEvents, parseWeeks, planDay, planDays, semesterKey, termAt, weekdayOf } from './calendar.mjs'
 
 /** 2026-2027 秋学期：9 月 14 日（周一）是第 1 周；国庆放 10-01 到 10-07，10-10（周六）补 10-01（周四）的课。日子是编的，只用来测算法。 */
 const CALENDAR = normalizeCalendar({
@@ -132,4 +132,42 @@ test('memos with a time or a deadline become events; archived ones and other pro
     { kind: 'due', from: 'memo', ref: '校园 AI 创新应用大赛', date: '2026-10-21', title: '校园 AI 创新应用大赛', sub: '' },
     { kind: 'event', from: 'memo', ref: '体测', date: '2026-10-24', time: '08:30', title: '体测', sub: '' },
   ])
+})
+
+test('a graduate-system class that overlaps the undergraduate timetable is the same class; graduate and own classes skip holidays', () => {
+  // 10-19 周一 08:00 有数据结构基础：研究生教务网里同一时间的那节只留本科课表的；别的时间的研究生课照排。
+  const graduate = [
+    { kind: 'class', from: 'yjsy', date: '2026-10-19', time: '08:00', end: '09:35', title: '数据结构基础', sub: '' },
+    { kind: 'class', from: 'yjsy', date: '2026-10-19', time: '13:25', end: '15:50', title: '高级算法', sub: '玉泉曹光彪 301' },
+    { kind: 'class', from: 'yjsy', date: '2026-10-02', time: '13:25', end: '15:50', title: '高级算法', sub: '' },
+    { kind: 'class', from: 'mine', date: '2026-10-02', time: '18:50', end: '20:25', title: '自己加的课', sub: '' },
+    { kind: 'event', from: 'mine', date: '2026-10-02', time: '19:00', title: '看电影', sub: '' },
+  ]
+  assert.deepEqual(titles(planDay(data({ events: graduate }), '2026-10-19')), ['数据结构基础', '高级算法'])
+  // 国庆放假那天课都不排，自己加的日程照排。
+  assert.deepEqual(titles(planDay(data({ events: graduate }), '2026-10-02')), ['看电影'])
+})
+
+test('own entries are checked when saved, and a weekly one is laid out on every week until its last day', () => {
+  assert.deepEqual(normalizeEvent({ title: ' 组会 ', date: '2026-11-05', time: '14:00', end: '15:30', place: '曹光彪 301', until: '2026-11-19' }),
+    { title: '组会', date: '2026-11-05', time: '14:00', end: '15:30', place: '曹光彪 301', kind: 'event', until: '2026-11-19' })
+  // 只发生一次的不带 until；重复到同一天的也算一次。
+  assert.deepEqual(normalizeEvent({ id: 'a1', title: '体测', date: '2026-11-05', until: '2026-11-05', kind: 'class' }), { id: 'a1', title: '体测', date: '2026-11-05', kind: 'class' })
+  assert.throws(() => normalizeEvent({ date: '2026-11-05' }), /要写上是什么事/)
+  assert.throws(() => normalizeEvent({ title: '组会', date: '11-05' }), /日期/)
+  assert.throws(() => normalizeEvent({ title: '组会', date: '2026-11-05', time: '25:00' }), /开始时间/)
+  assert.throws(() => normalizeEvent({ title: '组会', date: '2026-11-05', end: '15:00' }), /几点开始/)
+  assert.throws(() => normalizeEvent({ title: '组会', date: '2026-11-05', time: '15:00', end: '14:00' }), /晚于开始/)
+  assert.throws(() => normalizeEvent({ title: '组会', date: '2026-11-05', kind: 'exam' }), /种类/)
+  assert.throws(() => normalizeEvent({ title: '组会', date: '2026-11-05', until: '2026-11-01' }), /前面/)
+  assert.throws(() => normalizeEvent({ title: '组会', date: '2026-11-05', until: '2028-01-01' }), /最多排一年/)
+  assert.deepEqual(ownEvents([{ id: 'a1', title: '组会', date: '2026-11-05', time: '14:00', place: '曹光彪 301', kind: 'event', until: '2026-11-20' }]).map(event => [event.date, event.ref, event.sub]),
+    [['2026-11-05', 'a1', '曹光彪 301'], ['2026-11-12', 'a1', '曹光彪 301'], ['2026-11-19', 'a1', '曹光彪 301']])
+})
+
+test('the graduate system keeps classes by the half-year: autumn and winter, spring and summer', () => {
+  assert.equal(semesterKey({ year: '2026-2027', term: '冬', week: 2 }), '2026-2027|秋冬')
+  assert.equal(semesterKey({ year: '2026-2027', term: '春', week: 1 }), '2026-2027|春夏')
+  assert.equal(semesterKey({ year: '2026-2027', term: '短', week: 1 }), null)
+  assert.equal(semesterKey(null), null)
 })

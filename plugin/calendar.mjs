@@ -111,6 +111,12 @@ export function termAt(calendar, date) {
   return null
 }
 
+/** 研究生教务网按大学期排课：秋、冬学期是 2026-2027|秋冬，春、夏学期是 2026-2027|春夏；短学期、暑期没有。 */
+export function semesterKey(at) {
+  const half = ['秋', '冬'].includes(at?.term) ? '秋冬' : ['春', '夏'].includes(at?.term) ? '春夏' : ''
+  return half ? `${at.year}|${half}` : null
+}
+
 /** 这一天是不是放假或调休的日子。 */
 export const specialDay = (calendar, date) => calendar.days.find(day => day.date === date || (day.until !== undefined && day.date <= date && date <= day.until))
 
@@ -202,9 +208,53 @@ export function memoEvents(notes) {
   return events
 }
 
+/** 自己加的日程分两种：event 是一件事；class 是一门课（比如教务网里没有的研究生课），放假那天不排。 */
+export const OWN_KINDS = ['event', 'class']
+const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/**
+ * 日程表里自己加的一条（日程表页的「+」和助手都写这个）。id 是认它用的；time、end 是几点到几点；place 是地点；
+ * until 是每周这一天重复、一直到哪天（算上这天）。存的时候过一遍这里，格式不对的说清楚是哪一项。
+ */
+export function normalizeEvent(input) {
+  const id = text(input?.id), title = text(input?.title).slice(0, 60), date = text(input?.date), time = text(input?.time), end = text(input?.end)
+  const place = text(input?.place).slice(0, 40), kind = text(input?.kind) || 'event', until = text(input?.until)
+  if (id && !/^[\w-]{1,64}$/.test(id)) throw new Error('日程的 id 不对')
+  if (!title) throw new Error('日程要写上是什么事')
+  if (!isDate(date)) throw new Error(`「${title}」的日期「${date}」要写成 2026-11-05 这样`)
+  if (time && !CLOCK.test(time)) throw new Error(`「${title}」的开始时间「${time}」要写成 14:00 这样`)
+  if (end && !CLOCK.test(end)) throw new Error(`「${title}」的结束时间「${end}」要写成 15:35 这样`)
+  if (end && !time) throw new Error(`「${title}」写了几点结束，也要写几点开始`)
+  if (end && end <= time) throw new Error(`「${title}」结束的时间要晚于开始`)
+  if (!OWN_KINDS.includes(kind)) throw new Error(`「${title}」的种类只能是 ${OWN_KINDS.join('、')}`)
+  if (until && !isDate(until)) throw new Error(`「${title}」每周重复到哪天「${until}」要写成 2027-01-10 这样`)
+  if (until && until < date) throw new Error(`「${title}」重复到的那天 ${until} 在开始那天前面`)
+  if (until && dayNumber(until) - dayNumber(date) > 366) throw new Error(`「${title}」每周重复最多排一年`)
+  return { ...(id ? { id } : {}), title, date, ...(time ? { time } : {}), ...(end ? { end } : {}), ...(place ? { place } : {}), kind, ...(until && until !== date ? { until } : {}) }
+}
+
+/** 自己加的日程变成日程上的事：每周重复的按周展开，每一次都带着它的 id（ref）。 */
+export function ownEvents(items) {
+  const events = []
+  for (const item of items) {
+    for (let number = dayNumber(item.date); number <= dayNumber(item.until ?? item.date); number += 7) {
+      events.push({
+        kind: item.kind, from: 'mine', ref: item.id, date: dateOf(number), ...(item.time ? { time: item.time } : {}), ...(item.end ? { end: item.end } : {}),
+        title: item.title, sub: item.place ?? '',
+      })
+    }
+  }
+  return events
+}
+
+/** 两件事的时间有没有重叠（都要有开始和结束）。 */
+const overlaps = (a, b) => !!(a.time && a.end && b.time && b.end && a.time < b.end && b.time < a.end)
+
 /**
  * 一天的日程。data 是 { calendar, timetables: { [学年|学期]: { periodTimes, courses } }, current（教务网默认那个学期的键）, events }：
- * events 是考试、截止、备忘这些已经有了日期的事。
+ * events 是考试、截止、备忘、自己加的日程、研究生教务网的课这些已经有了日期的事。
+ * 研究生教务网的课（from 为 yjsy）和本科课表里同一时间的是同一节课（本研共修的课两边都有），只留本科课表的。
+ * 是课的事（研究生教务网的、自己加的）放假那天不排，和课表一样。
  * 返回 { date, weekday, term, off?, swap?, missing?, loose?, items }：
  *   term   这天按校历是哪个学期第几周（调休的日子算上的那天的），不在任何学期里是 null；
  *   off    放假，{ note, moved?（这天的课挪到哪天上）, source? }；swap 调休或补课，{ as, weekday, note, source? }；
@@ -238,7 +288,8 @@ export function planDay(data, date) {
       }
     }
   }
-  const events = (data.events ?? []).filter(event => event.date === date)
+  const events = (data.events ?? []).filter(event => event.date === date && !(event.kind === 'class' && day.off)
+    && !(event.from === 'yjsy' && classes.some(item => overlaps(item, event))))
   day.items = [...classes, ...events].sort((a, b) => (a.time ? 1 : 0) - (b.time ? 1 : 0) || (a.time ?? '').localeCompare(b.time ?? '') || (a.kind === 'class' ? 0 : 1) - (b.kind === 'class' ? 0 : 1))
   return day
 }

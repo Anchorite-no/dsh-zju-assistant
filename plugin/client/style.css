@@ -2813,6 +2813,31 @@ button.campus-chat-open { border: 0; background: transparent; padding: 0; text-a
 
 .campus-pin[data-kind='exam'] .campus-pin-when { color: var(--dsw-alias-state-warn-primary); }
 
+/* 自己加的日程在格子里是按钮：去掉按钮自带的边框和字体，鼠标放上去略微提亮，点了打开修改的弹框。 */
+button.campus-block,
+button.campus-pin {
+  margin: 0;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.campus-pin {
+  width: auto;
+  text-align: left;
+}
+
+button.campus-block:hover,
+button.campus-pin:hover {
+  filter: brightness(1.06);
+}
+
+button.campus-block:focus-visible,
+button.campus-pin:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 1px;
+}
+
 .campus-pin-title {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -2925,6 +2950,36 @@ button.campus-chat-open { border: 0; background: transparent; padding: 0; text-a
 
 .campus-plan-foot-gap {
   flex: 1;
+}
+
+/* 加、改自己的日程的弹框：名称占一整行，下面两两并排：日期和重复到哪天、几点到几点、地点和种类。 */
+.campus-event-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+
+.campus-event-form > .campus-alert,
+.campus-event-wide {
+  grid-column: 1 / -1;
+}
+
+.campus-event-form .campus-field {
+  padding: 8px 0;
+}
+
+.campus-event-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* 弹框挂在 body 上，不在页面的容器里，按窗口宽度收成一列。 */
+@media (max-width: 520px) {
+  .campus-event-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @container (max-width: 560px) {

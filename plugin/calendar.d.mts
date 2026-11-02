@@ -28,6 +28,8 @@ export interface TermWeek { year: string, term: string, week: number }
 export function normalizeCalendar(input: unknown): Calendar
 export function layerCalendars(...layers: (Calendar | undefined)[]): Calendar
 export function termAt(calendar: Calendar, date: string): TermWeek | null
+/** 研究生教务网的大学期：2026-2027|秋冬、2026-2027|春夏；短学期、暑期是 null。 */
+export function semesterKey(at: { year: string, term: string } | null | undefined): string | null
 export function specialDay(calendar: Calendar, date: string): CalendarDay | undefined
 export function parseWeeks(value: unknown): Set<number> | null
 
@@ -53,9 +55,9 @@ export interface PlanItem {
   end?: string
   /** 地点、课程名、考场这类跟在标题后面的一句。 */
   sub?: string
-  /** 从哪来：zdbk、xuezai、pta、memo。 */
+  /** 从哪来：zdbk、xuezai、pta、memo、yjsy（研究生教务网的课）、mine（自己加的）。 */
   from?: string
-  /** 在来处认它用的：备忘的标题、作业的编号。 */
+  /** 在来处认它用的：备忘的标题、作业的编号、自己加的日程的 id。 */
   ref?: string
   teacher?: string
   periods?: number[]
@@ -67,6 +69,14 @@ export interface PlanItem {
   done?: boolean
 }
 export interface PlanEvent extends PlanItem { date: string }
+
+/** 自己加的日程：event 一件事，class 一门课（放假那天不排）。 */
+export type OwnKind = 'event' | 'class'
+export const OWN_KINDS: readonly OwnKind[]
+/** 日程表里自己加的一条；until 是每周重复到哪天。 */
+export interface OwnEvent { id?: string, title: string, date: string, time?: string, end?: string, place?: string, kind: OwnKind, until?: string }
+export function normalizeEvent(input: unknown): OwnEvent
+export function ownEvents(items: readonly OwnEvent[]): PlanEvent[]
 
 export function memoEvents(notes: readonly { title: string, archived?: boolean, updatedAt?: string, properties?: readonly { key: string, value: string }[] }[]): PlanEvent[]
 

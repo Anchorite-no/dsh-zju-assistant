@@ -241,6 +241,8 @@ export default class ZjuCampus extends Service {
       case 'schedule-read': return this.schedule.snapshot()
       case 'schedule-refresh': return this.schedule.refresh(input)
       case 'calendar-save': return this.schedule.saveCalendar(input)
+      case 'schedule-event-save': return this.schedule.saveEvent(input)
+      case 'schedule-event-remove': return this.schedule.removeEvent(input)
       case 'feed-read': return this.feed.snapshot()
       case 'feed-refresh': return this.feed.refresh(input)
       case 'feed-memo': return this.noticeMemo.add(input)

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { Schedule, fromExams, fromTimetable } from './schedule.mjs'
+import { Schedule, fromExams, fromGraduate, fromTimetable } from './schedule.mjs'
 import { Holidays } from './holidays.mjs'
 
 const meeting = (weekday, startTime, endTime, extra = {}) => ({ weekday, periods: [3, 4], startTime, endTime, location: '东1A-101', weeks: '第1-8周', weekPattern: '每周', ...extra })
@@ -19,13 +19,22 @@ const EXAMS = { term: { year: '2026-2027', term: '秋冬' }, count: 2, courses: 
   { name: '大学物理', term: '秋冬', credits: '4', midterm: { status: '已公布', time: '另行通知' }, final: { status: '未公布' } },
 ] }
 
+/** `yjsy timetable` 的结果：研究生教务网一个大学期的课，每次课的日期已经算好。 */
+const graduate = (courses = []) => ({ term: { year: '2026-2027', term: '秋冬', start: '2026-09-14', end: '2027-01-15', weeks: 16 }, entry: '本科生入口', periodTimes: [], count: courses.length, courses })
+const ALGORITHMS = { name: '高级算法', class: '01', teacher: '刘老师', term: '秋', undergraduate: false, pending: false, meetings: [
+  { weekday: 1, periods: [6, 7, 8], startTime: '13:25', endTime: '15:50', location: '玉泉曹光彪301', weeks: '第6-7周', dates: ['2026-10-19', '2026-10-26'] },
+] }
+const SHARED = { name: '数据结构基础', class: '02', teacher: '张老师', term: '秋', undergraduate: true, pending: true, meetings: [
+  { weekday: 1, periods: [3, 4], startTime: '10:00', endTime: '11:35', location: '东1A-101', weeks: '第6周', dates: ['2026-10-19'] },
+] }
+
 /** 一套假的账号、开关、作业、备忘和 core，记下 core 被叫了几次。results 的键是 core 的命令（参数用空格连起来）。 */
 function setup(t, { accounts = { zju_username: '3240100001', zju_password: 'x' } } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'campus-schedule-'))
   t.after(() => { fs.rmSync(root, { recursive: true, force: true }) })
   const world = {
     accounts, disabled: [], calls: [], now: Date.parse('2026-10-18T02:00:00Z'), tasks: [], memos: [],
-    results: { 'zdbk timetable': AUTUMN, 'zdbk exams': EXAMS, 'zdbk timetable --year 2026-2027 --term 冬': WINTER },
+    results: { 'zdbk timetable': AUTUMN, 'zdbk exams': EXAMS, 'zdbk timetable --year 2026-2027 --term 冬': WINTER, 'yjsy timetable --year 2026-2027 --term 秋冬': graduate() },
     file: path.join(root, 'cache', 'schedule.json'), calendarFile: path.join(root, 'profile', 'calendar.json'),
   }
   world.create = () => new Schedule({
@@ -131,7 +140,7 @@ test('nothing is read without an account or with the plugin off, and a changed a
   assert.deepEqual(world.calls, ['zdbk timetable'])
 })
 
-test('a graduate student is not sent to the undergraduate system, and the assistant is told why', async (t) => {
+test('a graduate student is not sent to the undergraduate system; the classes come from the graduate system', async (t) => {
   const world = setup(t)
   const schedule = world.create()
   // 学号 2 开头是硕士、1 开头是博士：本科教务网里没有他们的课表和考试。
@@ -139,11 +148,67 @@ test('a graduate student is not sent to the undergraduate system, and the assist
     world.accounts = { zju_username, zju_password: 'x' }
     const snapshot = await schedule.refresh({ source: 'timetable', force: true })
     assert.deepEqual(snapshot.sources.map(source => source.state), ['graduate', 'graduate'])
+    assert.equal(snapshot.graduate.state, 'ready')
     await schedule.refresh({ source: 'exams', force: true })
   }
-  const { notes } = await schedule.days({ from: '2026-10-19', to: '2026-10-25' })
-  assert.ok(notes.some(note => note.includes('研究生')))
   assert.deepEqual(world.calls, [])
+  world.results['yjsy timetable --year 2026-2027 --term 秋冬'] = graduate([ALGORITHMS])
+  const { days, notes } = await schedule.days({ from: '2026-10-19', to: '2026-10-25' })
+  assert.deepEqual(world.calls, ['yjsy timetable --year 2026-2027 --term 秋冬'])
+  assert.deepEqual(days[0].items, [{ kind: '课', time: '13:25-15:50', title: '高级算法', where: '玉泉曹光彪301', from: '研究生教务网' }])
+  // 说清考试读不到，不说「课表没读到」。
+  assert.match(notes.join(' '), /研究生.*考试安排还读不到/)
+  assert.doesNotMatch(notes.join(' '), /课表没读到/)
+})
+
+test('an undergraduate taking graduate classes gets both systems, without the same class twice', async (t) => {
+  const world = setup(t)
+  world.results['yjsy timetable --year 2026-2027 --term 秋冬'] = graduate([ALGORITHMS, SHARED])
+  const schedule = world.create()
+  const result = await schedule.days({ from: '2026-10-19', to: '2026-10-19' })
+  assert.deepEqual(world.calls, ['zdbk timetable', 'zdbk exams', 'yjsy timetable --year 2026-2027 --term 秋冬'])
+  assert.deepEqual(result.days[0].items.map(item => [item.title, item.time, item.from]), [['数据结构基础', '10:00-11:35', undefined], ['高级算法', '13:25-15:50', '研究生教务网']])
+  // 选课没处理完的标在地点前面。
+  assert.equal(fromGraduate(graduate([SHARED]))[0].sub, '选课待处理 · 东1A-101')
+  assert.throws(() => fromGraduate({}), /格式不对/)
+
+  // 研究生教务网读不到时用上一次的，告诉助手；刚读过的不再读。
+  world.results['yjsy timetable --year 2026-2027 --term 秋冬'] = new Error('研究生教务网：系统维护')
+  let snapshot = await schedule.refresh({ source: 'graduate', term: '2026-2027|秋冬', force: true })
+  assert.match(snapshot.graduate.terms['2026-2027|秋冬'].error, /系统维护/)
+  assert.ok(snapshot.events.some(event => event.title === '高级算法'))
+  const calls = world.calls.length
+  snapshot = await schedule.refresh({ source: 'graduate', term: '2026-2027|秋冬' })
+  assert.equal(world.calls.length, calls)
+  const { notes } = await schedule.days({ from: '2026-10-19', to: '2026-10-19' })
+  assert.match(notes.join(' '), /研究生课表这次没从研究生教务网读到（研究生教务网：系统维护）/)
+  await assert.rejects(schedule.refresh({ source: 'graduate', term: '2026-2027|秋' }), /2026-2027\|秋冬/)
+})
+
+test('own entries are added, changed and removed; weekly ones show on every week and the assistant gets their id', async (t) => {
+  const world = setup(t)
+  const schedule = world.create()
+  let snapshot = schedule.saveEvent({ title: '组会', date: '2026-10-19', time: '19:00', end: '20:30', place: '曹光彪 301', until: '2026-11-02' })
+  const [item] = snapshot.own
+  assert.match(item.id, /^[\w-]+$/)
+  assert.deepEqual(snapshot.events.filter(event => event.from === 'mine').map(event => event.date), ['2026-10-19', '2026-10-26', '2026-11-02'])
+  // 改的时候整条换掉，id 不变；页面传来的空字段不存。
+  snapshot = schedule.saveEvent({ id: item.id, title: '组会', date: '2026-10-20', time: '', end: '', place: '', kind: 'event', until: '' })
+  assert.deepEqual(snapshot.own, [{ id: item.id, title: '组会', date: '2026-10-20', kind: 'event' }])
+  const days = await schedule.days({ from: '2026-10-20', to: '2026-10-20' })
+  assert.deepEqual(days.days[0].items, [{ kind: '日程', title: '组会', from: '用户自己加的', id: item.id }])
+  // 助手一次写几条；不认识的 id 报错，什么也不写。
+  assert.throws(() => schedule.changeOwn([{ title: '新的', date: '2026-10-21' }, { id: 'nope', remove: true }]), /没有 id 为 nope/)
+  assert.equal(schedule.own().items.length, 1)
+  schedule.changeOwn([{ title: '研讨课', date: '2026-10-21', time: '13:25', end: '15:50', kind: 'class' }])
+  assert.equal(schedule.own().items.length, 2)
+  snapshot = schedule.removeEvent({ id: item.id })
+  assert.deepEqual(snapshot.own.map(own => own.title), ['研讨课'])
+  assert.throws(() => schedule.saveEvent({ title: '', date: '2026-10-21' }), /要写上是什么事/)
+  // 文件坏了不当作空的，也不让再存。
+  fs.writeFileSync(schedule.eventsFile, '{"events": 1}')
+  assert.match(world.create().snapshot().ownProblem, /自己加的日程读不了/)
+  assert.throws(() => world.create().saveEvent({ title: '组会', date: '2026-10-21' }), /自己加的日程读不了/)
 })
 
 test('homework deadlines and memo times join the events in Beijing time', (t) => {
@@ -192,7 +257,7 @@ test('the assistant reads laid-out days, and the schedule fetches what it needs 
   const schedule = world.create()
   schedule.saveCalendar({ terms: [{ year: '2026-2027', term: '秋', start: '2026-09-14' }, { year: '2026-2027', term: '冬', start: '2026-11-09' }], days: [{ date: '2026-10-21', off: true, note: '运动会' }] })
   const result = await schedule.days({ from: '2026-10-19', to: '2026-10-21' })
-  assert.deepEqual(world.calls, ['zdbk timetable', 'zdbk exams'])
+  assert.deepEqual(world.calls, ['zdbk timetable', 'zdbk exams', 'yjsy timetable --year 2026-2027 --term 秋冬'])
   assert.equal(result.today, '2026-10-18')
   assert.deepEqual(result.days, [
     { date: '2026-10-19', weekday: '周一', week: '2026-2027 秋学期第 6 周', items: [{ kind: '课', time: '10:00-11:35', title: '数据结构基础', where: '东1A-101' }] },

@@ -1,6 +1,6 @@
 ## 课程与学习
 
-教务网（zdbk）、学在浙大（xuezai）、PTA（pta）、大物实验课（lab）、智云课堂（zhiyun）、超星学习通（chaoxing）、电子书（ebook）、知网（cnki）。下表是 `zju` 的 `args`。
+教务网（zdbk）、研究生教务网（yjsy）、学在浙大（xuezai）、PTA（pta）、大物实验课（lab）、智云课堂（zhiyun）、超星学习通（chaoxing）、电子书（ebook）、知网（cnki）。下表是 `zju` 的 `args`。
 
 | 用户目标 | 调用 |
 |---|---|
@@ -8,6 +8,7 @@
 | 实验课哪天做什么、在哪 | `lab timetable` |
 | 考试时间、考场、座位 | `zdbk exams`，可加 `--course 课程名` |
 | 成绩、GPA、学分 | `zdbk grades` |
+| 研究生课的原始课表（研究生，或选了研究生课的本科生） | `yjsy timetable`，可加 `--year 2026-2027 --term 冬`；日程表已经把它和本科课表排在一起，问哪天上什么课还是先用 `campus_schedule` |
 | 本人学院、专业、行政班 | `zdbk student`（研究生查不到） |
 | 培养方案 | `zdbk plan view`，别的专业加 `--major 专业名` |
 | 作业、DDL | `xuezai todos` |

@@ -90,13 +90,15 @@ export function installTools(ctx, campus) {
     name: 'campus_schedule',
     description: [
       `日程表和校历。${SKILL}`,
-      'read：从 from 到 to 每一天上哪些课（已经按校历算好第几周、单双周、放假和调休），连同考试、作业截止（交过的带 done）和备忘录里写了时间的事；今天是第几周也在里面。',
+      'read：从 from 到 to 每一天上哪些课（本科教务网和研究生教务网的课都在，已经按校历算好第几周、单双周、放假和调休），连同考试、作业截止（交过的带 done）、备忘录里写了时间的事和用户自己加的日程（带 id）；今天是第几周也在里面。',
       '用户问哪天有什么课、这周有什么安排时先用它，不要自己拿课表按星期去对。不给日期是今天起的七天，一次最多 42 天；notes 里是没查到或不确定的地方，照实告诉用户。',
       'calendar：在校历里补学校另外通知的停课、补课，或者还没有的新学年的学期。浙大当学年的校历和国家的放假调休已经带着，不用写。只写学校正式公布的或用户亲口说的，写之前把要写的几条和出处告诉用户，等用户同意。',
+      'events：在日程表里加、改、删用户自己的日程（items）。用户让你记下的事，或者两个教务网都没有的课（kind 写 class，放假那天不排）；从聊天、通知、智云里整理出来的先列给用户看，等用户同意再写。',
     ].join(''),
     parameters: {
       from: { type: 'string', description: 'read：从哪天起，北京时间，如 2026-10-19' },
       to: { type: 'string', description: 'read：到哪天（算上这天）' },
+      items: { type: 'array', items: { type: 'object', additionalProperties: true }, description: 'events：如 [{"title": "组会", "date": "2026-11-05", "time": "14:00", "end": "15:30", "place": "玉泉曹光彪 301", "until": "2027-01-14"}]；until 是每周这天重复到哪天，kind 是 event（默认）或 class；带 id 是改那一条，带 id 和 remove: true 是删' },
       terms: { type: 'array', items: { type: 'object', additionalProperties: true }, description: 'calendar：小学期，如 [{"year": "2026-2027", "term": "秋", "start": "2026-09-14", "weeks": 8}]；start 是第 1 周的周一，带 clear: true 是删掉' },
       days: { type: 'array', items: { type: 'object', additionalProperties: true }, description: 'calendar：特殊的日子，如 [{"date": "2026-10-01", "until": "2026-10-07", "off": true, "note": "国庆节"}, {"date": "2026-10-10", "as": "2026-10-08", "note": "国庆调休"}]' },
     },
@@ -104,6 +106,7 @@ export function installTools(ctx, campus) {
       // 桌面版把「今天是第几周」放在系统提示里，插件不加系统提示，跟着日程一起给。
       read: { title: '查看日程', run: async args => ({ ...(await schedule.days(args)), today: schedule.promptText() }) },
       calendar: { title: '更新校历', run: args => schedule.updateCalendar(args) },
+      events: { title: '更新日程', run: args => { need(args, 'items'); return { events: schedule.changeOwn(args.items) } } },
     },
   }))
 

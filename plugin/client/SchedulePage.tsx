@@ -1,6 +1,7 @@
 /**
  * 日程表：侧栏上自己的一项（client/index.tsx 登记），不盖住官方的「自动化任务」。
- * 一周的课表格子：课、考试、备忘录里写了时间的事、作业的截止都按时间放进格子。
+ * 一周的课表格子：本科教务网和研究生教务网的课、考试、备忘录里写了时间的事、自己加的日程、作业的截止都按时间放进格子。
+ * 右上角的「+」加一条自己的日程；加过的在格子里点一下就能改、能删。
  * 格子是固定的：一天 13 节，每节一样高，事情多了也不会把页面撑长，和手机上的课表一个样子；
  * 每节多高按窗口的高度算，默认大小的窗口不用上下滚就能看到第 13 节。
  * 课怎么排进具体日期（校历、周次、单双周、放假和调休）在 calendar.mjs，校历和放假安排在 host/holidays.mjs，
@@ -9,14 +10,14 @@
 import { useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import {
   Button, IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular,
-  IconTrashOutlineRegular, Toast,
+  IconTrashOutlineRegular, Modal, Toast,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
-  TERM_NAMES, TERM_WEEKS, WEEKDAY_NAMES, ZJU_PERIODS, addDays, beijing, mondayOf, planDays, weekdayOf,
-  type Calendar, type CalendarDay, type DaySource, type PlanData, type PlanDay, type PlanItem,
+  TERM_NAMES, TERM_WEEKS, WEEKDAY_NAMES, ZJU_PERIODS, addDays, beijing, mondayOf, planDays, semesterKey, weekdayOf,
+  type Calendar, type CalendarDay, type DaySource, type OwnEvent, type OwnKind, type PlanData, type PlanDay, type PlanItem,
 } from '../calendar.mjs'
 import { errorText, campusApi } from './api.ts'
-import { Alert, Crumb } from './controls.tsx'
+import { Alert, Crumb, Field } from './controls.tsx'
 import { handToAssistant } from './handoff.tsx'
 import { openRow } from './campus.ts'
 import { agoText, useNow } from './when.ts'
@@ -34,6 +35,11 @@ interface Snapshot extends PlanData {
   unpublished: number[]
   failed: Record<string, string>
   sources: Source[]
+  /** 自己加的日程（每周重复的是一条），和那个文件读不了时的原因。 */
+  own: (OwnEvent & { id: string })[]
+  ownProblem?: string
+  /** 研究生教务网：state，和读过的每个大学期（2026-2027|秋冬）什么时候读的、没读到的原因。 */
+  graduate: { state: 'ready' | 'account' | 'off', plugin: string, terms: Record<string, { fetchedAt: string | null, error: string | null }> }
 }
 interface State { snapshot: Snapshot | null, busy: readonly string[], error: string }
 
@@ -47,8 +53,20 @@ const subscribe = (listener: () => void) => { listeners.add(listener); return ()
 const emit = () => { for (const listener of [...listeners]) listener() }
 const update = (patch: Partial<State>) => { state = { ...state, ...patch }; emit() }
 const setShown = (next: string) => { shown = next; emit() }
-/** 这一次进页面已经去要过的学期课表，同一个不再要（读失败时后台自己隔一阵才重试）。 */
+/** 这一次进页面已经去要过的学期课表、研究生课表，同一个不再要（读失败时后台自己隔一阵才重试）。 */
 const asked = new Set<string>()
+
+/** 这一周落在研究生教务网的哪几个大学期（2026-2027|秋冬）。 */
+const semestersOf = (days: PlanDay[]) => [...new Set(days.map(day => day.term && semesterKey(day.term)).filter((key): key is string => !!key))]
+
+/** 去研究生教务网读这一周要用的大学期；读过的跳过，force 时照读。 */
+function loadGraduate(snapshot: Snapshot, monday: string, force = false): Promise<void>[] {
+  if (snapshot.graduate?.state !== 'ready') return []
+  return semestersOf(planDays(snapshot, monday, addDays(monday, 6))).filter(key => force || !asked.has(`graduate:${key}`)).map((key) => {
+    asked.add(`graduate:${key}`)
+    return load(`graduate:${key}`, { source: 'graduate', term: key, force })
+  })
+}
 
 /** 读一样东西：同一样同时只读一次，读完换上新的内容。 */
 async function load(key: string, input: object): Promise<void> {
@@ -71,6 +89,8 @@ async function visit(force = false): Promise<void> {
   // 作业交没交，让校园事务页去学在浙大和 PTA 读一次，交过的这里标成已完成。
   const reads = [load('tasks', { source: 'tasks', force }), ...(snapshot.unpublished.length ? [load('holidays', { source: 'holidays' })] : [])]
   if (snapshot.sources[0]?.state === 'ready') reads.push(load('timetable', { source: 'timetable', force }), load('exams', { source: 'exams', force }))
+  // 研究生课：本科生选了的、研究生自己的，都在研究生教务网。
+  reads.push(...loadGraduate(snapshot, shown ?? mondayOf(beijing(Date.now()).date), force))
   await Promise.all(reads)
 }
 
@@ -81,33 +101,44 @@ const shortDate = (date: string) => `${+date.slice(5, 7)}/${+date.slice(8, 10)}`
 const termName = (key: string) => `${key.slice(0, 9)} ${key.slice(10)}学期`
 
 const KIND_LABEL: Record<PlanItem['kind'], string> = { class: '', exam: '考试', due: '截止', event: '' }
-const FROM_NAME: Record<string, string> = { memo: '备忘录', xuezai: '学在浙大', pta: 'PTA', zdbk: '教务网' }
+const FROM_NAME: Record<string, string> = { memo: '备忘录', xuezai: '学在浙大', pta: 'PTA', zdbk: '教务网', yjsy: '研究生教务网' }
+/** 提示里最后一行：从哪来的；自己加的写「自己加的」。 */
+const fromLine = (item: PlanItem) => item.from === 'mine' ? '自己加的' : item.from && FROM_NAME[item.from] ? `来自${FROM_NAME[item.from]}` : ''
 
 /** 鼠标放上去看到的：时间、老师、节次、周次、地点，或者是哪门课、从哪来的。 */
 function hint(item: PlanItem): string {
   const time = item.time ? (item.end && item.kind !== 'due' ? `${item.time}–${item.end}` : item.time) : ''
   if (item.kind === 'class') {
     const weeks = [item.weeks, item.weekPattern === '每周' ? '' : item.weekPattern].filter(Boolean).join(' ')
-    return [item.title, [time, item.periods?.length ? `第 ${item.periods.join('、')} 节` : ''].filter(Boolean).join(' · '), item.teacher, weeks, item.sub].filter(Boolean).join('\n')
+    return [item.title, [time, item.periods?.length ? `第 ${item.periods.join('、')} 节` : ''].filter(Boolean).join(' · '), item.teacher, weeks, item.sub,
+      item.from !== 'zdbk' && fromLine(item)].filter(Boolean).join('\n')
   }
   const when = item.kind === 'due' ? `${item.date ? `${monthDay(item.date)} ` : ''}${item.time ?? ''} 截止${item.done ? '，已交' : ''}` : time
-  return [`${KIND_LABEL[item.kind] ? `${KIND_LABEL[item.kind]}：` : ''}${item.title}`, when, item.sub, item.from && FROM_NAME[item.from] && `来自${FROM_NAME[item.from]}`].filter(Boolean).join('\n')
+  return [`${KIND_LABEL[item.kind] ? `${KIND_LABEL[item.kind]}：` : ''}${item.title}`, when, item.sub, fromLine(item)].filter(Boolean).join('\n')
+}
+
+/** 自己加的日程在格子里是按钮，点了改它；别的只是看。 */
+type OnEdit = (id: string) => void
+function Cell({ item, className, style, onEdit, children, ...data }: { item: PlanItem, className: string, style: CSSProperties, onEdit: OnEdit, children: ReactNode, [key: `data-${string}`]: string | undefined }) {
+  const ref = item.from === 'mine' ? item.ref : undefined
+  if (!ref) return <div className={className} style={style} title={hint(item)} {...data}>{children}</div>
+  return <button type="button" className={className} style={style} title={hint(item)} onClick={() => { onEdit(ref) }} {...data}>{children}</button>
 }
 
 /** 格子里的一块。课只写名字和地点（时间看左边的节次）；考试和备忘写上时间。正在上的那一节加一道外框。 */
-function Block({ placed, live, loose }: { placed: Placed, live: boolean, loose: boolean }) {
+function Block({ placed, live, loose, onEdit }: { placed: Placed, live: boolean, loose: boolean, onEdit: OnEdit }) {
   const { item, top, bottom, lane, lanes } = placed
   const style = {
     '--campus-block-top': top, '--campus-block-span': bottom - top, '--campus-block-lane': lane, '--campus-block-lanes': lanes,
   } as CSSProperties
   const odd = loose && item.kind === 'class' && item.weekPattern && item.weekPattern !== '每周' ? item.weekPattern : ''
   return (
-    <div className="campus-block" data-kind={item.kind} data-live={live ? '' : undefined} style={style} title={hint(item)}>
+    <Cell item={item} className="campus-block" style={style} onEdit={onEdit} data-kind={item.kind} data-live={live ? '' : undefined}>
       {item.kind !== 'class' && <span className="campus-block-time">{item.time}{KIND_LABEL[item.kind] && ` ${KIND_LABEL[item.kind]}`}</span>}
       <span className="campus-block-title">{item.title}</span>
       {item.sub && <span className="campus-block-sub">{item.sub}</span>}
       {odd && <span className="campus-block-sub">{odd}</span>}
-    </div>
+    </Cell>
   )
 }
 
@@ -115,14 +146,14 @@ function Block({ placed, live, loose }: { placed: Placed, live: boolean, loose: 
  * 钉在格子里的一张卡片：上面一行是「23:59 截止」或者「全天」，下面是名字（最多两行）。是哪门课，鼠标放上去看。
  * 交过的作业还在原来的位置，卡片变淡，上面一行换成绿色的「已完成」。
  */
-function Pin({ pinned }: { pinned: Pinned }) {
+function Pin({ pinned, onEdit }: { pinned: Pinned, onEdit: OnEdit }) {
   const { item, top } = pinned
   const when = item.done ? '✓ 已完成' : item.kind === 'due' ? `${item.time ?? ''} 截止`.trim() : item.time ? `${item.time}${KIND_LABEL[item.kind] && ` ${KIND_LABEL[item.kind]}`}` : '全天'
   return (
-    <div className="campus-pin" data-kind={item.kind} data-done={item.done ? '' : undefined} style={{ '--campus-block-top': top } as CSSProperties} title={hint(item)}>
+    <Cell item={item} className="campus-pin" style={{ '--campus-block-top': top } as CSSProperties} onEdit={onEdit} data-kind={item.kind} data-done={item.done ? '' : undefined}>
       <span className="campus-pin-when">{when}</span>
       <span className="campus-pin-title">{item.title}</span>
-    </div>
+    </Cell>
   )
 }
 
@@ -139,7 +170,8 @@ function DayMark({ day }: { day: PlanDay }) {
   return null
 }
 
-function WeekGrid({ days, periods, today, clock }: { days: PlanDay[], periods: readonly Period[], today: string, clock: string }) {
+/** expectTimetable：本科教务网的课表这时候该有（研究生、没填账号时没有，不说「还没读到」）。 */
+function WeekGrid({ days, periods, today, clock, expectTimetable, onEdit }: { days: PlanDay[], periods: readonly Period[], today: string, clock: string, expectTimetable: boolean, onEdit: OnEdit }) {
   const placedDays = days.map(day => ({ day, ...place(day.items, periods) }))
   const nowRow = rowAt(clock, periods)
   const showNow = clock >= periods[0]!.startTime && clock <= periods.at(-1)!.endTime
@@ -173,12 +205,12 @@ function WeekGrid({ days, periods, today, clock }: { days: PlanDay[], periods: r
               </span>
             )}
             {grid.map((placed, index) => (
-              <Block key={`${placed.item.kind}:${placed.item.title}:${placed.item.time ?? ''}:${index}`} placed={placed} loose={!!day.loose}
+              <Block key={`${placed.item.kind}:${placed.item.title}:${placed.item.time ?? ''}:${index}`} placed={placed} loose={!!day.loose} onEdit={onEdit}
                 live={isToday && !!placed.item.time && !!placed.item.end && placed.item.time <= clock && clock < placed.item.end} />
             ))}
-            {pins.map((pinned, index) => <Pin key={`${pinned.item.kind}:${pinned.item.title}:${index}`} pinned={pinned} />)}
+            {pins.map((pinned, index) => <Pin key={`${pinned.item.kind}:${pinned.item.title}:${index}`} pinned={pinned} onEdit={onEdit} />)}
             {isToday && showNow && <span className="campus-grid-now" style={{ '--campus-block-top': nowRow } as CSSProperties} />}
-            {day.missing && grid.every(placed => placed.item.kind !== 'class') && <span className="campus-grid-missing">课表还没读到</span>}
+            {expectTimetable && day.missing && grid.every(placed => placed.item.kind !== 'class') && <span className="campus-grid-missing">课表还没读到</span>}
           </div>
         )
       })}
@@ -197,8 +229,8 @@ function handCalendar(snapshot: Snapshot | null): Promise<void> {
   return handToAssistant(`帮我把校历填进日程表：加载 zju-campus 技能，查本科生院公布的 ${year} 学年校历，和这学期的放假、调课通知，找出每个小学期第 1 周的周一、哪几天停课、哪天补课上哪天的课。先把要写的几条和原文链接列给我看，我确认了再用 campus_calendar_write 写进去。`)
 }
 
-/** 「日程」页签：顶上一行是两个页签、哪一周、刷新和校历，下面是课表格子。 */
-function PlanView({ title, onCalendar }: { title: ReactNode, onCalendar: () => void }) {
+/** 「日程」页签：顶上一行是哪一周、刷新、校历和「+」，下面是课表格子。onEdit 给的是自己加的日程的 id，新加一条时是 null。 */
+function PlanView({ title, onCalendar, onEdit }: { title: ReactNode, onCalendar: () => void, onEdit: (id: string | null, date: string) => void }) {
   const { snapshot, busy, error } = useSyncExternalStore(subscribe, () => state)
   const now = useNow()
   const here = beijing(now)
@@ -226,6 +258,10 @@ function PlanView({ title, onCalendar }: { title: ReactNode, onCalendar: () => v
       void load(`term:${key}`, { source: 'timetable', term: key })
     }
   }, [missing.join(','), snapshot?.sources[0]?.state])
+  // 翻到别的大学期（比如春夏）时，去研究生教务网读那一个。
+  useEffect(() => {
+    if (snapshot) void Promise.all(loadGraduate(snapshot, monday))
+  }, [semestersOf(days).join(','), snapshot?.graduate?.state])
 
   const reading = busy.length > 0
   const thisWeek = mondayOf(today)
@@ -241,7 +277,7 @@ function PlanView({ title, onCalendar }: { title: ReactNode, onCalendar: () => v
   if (error) notices.push(<Alert key="error">{error}</Alert>)
   if (handError) notices.push(<Alert key="hand">{handError}</Alert>)
   // 「课程与学习」关着时不提：插件页上关着的行都不再说「关着」。研究生：本科教务网里没有他的课表和考试，引擎侧不去读（host/schedule.mjs 的 status）。
-  if (source?.state === 'graduate') notices.push(<Alert key="account" tone="warn">研究生的课表和考试在研究生院的系统里，现在还读不到。</Alert>)
+  if (source?.state === 'graduate') notices.push(<Alert key="account" tone="warn">研究生的考试安排在研究生院的系统里，现在还读不到。</Alert>)
   else if (source?.state === 'account') {
     notices.push(
       <Alert key="account" tone="warn">
@@ -255,7 +291,14 @@ function PlanView({ title, onCalendar }: { title: ReactNode, onCalendar: () => v
       notices.push(<Alert key={`source:${item.id}`} tone="warn">{item.name}这次没从教务网读到（{item.error}）{item.fetchedAt ? `，下面是${agoText(Date.parse(item.fetchedAt), now)}读到的。` : '。'}</Alert>)
     }
   }
+  for (const key of semestersOf(days)) {
+    const entry = snapshot?.graduate?.terms[key]
+    if (snapshot?.graduate?.state === 'ready' && entry?.error && !busy.includes(`graduate:${key}`)) {
+      notices.push(<Alert key={`graduate:${key}`} tone="warn">研究生课表这次没从研究生教务网读到（{entry.error}）{entry.fetchedAt ? `，下面是${agoText(Date.parse(entry.fetchedAt), now)}读到的。` : '。'}</Alert>)
+    }
+  }
   if (snapshot?.calendar.problem) notices.push(<Alert key="problem">{snapshot.calendar.problem}</Alert>)
+  if (snapshot?.ownProblem) notices.push(<Alert key="own">{snapshot.ownProblem}</Alert>)
   if (snapshot?.current && !known) {
     notices.push(
       <div key="calendar" className="campus-plan-notice">
@@ -288,10 +331,12 @@ function PlanView({ title, onCalendar }: { title: ReactNode, onCalendar: () => v
           <Button size="sm" variant="ghost" aria-label="刷新" className="campus-plan-refresh" data-busy={reading ? '' : undefined} disabled={reading}
             icon={<IconRefreshOutlineRegular size={14} />} onClick={() => { void visit(true) }} />
           <Button size="sm" variant="outline" onClick={onCalendar}>校历</Button>
+          <Button size="sm" variant="ghost" aria-label="添加日程" icon={<IconPlusOutlineRegular size={14} />} disabled={!snapshot || !!snapshot.ownProblem}
+            onClick={() => { onEdit(null, monday === thisWeek ? today : monday) }} />
         </div>
       </div>
       {notices.length > 0 && <div className="campus-plan-notices">{notices}</div>}
-      <WeekGrid days={days} periods={periods} today={today} clock={here.time} />
+      <WeekGrid days={days} periods={periods} today={today} clock={here.time} expectTimetable={source?.state === 'ready'} onEdit={(id) => { onEdit(id, monday) }} />
       {unpublished.length > 0 && <p className="campus-note">{unpublished.join('、')} 年的放假安排还没公布。</p>}
     </div>
   )
@@ -455,25 +500,101 @@ function CalendarEditor({ snapshot, today, onBack, onSaved }: { snapshot: Snapsh
   )
 }
 
+// ── 自己加的日程 ──────────────────────────────────────
+
+interface EventDraft { id?: string, title: string, date: string, time: string, end: string, place: string, kind: OwnKind, until: string }
+
+const KIND_OPTIONS: readonly { value: OwnKind, label: string }[] = [{ value: 'event', label: '日程' }, { value: 'class', label: '课' }]
+
+/** 新加或修改一条自己的日程：名字、哪天几点到几点、在哪、是日程还是课、每周重复到哪天。改的时候能删。 */
+function EventEditor({ item, date, onClose, onDone }: { item: OwnEvent & { id: string } | null, date: string, onClose: () => void, onDone: (text: string) => void }) {
+  const [draft, setDraft] = useState<EventDraft>(() => item
+    ? { id: item.id, title: item.title, date: item.date, time: item.time ?? '', end: item.end ?? '', place: item.place ?? '', kind: item.kind, until: item.until ?? '' }
+    : { title: '', date, time: '', end: '', place: '', kind: 'event', until: '' })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const set = (patch: Partial<EventDraft>) => { setDraft(old => ({ ...old, ...patch })) }
+
+  async function run(work: () => Promise<Snapshot>, text: string) {
+    setBusy(true); setError('')
+    try { update({ snapshot: await work() }); onDone(text) } catch (reason) { setError(errorText(reason)) } finally { setBusy(false) }
+  }
+  const save = () => run(() => campusApi<Snapshot>('schedule-event-save', draft), item ? '日程已修改' : '日程已添加')
+  const remove = () => run(() => campusApi<Snapshot>('schedule-event-remove', { id: item!.id }), '日程已删除')
+
+  return (
+    <Modal open title={item ? '修改日程' : '添加日程'} closeLabel="关闭" onClose={() => { if (!busy) onClose() }}
+      footer={
+        <div className="campus-event-foot">
+          {item && <Button variant="ghost" icon={<IconTrashOutlineRegular size={14} />} disabled={busy} onClick={() => { void remove() }}>删除</Button>}
+          <span className="campus-plan-foot-gap" />
+          <Button variant="outline" disabled={busy} onClick={onClose}>取消</Button>
+          <Button variant="primary" disabled={busy || !draft.title.trim() || !draft.date} onClick={() => { void save() }}>保存</Button>
+        </div>
+      }>
+      <form className="campus-event-form" onSubmit={(event) => { event.preventDefault(); if (draft.title.trim() && draft.date) void save() }}>
+        {error && <Alert>{error}</Alert>}
+        <div className="campus-event-wide">
+          <Field id="campus-event-title" label="名称">
+            <input id="campus-event-title" className="campus-input" data-modal-autofocus placeholder="如 组会" maxLength={60} value={draft.title} disabled={busy}
+              onChange={(event) => { set({ title: event.target.value }) }} />
+          </Field>
+        </div>
+        <Field id="campus-event-date" label="日期">
+          <input id="campus-event-date" className="campus-input" type="date" value={draft.date} disabled={busy} onChange={(event) => { set({ date: event.target.value }) }} />
+        </Field>
+        <Field id="campus-event-until" label="每周重复到">
+          <input id="campus-event-until" className="campus-input" type="date" min={draft.date || undefined} value={draft.until} disabled={busy}
+            onChange={(event) => { set({ until: event.target.value }) }} />
+        </Field>
+        <Field id="campus-event-time" label="开始">
+          <input id="campus-event-time" className="campus-input" type="time" value={draft.time} disabled={busy} onChange={(event) => { set({ time: event.target.value }) }} />
+        </Field>
+        <Field id="campus-event-end" label="结束">
+          <input id="campus-event-end" className="campus-input" type="time" value={draft.end} disabled={busy || !draft.time} onChange={(event) => { set({ end: event.target.value }) }} />
+        </Field>
+        <Field id="campus-event-place" label="地点">
+          <input id="campus-event-place" className="campus-input" maxLength={40} value={draft.place} disabled={busy} onChange={(event) => { set({ place: event.target.value }) }} />
+        </Field>
+        <Field id="campus-event-kind" label="种类">
+          <select id="campus-event-kind" className="campus-input" value={draft.kind} disabled={busy} onChange={(event) => { set({ kind: event.target.value as OwnKind }) }}>
+            {KIND_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </Field>
+        <button type="submit" hidden />
+      </form>
+    </Modal>
+  )
+}
+
 // ── 整页 ──────────────────────────────────────────────
 
-/** 日程表这一页：一周的课表格子，校历另开一屏改。官方的「自动化任务」在侧栏另有一项，这里不放。 */
+/** 日程表这一页：一周的课表格子，校历另开一屏改，自己的日程在弹框里加和改。官方的「自动化任务」在侧栏另有一项，这里不放。 */
 export function SchedulePage() {
   const [screen, setScreen] = useState<'week' | 'calendar'>('week')
   const [toast, setToast] = useState<{ text: string, seq: number } | null>(null)
+  /** 正在加或改的那条：id 为 null 是新加，date 是新加时默认的日期。 */
+  const [editing, setEditing] = useState<{ id: string | null, date: string } | null>(null)
   const snapshot = useSyncExternalStore(subscribe, () => state.snapshot)
+  const say = (text: string) => { setToast(old => ({ text, seq: (old?.seq ?? 0) + 1 })) }
+
+  const editingItem = editing?.id ? snapshot?.own.find(item => item.id === editing.id) ?? null : null
 
   if (screen === 'calendar') {
     return (
       <div className="campus-schedule">
         <CalendarEditor snapshot={snapshot} today={beijing(Date.now()).date} onBack={() => { setScreen('week') }}
-          onSaved={() => { setScreen('week'); setToast(old => ({ text: '校历已保存', seq: (old?.seq ?? 0) + 1 })) }} />
+          onSaved={() => { setScreen('week'); say('校历已保存') }} />
       </div>
     )
   }
   return (
     <div className="campus-schedule">
-      <PlanView title={<h1 className="campus-page-title">日程表</h1>} onCalendar={() => { setScreen('calendar') }} />
+      <PlanView title={<h1 className="campus-page-title">日程表</h1>} onCalendar={() => { setScreen('calendar') }} onEdit={(id, date) => { setEditing({ id, date }) }} />
+      {editing && (editing.id === null || editingItem) && (
+        <EventEditor key={editing.id ?? 'new'} item={editingItem} date={editing.date} onClose={() => { setEditing(null) }}
+          onDone={(text) => { setEditing(null); say(text) }} />
+      )}
       {toast && <Toast key={toast.seq} text={toast.text} onDone={() => { setToast(null) }} />}
     </div>
   )

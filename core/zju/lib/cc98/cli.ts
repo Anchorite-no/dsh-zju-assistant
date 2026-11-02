@@ -157,10 +157,11 @@ export function createCc98Commands(open: typeof cc98.openCc98 = cc98.openCc98): 
         ...IMAGE,
         markdown: { description: "正文按 Markdown 发，默认 UBB", type: "boolean" },
         anonymous: { description: "匿名回复（限允许匿名的版面）", type: "boolean" },
+        "notify-all": { description: "楼主回帖时通知这个帖子里所有回过帖的人", type: "boolean" },
         force: { description: "最后一楼已是自己 5 分钟内发的相同内容时仍然发送", type: "boolean" },
       }, (s, f, gate, target) => {
         const quote = int(f, "quote");
-        return cc98.reply(s, target.id, text(f, "content") ?? "", { ...gate, ...(quote !== undefined ? { quote } : {}), markdown: bool(f, "markdown"), anonymous: bool(f, "anonymous"), force: bool(f, "force"), ...(target.attached ? { images: target.attached } : {}) });
+        return cc98.reply(s, target.id, text(f, "content") ?? "", { ...gate, ...(quote !== undefined ? { quote } : {}), markdown: bool(f, "markdown"), anonymous: bool(f, "anonymous"), notifyAll: bool(f, "notify-all"), force: bool(f, "force"), ...(target.attached ? { images: target.attached } : {}) });
       }, (f) => ({ id: topicOf(f), attached: needsContent(f) })),
       favorite: write("cc98 topic favorite", "收藏主题，加 --cancel 是取消收藏", {
         id: TOPIC,

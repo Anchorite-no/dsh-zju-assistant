@@ -553,12 +553,12 @@ function withQuote(quoted: Post, reply: string, markdown: boolean): string {
 }
 
 /** 回帖。quote 给出楼层号时引用该楼；有图片先上传再接在正文后。返回新楼层的位置 */
-export async function reply(s: Cc98Session, topicId: number, text: string, o: { quote?: number; markdown: boolean; anonymous: boolean; force: boolean; images?: string[] } & WriteOptions) {
+export async function reply(s: Cc98Session, topicId: number, text: string, o: { quote?: number; markdown: boolean; anonymous: boolean; notifyAll?: boolean; force: boolean; images?: string[] } & WriteOptions) {
   const quoted = o.quote === undefined ? undefined : await s.api.postByFloor(topicId, o.quote);
   if (quoted?.isDeleted) throw new ConfigError(`第 ${o.quote} 楼已被删除，不能引用`);
   if (!quoted && o.images?.length) await s.api.topic(topicId); // 主题不存在就不白传图片
   const { content, urls } = await withImages(s, text, o.images, o.markdown, o);
-  const sent = await s.api.reply(topicId, quoted ? withQuote(quoted, content, o.markdown) : content, { confirm: o.confirm ?? false, anonymous: o.anonymous, force: o.force, contentType: o.markdown ? 1 : 0, ...(quoted ? { parentPostId: quoted.id } : {}) });
+  const sent = await s.api.reply(topicId, quoted ? withQuote(quoted, content, o.markdown) : content, { confirm: o.confirm ?? false, anonymous: o.anonymous, notifyAllReplier: o.notifyAll ?? false, force: o.force, contentType: o.markdown ? 1 : 0, ...(quoted ? { parentPostId: quoted.id } : {}) });
   const floor = (await s.api.topic(topicId)).replyCount + 1;
   return { postId: sent.postId, floor, url: WEB_BASE + floorAnchor(topicId, floor), ...(quoted ? { quotedFloor: quoted.floor } : {}), ...(urls.length ? { images: urls } : {}) };
 }

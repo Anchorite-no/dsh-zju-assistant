@@ -55,9 +55,9 @@ CLI 用法、搜索策略与发帖规则见 [CC98](../../references/cc98.md)。�
 | **like** | PUT | `/post/{pid}/like`，body `"1"` 赞 `"2"` 踩 | **再次发送当前状态即取消**；太快返回空 403（脚本抛 RATE_LIMITED） |
 | **rate** | PUT | `/post/{pid}/rating-v2`，body `{reasonId, type}` | 风评。4xx body 是原因：`cannot_rate_yourself` `has_rated_tody` `you_cannot_rate`（发帖不足 500）`has_rated_this_post` |
 | **favorite** | PUT/DELETE | `/me/favorite/{tid}?groupid=0` | 收藏/取消 |
-| **reply** | POST | `/topic/{tid}/post`，body `{content, contentType:0|1, title:"", isAnonymous, notifyAllReplier, clientType:1, parentId?}` | 返回新 postId（纯文本）。引用时 `parentId` 指向被引用楼 |
+| **reply** | POST | `/topic/{tid}/post`，body `{content, contentType:0|1, title:"", isAnonymous, notifyAllReplier, clientType:1, parentId?}` | 返回新 postId（纯文本）。引用时 `parentId` 指向被引用楼；`notifyAllReplier` 是楼主回帖时通知所有回复过的人（`topic reply --notify-all`），`GET /topic/{id}` 的 `canNotifyAllReplier` 表示现在能不能用 |
 | **post** | POST | `/board/{bid}/topic`，body `{title, content, contentType, type:0, tag1?, tag2?, notifyPoster, isAnonymous, clientType:1}` | 返回新 topicId。有的版面标签必选，先 `GET /board/{bid}/tag-v2` |
-| **edit** | PUT | `/post/{pid}`，body `{content, title, contentType}` | 只能改自己的楼；`GET /post/{pid}/original` 取原文（别人的楼返回 403 `cannot_edit_post`） |
+| **edit** | PUT | `/post/{pid}`，body `{content, title, contentType}`，主题楼另带原来的 `tag1`、`tag2`（取自 `GET /topic/{id}`；必须选标签的版面不带会回 400 `tag_id_error`，2026-11-01 实测） | 只能改自己的楼；`GET /post/{pid}/original` 取原文（别人的楼返回 403 `cannot_edit_post`） |
 | **message** | POST | `/message`，body `{receiverId, content}` | 发私信。200 即成功，官方前端不读响应体（发后 0.2 秒重取会话）；403 是发送太快、被全站禁言或服务器维护；不存在的用户在 `/user/name/{name}` 就返回 400 `user_not_exists`。发出后不能撤回 |
 | **upload** | POST | `/file`，multipart：字段 `contentType=multipart/form-data`，每个文件一个 `files` | 返回链接数组，顺序与文件一致。默认由服务端压缩图片，`?compressImage=false` 为无损（未使用）。官方前端对图片不限大小，非图片限 10 MB。**只做了离线模拟，真实上传未验证** |
 | ~~delete~~ | DELETE | `/post/{pid}` | **普通用户不能删**（403 `cannot_operate_board`，是版主接口）。发出去只能编辑 |
@@ -70,7 +70,7 @@ CLI 用法、搜索策略与发帖规则见 [CC98](../../references/cc98.md)。�
 
 - 私信发送成功后再读一次会话取回消息时间；读不到时仍按已发出返回（`confirmed: false`），不重发。发送前同样读会话做 5 分钟同内容去重，所以给对方发私信会顺带把对方的来信标为已读。
 - 带图发送：先确认目标存在（私信的用户、回帖的主题或被引用楼、发主题的版面），再上传，最后把链接接在正文后面发出（UBB `[img]链接[/img]`，Markdown `![](链接)`，每张一行）。上传也经 `Cc98Api.write` 记日志（`cc98.upload`）；上传失败或结果不明时正文还没发，错误里不带 `outcome: "unknown"`，可直接重试，已传上去而没被引用的图片没有人看得到。图片按文件头识别格式，上传用序号文件名，不带出本机文件名。上传超时 120 秒。
-- 编辑先取 `/post/{pid}/original`，没指定的 `title`、`contentType` 沿用原帖，与官方前端一致（否则主题楼标题被清空、Markdown 楼变成 UBB）。官方前端编辑主题楼时还会带上原 `tag1/tag2`，这里没带，编辑带标签的主题楼后标签是否保留未验证。
+- 编辑先取 `/post/{pid}/original`，没指定的 `title`、`contentType` 沿用原帖，与官方前端一致（否则主题楼标题被清空、Markdown 楼变成 UBB）。主题楼另带原来的 `tag1/tag2`，标签保持不变。
 - CLI 的写命令在建会话前检查 `ZJU_ALLOW_WRITE=1` 与 `--confirm`；`Cc98Api` 内仍有同样的检查，供库调用。
 
 ## 输出整理

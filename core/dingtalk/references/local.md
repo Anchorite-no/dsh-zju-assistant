@@ -2,7 +2,7 @@
 
 同步自 `D:\Code\Projects\dingtalk-skill` 的 2026-10-16 工作区。保留其只读查询行为，Python 数据库、消息和内容解析已改写为 Node。全局数据库密钥按已知 x64 CPU vendor 格式生成候选并以数据库页头校验，不需要本机编译器或 PowerShell 7。
 
-默认数据根目录 `%APPDATA%/DingTalk`。桌面壳用 Windows 应用数据目录补齐缺失的 APPDATA；独立命令缺少 APPDATA 时使用当前用户的 `AppData/Roaming`，不会相对工作目录查找。开发诊断可用 `--data-dir` 或 `DINGTALK_DATA_DIR` 指定包含 `globalStorage` 的目录。只从全局库选取 UID，不读取令牌字段。逐个账号验证数据库页头，多账号必须明确选择。
+默认数据根目录 `%APPDATA%/DingTalk`。桌面壳用 Windows 应用数据目录补齐缺失的 APPDATA；独立命令缺少 APPDATA 时使用当前用户的 `AppData/Roaming`，不会相对工作目录查找。开发诊断可用 `--data-dir` 或 `DINGTALK_DATA_DIR` 指定 DingTalk 数据根目录。v2 账号从目录名取得数字 UID，以 `MD5(uid)` 的十六进制前 16 个字符派生密钥；v3 账号从全局库选取 UID（不读取令牌字段），再结合 `user_config` 的 salt 派生密钥。两种格式都逐个验证数据库页头，多账号必须明确选择。
 
 AES-128-ECB 解密后在内存中检查页结构，校验 WAL header 和 frame checksum，只应用已提交帧。重复读取文件以检测并发写入；不一致或格式不兼容时明确失败，不改源库、不写明文副本。
 

@@ -6,7 +6,7 @@ import path from 'node:path'
 import test, { afterEach } from 'node:test'
 import { DatabaseSync } from 'node:sqlite'
 import {
-  checksum, discover, mergeWal, selectProfile, setGlobalKeyProvider, setReader, snapshot, userKey, type Profile,
+  checksum, discover, mergeWal, selectProfile, setGlobalKeyProvider, setReader, snapshot, userKey, v2UserKey, type Profile,
 } from '../lib/database.ts'
 import { run } from '../lib/cli.ts'
 import { SkillError } from '../lib/errors.ts'
@@ -156,6 +156,8 @@ test('a wrong key is rejected', () => {
 })
 
 test('key derivation and account selection', () => {
+  assert.equal(v2UserKey('12345').toString('latin1'), createHash('md5').update('12345').digest('hex').slice(0, 16))
+  assert.equal(v2UserKey('12345').toString('latin1'), '827ccb0eea8a706c')
   const expected = createHash('md5').update(pbkdf2Sync(Buffer.from('12345salt', 'utf8'), Buffer.from('666DingT', 'latin1'), 1000, 32, 'sha1')).digest('hex').slice(0, 16)
   assert.equal(userKey('12345', 'salt').toString('latin1'), expected)
   assert.equal(userKey('12345', 'salt').toString('latin1'), '137a2e7b3d63e74f')
@@ -181,18 +183,24 @@ test('discover verifies accounts with explicit paths and when a launcher omits A
   account.exec('CREATE TABLE marker (value TEXT)')
   const accountImage = Buffer.from(account.serialize())
   account.close()
+  mkdirSync(path.join(dir, '800000000001_v2', 'DBFiles'), { recursive: true })
+  writeFileSync(path.join(dir, '800000000001_v2', 'DBFiles', 'dingtalk.db'), encrypt(accountImage, v2UserKey('800000000001')))
   mkdirSync(path.join(dir, 'acct_v3', 'DBFiles'), { recursive: true })
   writeFileSync(path.join(dir, 'acct_v3', 'user_config'), Buffer.from(JSON.stringify({ salt: 's4lt' })).toString('base64'))
   writeFileSync(path.join(dir, 'acct_v3', 'DBFiles', 'dingtalk.db'), encrypt(accountImage, userKey('900000000002', 's4lt')))
 
   const profiles = discover(dir)
-  assert.equal(profiles.length, 1)
-  assert.equal(profiles[0]!.id, 'acct_v3')
-  assert.equal(profiles[0]!.uid, '900000000002')
+  assert.deepEqual(profiles.map(profile => ({ id: profile.id, uid: profile.uid })), [
+    { id: '800000000001_v2', uid: '800000000001' },
+    { id: 'acct_v3', uid: '900000000002' },
+  ])
 
   const result = run(['profiles', '--data-dir', dir]) as { ok: boolean; profiles: { id: string; uid: string }[] }
   assert.equal(result.ok, true)
-  assert.deepEqual(result.profiles, [{ id: 'acct_v3', uid: '900000000002' }])
+  assert.deepEqual(result.profiles, [
+    { id: '800000000001_v2', uid: '800000000001' },
+    { id: 'acct_v3', uid: '900000000002' },
+  ])
 
   const previous = { APPDATA: process.env.APPDATA, DINGTALK_DATA_DIR: process.env.DINGTALK_DATA_DIR }
   t.after(() => {
@@ -209,4 +217,18 @@ test('discover verifies accounts with explicit paths and when a launcher omits A
   process.env.APPDATA = path.join(home, 'missing-roaming')
   process.env.DINGTALK_DATA_DIR = dir
   assert.deepEqual(run(['profiles']), result, 'an explicit DingTalk directory remains authoritative')
+})
+
+test('v2 discovery does not require a v3 global store', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'dingtalk-v2-data-'))
+  const uid = '800000000002'
+  const account = new DatabaseSync(':memory:')
+  account.exec('CREATE TABLE marker (value TEXT)')
+  const accountImage = Buffer.from(account.serialize())
+  account.close()
+  mkdirSync(path.join(dir, `${uid}_v2`, 'DBFiles'), { recursive: true })
+  writeFileSync(path.join(dir, `${uid}_v2`, 'DBFiles', 'dingtalk.db'), encrypt(accountImage, v2UserKey(uid)))
+
+  const profiles = discover(dir)
+  assert.deepEqual(profiles.map(profile => ({ id: profile.id, uid: profile.uid })), [{ id: `${uid}_v2`, uid }])
 })

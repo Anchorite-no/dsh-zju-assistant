@@ -12,7 +12,7 @@ function app(t, platform) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
   const put = (file, value = '') => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, value) }
   for (const core of ['', ...CORES]) put(path.join(dir, core, 'package.json'), JSON.stringify({ name: core || 'app', dependencies: core === 'core/zju' ? { parser: '1' } : {} }))
-  for (const pkg of ['sharp', '@deepseek-ai/libreoffice-kit', 'ffmpeg-static']) put(path.join(dir, 'node_modules', pkg, 'package.json'), JSON.stringify({ name: pkg }))
+  for (const pkg of ['sharp', '@deepseek-ai/libreoffice-kit', 'ffmpeg-static', '@deepseek-ai/dsh-client-shortcuts']) put(path.join(dir, 'node_modules', pkg, 'package.json'), JSON.stringify({ name: pkg }))
   for (const file of ['ui/lib/client.js', 'build/licenses/NODE-LICENSE.txt', 'core/learn/engine/vendor/node_modules/gsap/dist/gsap.min.js', `node_modules/ffmpeg-static/${platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'}`]) put(path.join(dir, file))
   put(path.join(dir, 'core/zju/node_modules/parser/package.json'), '{"name":"parser"}')
   return { root, dir, put }
@@ -41,4 +41,15 @@ test('macOS 的成品要的是那种芯片自己的 Node 和不带 .exe 的 FFmp
   assert.ok(checkRuntimeDependencies(dir, { platform: 'darwin', arch: 'arm64' }).packages >= 4)
   // 没有随包 Node 的系统和芯片，直接说没有。
   assert.throws(() => checkRuntimeDependencies(dir, { platform: 'win32', arch: 'arm64' }), /win32-arm64 没有随应用提供的 Node 运行时/)
+})
+
+test('Mac 的成品要带着引擎的快捷键协议，壳的键盘桥要用它；Windows 用不着', t => {
+  const { dir, put } = app(t, 'darwin')
+  put(path.join(dir, 'node_modules/node-bin-darwin-arm64/bin/node'))
+  fs.rmSync(path.join(dir, 'node_modules/@deepseek-ai/dsh-client-shortcuts'), { recursive: true })
+  assert.throws(() => checkRuntimeDependencies(dir, { platform: 'darwin', arch: 'arm64' }), /Mac 键盘桥 → @deepseek-ai\/dsh-client-shortcuts/)
+  const windows = app(t, 'win32')
+  windows.put(path.join(windows.dir, 'node_modules/node-win-x64/bin/node.exe'))
+  fs.rmSync(path.join(windows.dir, 'node_modules/@deepseek-ai/dsh-client-shortcuts'), { recursive: true })
+  assert.ok(checkRuntimeDependencies(windows.dir, { platform: 'win32', arch: 'x64' }).packages >= 4)
 })

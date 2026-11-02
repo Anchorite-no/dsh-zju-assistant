@@ -40,6 +40,8 @@ function checkRuntimeDependencies(directory, { platform = process.platform, arch
   for (const name of ['sharp', '@deepseek-ai/libreoffice-kit']) {
     if (!resolvePackage(name, path.join(root, 'core/zju'), root)) missing.push(`ZJU 文档引擎 → ${name}`)
   }
+  // Mac 上壳的键盘桥（desktop/keyboard.cjs）直接用引擎依赖里的快捷键协议，不另装一份；哪版引擎不再带它，打包时就拦下来。
+  if (platform === 'darwin' && !resolvePackage('@deepseek-ai/dsh-client-shortcuts', root, root)) missing.push('Mac 键盘桥 → @deepseek-ai/dsh-client-shortcuts')
   const ffmpeg = resolvePackage('ffmpeg-static', root, root)
   if (!ffmpeg || !fs.existsSync(path.join(ffmpeg, platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'))) missing.push('ffmpeg-static 可执行文件')
   if (missing.length) throw new Error(`运行依赖不完整：\n${[...new Set(missing)].join('\n')}\n在项目根目录执行 npm ci（或 npm run setup），然后 npm run ui。`)

@@ -13,6 +13,7 @@ const { handleMailSecret } = require('./mail-secrets.cjs')
 const { ffmpegEnv } = require('./ffmpeg.cjs')
 const { nodeEnv, nodeExecutable } = require('./node.cjs')
 const { createFilms, filmDirectory } = require('./film.cjs')
+const { installKeyboard } = require('./keyboard.cjs')
 const { execFile, fork } = require('node:child_process')
 const { mkdirSync, readFileSync, rmSync, writeFileSync } = require('node:fs')
 const path = require('node:path')
@@ -200,6 +201,13 @@ async function main() {
   })
   // 学习页上点播放的讲解另开一个窗口放（film.cjs），别的链接照旧进阅读窗口。appOrigin 是引擎起来以后应用自己的地址。
   let appOrigin = ''
+  // macOS：引擎的快捷键要壳提供原生键盘桥，不然页面起不来（keyboard.cjs）。协议用引擎自己依赖的那一份，升级引擎时跟着变。
+  if (mac) {
+    installKeyboard({
+      window, ipcMain, protocol: await import('@deepseek-ai/dsh-client-shortcuts/protocol'),
+      file: path.join(app.getPath('userData'), 'keybindings.json'), origin: () => appOrigin,
+    })
+  }
   const narration = async (action, input = {}) => {
     if (!appOrigin || window.isDestroyed()) return null
     const response = await window.webContents.session.fetch(`${appOrigin}/api/campus/profile`, {

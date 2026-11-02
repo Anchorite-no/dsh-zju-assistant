@@ -5,7 +5,7 @@
  * 做法照上游 apps/desktop/src/preload-windows.ts，去掉了它的原生菜单。
  * macOS 上换成另一套标记：html[data-platform=darwin]（引擎的 Mac 布局：左上角给三个按钮让位、侧栏透出窗口后面垫的玻璃），
  * 全屏时再加 html[data-fullscreen]；html[data-campus-glass] 说窗口后面垫的是哪一档（glass.cjs），我们自己的样式按它裁圆角。
- * 另外给页面一个 campusShell，用来读、改存在壳这边的设置。
+ * 另外给页面一个 campusShell，用来读、改存在壳这边的设置；macOS 上还给引擎一个 dshDesktop，是它的快捷键要的键盘桥（keyboard.cjs）。
  */
 const { contextBridge, ipcRenderer } = require('electron')
 
@@ -106,3 +106,32 @@ if (process.platform === 'win32' || process.platform === 'darwin') {
 
 // macOS 的全屏：壳在进出全屏和页面加载完时报一次。
 ipcRenderer.on('campus:fullscreen', (_event, on) => { document.documentElement?.toggleAttribute('data-fullscreen', on === true) })
+
+// macOS：打了 html[data-platform=darwin]，引擎的快捷键服务就按桌面版来，要壳给它键位偏好和原生按键，没有就起不来（keyboard.cjs）。
+// 只给这两样；上游桌面版的更新、内嵌浏览器、设备信息这些我们没有，不放。Windows 上不打那个标记，引擎按网页版来，也就不给。
+if (process.platform === 'darwin') {
+  const listen = (channel, accept = () => true) => (listener) => {
+    const handle = (_event, value) => { if (accept(value)) listener(value) }
+    ipcRenderer.on(channel, handle)
+    return () => { ipcRenderer.off(channel, handle) }
+  }
+  // 焦点在 iframe 里按的键，壳报的是那个 iframe 的名字：只认右边栏的网页和 HTML 预览，而且焦点还得在它上面。
+  const focusedFrame = (input) => {
+    if (input?.kind !== 'iframe') return true
+    const element = document.activeElement
+    return element instanceof HTMLIFrameElement && element.isConnected && input.frameName !== '' && element.name === input.frameName
+      && element.matches('iframe[data-sidebar-browser-frame], iframe[data-html-preview]')
+  }
+  contextBridge.exposeInMainWorld('dshDesktop', {
+    keyboard: {
+      subscribe: listen('campus:shortcuts-input', focusedFrame),
+      closeWindow: revision => ipcRenderer.invoke('campus:shortcuts-close-window', revision),
+    },
+    shortcuts: {
+      get: definitions => ipcRenderer.invoke('campus:shortcuts-get', definitions),
+      edit: (edit, revision) => ipcRenderer.invoke('campus:shortcuts-edit', edit, revision),
+      recording: active => ipcRenderer.invoke('campus:shortcuts-recording', active),
+      subscribe: listen('campus:shortcuts-changed'),
+    },
+  })
+}

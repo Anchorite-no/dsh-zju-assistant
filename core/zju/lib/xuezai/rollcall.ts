@@ -1,5 +1,6 @@
 /**
- * 学在浙大点名签到，接入原 ZJU-Course-Autosign（src/core.js）的流程：
+ * 学在浙大点名签到。雷达部分移植自 5dbwat4/ZJU-live-better 的 courses.zju/autosign.js（GPL-3.0，版权归该仓库贡献者），
+ * 经本项目作者自用的整理版 ZJU-Course-Autosign（src/core.js）于 2026-11-01 接入，流程照原脚本：
  * 每轮 GET /api/radar/rollcalls；未签的雷达点名先用默认点 ZJGD1、再依次用 12 个校区参考点应答，
  * 收集响应里的 distance，凑满 3 个就用 100 位 Decimal 球面 Gauss-Newton 拟合位置再应答一次。
  * 没签上的雷达点名下一轮整套重试；默认入口只处理雷达，数字入口另行注册。
@@ -191,8 +192,8 @@ export async function rollcallHistory(client: Xuezai, course?: string) {
   return result;
 }
 
-// Ported directly from the user's ZJU-Course-Autosign/src/core.js (GPL-3.0-only).
-// Keep its 100-digit spherical Gauss-Newton solver, radius, epsilon and convergence threshold.
+// Ported from 5dbwat4/ZJU-live-better courses.zju/autosign.js (GPL-3.0; trilateration added in 466e2bd)
+// via ZJU-Course-Autosign/src/core.js. Keep its 100-digit spherical Gauss-Newton solver, radius, epsilon and convergence threshold.
 const Decimal = DecimalBase.clone({ precision: 100 });
 interface RadarPoint { lon: number; lat: number; d: number }
 function decimalHaversineDist(lon: DecimalBase.Value, lat: DecimalBase.Value, lonI: DecimalBase.Value, latI: DecimalBase.Value, radius: DecimalBase) {

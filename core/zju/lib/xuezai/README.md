@@ -100,6 +100,8 @@ JSON 读取遇 401 或登录跳转时合并重登一次；写请求不自动重�
 
 从本机 zju skill 移入三个执行器和 CLI，保留本项目的作业、课件、课程匹配与账号逻辑。默认入口只跑雷达；数字入口从首次发现前 300 秒至后 300 秒读取同课定稿字幕，每 20 秒更新候选。明确错码才换候选，其他结果先回查，未签上则下一轮重试同一码，最多提交 200 次。平台成功状态才算成功，日志失败禁止提交。
 
+雷达签到的流程、参考点和球面拟合移植自 [5dbwat4/ZJU-live-better](https://github.com/5dbwat4/ZJU-live-better) 的 `courses.zju/autosign.js`（GPL-3.0），来源和许可见仓库根目录的 `THIRD_PARTY_NOTICES.md`。
+
 `zhiyun/live-input.ts` 是内部字幕输入，复用已有采集的任务 ID、所有权和截止时间；只停止本次创建的任务。配置远程智云时经 remote.ts 的相同 SSH 通道调用 `scripts/zhiyun/live-input.ts`。禁用智云时数字入口不能读字幕，GPS 不受影响；体育课签到未接入。签到命令通过应用 pwsh 后台任务运行，`job_output` 读取结果。
 
 隔离测试覆盖授权、成功后停止、取消、数字取码与回查、两路协同及字幕任务所有权；真实课堂签到未在开发过程中执行。
@@ -108,7 +110,7 @@ JSON 读取遇 401 或登录跳转时合并重登一次；写请求不自动重�
 
 参考端点与协议，模块代码独立实现：
 
-- 本地 `ZJU-Course-Autosign` 的 `809a0e0^`：课程分页、活动附件、待办补查。
+- [ZJU-live-better](https://github.com/5dbwat4/ZJU-live-better) 的 `9f3fec5`（即本地 `ZJU-Course-Autosign` 的 `809a0e0^`）：课程分页、活动附件、待办补查。
 - [login-zju](https://github.com/5dbwat4/login-zju/blob/main/src/courses.ts)：CAS/identity 与 meta refresh 登录链。
 - [vibe-learning-in-zju](https://github.com/EviterLesRoses2/vibe-learning-in-zju/blob/main/zju-mcp.mjs)：两段式上传、提交和撤回接口。
 - 当前学在浙大前端与真实只读响应：章节、文件、作业和个人/小组提交记录路径。

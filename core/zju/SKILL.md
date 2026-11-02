@@ -69,7 +69,8 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 | CC98 消息 | `cc98 account notifications`，一次返回回复、@、系统通知的内容和未读私信 |
 | CC98 私信 | `cc98 private-message list`，未读的对话直接带出；回私信用 `cc98 private-message send --user 用户名 --content 文本 --confirm` |
 | CC98 搜索、看帖 | `cc98 search --keyword "说法一、说法二、说法三"`，几种说法一次给完，不要一个词调一次；看帖 `cc98 topic view --id 主题ID`，一次就有主楼全文和热评；多个帖写成 `--id "A|B|C"`，连读多页 `--page 2-5`，只看楼主加 `--lz`，只找提到某些词的楼层加 `--find "词一、词二"`；结果都在 `topics` 列表里；版面直接写名称 `cc98 board topics --name 版面名`，十大 `cc98 hot` |
-| CC98 回帖、发主题 | `cc98 topic reply --id 主题ID --content 文本 --confirm`，`cc98 board post --board 版面 --title 标题 --content 正文 --confirm`；带图加 `--image 图片路径`（私信也可以），多张用竖线分隔 |
+| CC98 回帖、发主题 | `cc98 topic reply --id 主题ID --content 文本 --confirm`，楼主回帖要通知所有回复过的人加 `--notify-all`；`cc98 board post --board 版面 --title 标题 --content 正文 --confirm`；带图加 `--image 图片路径`（私信也可以），多张用竖线分隔 |
+| CC98 改自己发的楼 | 先 `cc98 floor original --post 楼层ID` 取原文，再 `cc98 floor edit --post 楼层ID --content 新的完整正文 --confirm`；改主题楼时标题、格式和标签沿用原来的 |
 | CC98 帖子里的图片、视频、附件 | `cc98 topic download --id 主题ID`，默认 1 楼，其他楼加 `--floor 楼层`；只有文件链接时 `--url 链接`。自动经 WebVPN，返回本地路径 |
 
 `doc pdf` 多个文件用竖线分隔、按给出的顺序排页，如 `doc pdf --file "第1页.jpg|第2页.jpg" --out 学号_姓名_第二次作业.pdf`。图片自动转正、居中放 A4；用户要原图大小时加 `--size original`。

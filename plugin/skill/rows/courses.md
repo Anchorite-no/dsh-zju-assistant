@@ -30,6 +30,8 @@
 
 不抢课：到点抢课说明不支持，可以查教学班余量。
 
+PTA 登录要过验证码时，`zju` 会在内置浏览器（dsh-builtin-browser）里打开验证窗口，请用户在窗口里做完；报没装内置浏览器时，请他先到插件页装上。
+
 东西放哪：课程资料在用户「文档」的 `CampusAgent\课程\<课程名>\第N次 日期\`，由下载命令自己放好，不要另起位置；一次课的总结存成这次课文件夹里的 `总结.md`。「学习」页照这些文件夹画，放错了用户就看不到。交付文件时给出它的路径。
 
 几步连起来的事照工作流走：[考前复习]({{core}}/skills/exam-prep/SKILL.md) · [课程学习]({{core}}/skills/course-study/SKILL.md) · [我的一周]({{core}}/skills/my-week/SKILL.md)。命令细节：[教务]({{core}}/zju/references/zdbk.md) · [选课]({{core}}/zju/references/zdbk-selection.md) · [学在]({{core}}/zju/references/xuezai.md) · [PTA]({{core}}/zju/references/pta.md) · [实验课]({{core}}/zju/references/lab.md) · [智云]({{core}}/zju/references/zhiyun.md) · [学习通]({{core}}/zju/references/chaoxing.md) · [电子书]({{core}}/zju/references/ebook.md) · [知网]({{core}}/zju/references/cnki.md)

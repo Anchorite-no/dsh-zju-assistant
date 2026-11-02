@@ -1114,10 +1114,10 @@ zju cc98 topic view --id VALUE [--page VALUE] [--lz] [--trace N] [--find VALUE] 
 ### cc98 topic reply
 
 ```text
-zju cc98 topic reply --id VALUE [--content VALUE] [--quote N] [--image VALUE] [--markdown] [--anonymous] [--force] [--confirm] [--account VALUE] 回帖，可引用某一楼、可带图片。发出后不能删只能编辑，正文先给用户过目；内容必须是用户自己的话
+zju cc98 topic reply --id VALUE [--content VALUE] [--quote N] [--image VALUE] [--markdown] [--anonymous] [--notify-all] [--force] [--confirm] [--account VALUE] 回帖，可引用某一楼、可带图片。发出后不能删只能编辑，正文先给用户过目；内容必须是用户自己的话
 ```
 
-`--id`：文本/路径，必填；`--content`：文本/路径；`--quote`：整数，最小 1；`--image`：文本/路径；`--markdown`：开关；`--anonymous`：开关；`--force`：开关；`--confirm`：开关；`--account`：文本/路径。
+`--id`：文本/路径，必填；`--content`：文本/路径；`--quote`：整数，最小 1；`--image`：文本/路径；`--markdown`：开关；`--anonymous`：开关；`--notify-all`：开关；`--force`：开关；`--confirm`：开关；`--account`：文本/路径。
 
 ### cc98 topic favorite
 

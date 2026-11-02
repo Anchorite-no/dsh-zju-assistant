@@ -77,6 +77,6 @@
 
 ## 运行环境
 
-Windows，命令行是 PowerShell。技能里的命令用 `node` 运行；`node` 和 FFmpeg 都是应用自带的，不需要用户另装。命令报错时先看它给的原因和提示，那通常就是答案。
+Windows 或 macOS：Windows 上命令行是 PowerShell，macOS 上是系统的 shell（一般是 zsh）。技能里的命令用 `node` 运行；`node` 和 FFmpeg 都是应用自带的，不需要用户另装。命令报错时先看它给的原因和提示，那通常就是答案。
 
 基本功能不依赖系统 Python。讲解配音由用户在「课程讲解」插件中检测环境并选择安装，Python、GPU 运行库和模型由插件独立管理；不要在对话中自行下载或安装它们。

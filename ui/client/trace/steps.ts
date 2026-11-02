@@ -22,6 +22,7 @@ export const STEPS: Readonly<Record<string, string>> = {
   'zjuam session logout': '退出统一身份认证',
 
   'zdbk timetable': '读取本学期课表',
+  'yjsy timetable': '读取研究生课表',
   'zdbk exams': '查考试时间、考场和座位',
   'zdbk grades': '读取全部成绩和绩点',
   'zdbk student': '读取学籍信息',
@@ -133,6 +134,7 @@ export const STEPS: Readonly<Record<string, string>> = {
   'zhiyun live status': '查看课堂字幕记录到哪了',
   'zhiyun live stop': '停止记录课堂字幕',
   'zhiyun live text': '读取刚才课上讲的内容',
+  'zhiyun timetable': '读取智云上这几天的课次',
   'zhiyun setup': '准备本地转写组件',
   'zhiyun check': '检查本地转写组件',
   'zhiyun trans audio': '把录音转成文字',

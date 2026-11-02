@@ -15,6 +15,7 @@
   "provides": [
     "zhiyun search courses",
     "zhiyun search lessons",
+    "zhiyun timetable",
     "zhiyun search resources",
     "zhiyun download",
     "zhiyun setup",

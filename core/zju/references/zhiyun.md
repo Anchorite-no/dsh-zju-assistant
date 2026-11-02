@@ -7,6 +7,7 @@
 ```text
 zhiyun
 ├─ search    courses · lessons · resources · subtitles   找课、看课次与资源、搜字幕
+├─ timetable                                             本人某几天的课次（含研究生课）
 ├─ download                                              下载回放、音频、课件、截图、字幕
 ├─ live      start · status · stop · text                上课时的实时字幕
 ├─ trans     audio                                       本地录音转写
@@ -19,6 +20,7 @@ zhiyun
 - 同名课程有多位教师时加 `--teacher 教师名`。同一门课开过多个学期时默认取当前学期的；当前学期没开就取最近一次开的，不取还没开始的学期。结果开头写明取的是哪位教师、哪个学期，默认取过时带 note。要别的学期：`search courses --keyword 课程名` 找到那一门，把它的 courseId 写到 `--course`。
 - `search courses --keyword 课程名` 返回课程、教师、学期（如 2026-2027秋冬）。scope 为 all 表示这些课不是用户选的。
 - `search lessons --course 课程名` 列出每次课：lesson（第几次）、date、time、能否回放 playable、有哪些资源 kinds。编号按开课时间，含还没上的。
+- `timetable --from 2026-11-02 --to 2026-11-08` 列出本人这几天在智云上的每节课：日期、起止时间、课程、教室、老师，默认本周，一次最多 42 天。研究生课的正式课表用 `yjsy timetable`。
 - `search resources --course 课程名 --lesson 1` 看某次课有什么：回放视频（带地址与清晰度）、音频、课件、课堂截图张数、字幕句数。只是查看；要文件用 download，不是下载的前置步骤。
 - `search subtitles --course 课程名 --keyword "点名、签到、考勤"` 在录播字幕里搜老师说过的话（点名、考试范围、作业要求等），几个说法用顿号或竖线分隔；省略课次时搜全部有录像的课次。每处命中给出第几次课、日期、时间点和前后各一句；字幕里的「点名」可能是叫人回答问题，按前后文判断。当天的课课后才有字幕，列在 lessonsWithoutCaptions。不用先下载字幕再自己搜。
 - `download --course 课程名 --lesson 1 --kind ppt` 下载并返回 `files`：每个文件的课次、日期、种类、本地路径和大小；没有该类资源的课次列在 `skipped`。kind 支持 video,audio,ppt,slides,subtitles，默认 ppt，可逗号分隔多种。视频取 1080p；只要音频时用独立音轨或 360p 视频提取。`--dry-run` 只列出将下载什么。可指定 `--audio-format`；并发、超时、重试和续传由内部处理，下载过的文件校验后复用。

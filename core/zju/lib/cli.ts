@@ -6,6 +6,7 @@ import { zjuamCommands } from "./zjuam/cli.ts";
 import { cc98Commands } from "./cc98/cli.ts";
 import { chalaoshiCommands } from "./chalaoshi/cli.ts";
 import { zdbkCommands } from "./zdbk/cli.ts";
+import { yjsyCommands } from "./yjsy/cli.ts";
 import { noticeCommands } from "./notice/cli.ts";
 import { sztzCommands } from "./sztz/cli.ts";
 import { ebookCommands } from "./ebook/cli.ts";
@@ -26,6 +27,7 @@ export const modules: Record<string, {
     webvpn: { description: "网络诊断、WebVPN 会话与 URL 工具", commands: webvpnCommands },
     zjuam: { description: "统一身份认证维护", commands: zjuamCommands },
     zdbk: { description: "课表、考试安排、成绩绩点、培养方案与自主选课", commands: zdbkCommands },
+    yjsy: { description: "研究生院的教务系统：研究生课表，研究生和选了研究生课的本科生都用", commands: yjsyCommands },
     notice: { description: "学校各单位和本人学院的通知公告：教务网、学工部、研工部、团委、综合服务网、各学院官网等，检索、全文与新通知", commands: noticeCommands },
     sztz: { description: "二三四课堂（素质拓展平台）：活动中心、可申请记点的项目、本人记点与成绩单，活动报名、取消报名与收藏", commands: sztzCommands },
     ebook: { description: "学校订购的电子图书：有没有某本书的电子版、在哪个平台有全文（图书馆电子书刊导航和超星）", commands: ebookCommands },

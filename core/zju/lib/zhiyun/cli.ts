@@ -8,6 +8,7 @@ import { slides, transcript, searchCaptions } from "./materials.ts";
 import { acquire } from "./acquire.ts";
 import { localCommands } from "./local-cli.ts";
 import { startLive, stopLive, liveStatus, liveText } from "./live-task.ts";
+import { beijingDate, beijingTime, myCourseDay } from "./live.ts";
 import { selectionOptions, resolveSelection, selectedLessons, lessonRow, kinds } from "./selection.ts";
 import { abbreviates, splitPhrases } from "../core/match.ts";
 import { ConfigError, RemoteRejected, ZjuError } from "../core/errors.ts";
@@ -16,6 +17,11 @@ import { courseDir, lessonDir } from "./places.ts";
 export { lessonSelectors } from "./selection.ts";
 
 const fresh: Option = { description: "强制重新认证", type: "boolean" };
+const DAY_MS = 86_400_000;
+const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+const shiftDate = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+/** zhiyun timetable 一次最多查几天（一天一个请求）。 */
+const TIMETABLE_DAYS = 42;
 const integer = (description: string, value: number, min: number, max: number): Option => ({ description, type: "integer", default: value, min, max });
 export function createZhiyunCommands(open: typeof openZhiyun = openZhiyun): Record<string, Command> {
   const withClient = async (f: Flags, work: (c: Zhiyun) => Promise<unknown>) => {
@@ -154,7 +160,26 @@ export function createZhiyunCommands(open: typeof openZhiyun = openZhiyun): Reco
       before: integer("时刻之前多少秒", 300, 0, 3600), after: integer("时刻之后多少秒，未来部分自动等待", 0, 0, 3600),
     }, f => liveText({ ...(f.course ? { course: str(f, "course") } : {}), ...(f.at ? { at: str(f, "at") } : {}), before: num(f, "before"), after: num(f, "after") }), "local"),
   });
-  const commands: Record<string, Command> = { search, download, live, ...localCommands,
+  // 本科教务网里没有研究生课，提前修研究生课的本科生和研究生的课都从这里取上课时间和教室。
+  const timetable = command(`本人某几天在智云上的课次（本科课、研究生课都在）：日期、起止时间、课程、教室、老师；默认本周一到周日，一次最多 ${TIMETABLE_DAYS} 天`, {
+    from: { description: "从哪天起 YYYY-MM-DD，默认本周一" }, to: { description: "到哪天（含这天）YYYY-MM-DD，默认 from 起的第 7 天" },
+  }, f => withClient(f, async c => {
+    const today = beijingDate(), weekday = new Date(`${today}T00:00:00Z`).getUTCDay() || 7;
+    const from = f.from === undefined ? shiftDate(today, 1 - weekday) : str(f, "from");
+    const to = f.to === undefined ? shiftDate(from, 6) : str(f, "to");
+    if (!isDate(from) || !isDate(to)) throw new ConfigError("日期要写成 2026-11-02 这样");
+    if (to < from) throw new ConfigError("--to 不能早于 --from");
+    const span = Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS) + 1;
+    if (span > TIMETABLE_DAYS) throw new ConfigError(`一次最多查 ${TIMETABLE_DAYS} 天`);
+    const found = new Map<string, Awaited<ReturnType<typeof myCourseDay>>[number]>();
+    for (let i = 0; i < span; i++) for (const lesson of await myCourseDay(c, shiftDate(from, i))) found.set(lesson.subId, lesson);
+    const lessons = [...found.values()].sort((a, b) => a.startsAt - b.startsAt).map(l => ({
+      date: beijingTime(l.startsAt).slice(0, 10), start: beijingTime(l.startsAt).slice(11, 16), end: beijingTime(l.endsAt).slice(11, 16),
+      course: l.title, courseId: l.courseId, room: l.room, teacher: l.teacher,
+    })).filter(l => from <= l.date && l.date <= to);
+    return { from, to, count: lessons.length, lessons };
+  }));
+  const commands: Record<string, Command> = { search, download, live, timetable, ...localCommands,
     login: command("建立或复用学校认证", { fresh }, f => withClient(f, async c => ({ session: c.store.status() }))),
     status: command("查看本地会话", {}, async () => session(credentials().username).status(), "local"),
     logout: command("清除本地智云会话", {}, async () => ({ cleared: session(credentials().username).clear() }), "local"),

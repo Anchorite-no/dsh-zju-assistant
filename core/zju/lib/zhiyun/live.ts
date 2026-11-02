@@ -30,22 +30,31 @@ export function lessonDirectory(lesson: LiveLesson): string {
   return path.join(liveRoot(), lesson.date, `${lesson.courseId}-${lesson.subId}`);
 }
 
-export async function dayLessons(client: Zhiyun, date = beijingDate()): Promise<LiveLesson[]> {
-  const j = await client.json(API + "/courseapi/v2/course-live/get-my-course-day", { date });
+/**
+ * 本人某一天在智云上的全部课次（本科和研究生的课都在），按开始时间排。
+ * 查哪天的参数叫 day；写成 date 时接口不报错，只给今天的（2026-11-02 实测）。
+ */
+export async function myCourseDay(client: Zhiyun, date = beijingDate()): Promise<(LiveLesson & { teacher: string })[]> {
+  const j = await client.json(API + "/courseapi/v2/course-live/get-my-course-day", { day: date });
   const groups = j.list;
   if (!groups || typeof groups !== "object") throw new BadResponse("当天课程响应缺少 list");
-  const lessons: LiveLesson[] = [];
+  const lessons: (LiveLesson & { teacher: string })[] = [];
   for (const raw of Object.values(groups)) {
     const group = object(raw, "课程时段");
     if (!Array.isArray(group.course)) throw new BadResponse("课程时段缺少 course 数组");
     for (const value of group.course) {
       const r = object(value), startsAt = Number(r.course_begin) * 1000, endsAt = Number(r.course_over) * 1000;
       if (!/^\d+$/.test(String(r.course_id)) || !/^\d+$/.test(String(r.sub_id)) || !Number.isFinite(startsAt) || !Number.isFinite(endsAt) || startsAt <= 0 || endsAt <= startsAt) throw new BadResponse("当天课次标识或时间无效");
-      if (!["course_live", "live", "ilive"].includes(String(r.multi_type))) continue;
-      lessons.push({ courseId: String(r.course_id), subId: String(r.sub_id), title: String(r.title ?? ""), room: String(r.room_name ?? ""), date, startsAt, endsAt, type: String(r.multi_type) });
+      lessons.push({ courseId: String(r.course_id), subId: String(r.sub_id), title: String(r.title ?? ""), room: String(r.room_name ?? ""), date, startsAt, endsAt, type: String(r.multi_type),
+        teacher: String(r.realname ?? r.lecturer_name ?? "") });
     }
   }
   return [...new Map(lessons.map(l => [l.subId, l])).values()].sort((a, b) => a.startsAt - b.startsAt);
+}
+
+/** 当天能听直播字幕的课次。 */
+export async function dayLessons(client: Zhiyun, date = beijingDate()): Promise<LiveLesson[]> {
+  return (await myCourseDay(client, date)).filter(l => ["course_live", "live", "ilive"].includes(l.type)).map(({ teacher: _, ...l }) => l);
 }
 
 export function matchLiveCourse<T extends { courseId: string; title: string }>(rows: T[], course?: string): T[] {

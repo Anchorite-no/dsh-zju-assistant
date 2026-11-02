@@ -7,6 +7,7 @@ export const MODULE_SITES: Readonly<Record<string, string | undefined>> = {
   zjuam: '统一身份认证',
   webvpn: 'WebVPN',
   zdbk: '教务网',
+  yjsy: '研究生教务网',
   xuezai: '学在浙大',
   pta: 'PTA',
   lab: '大物实验课',

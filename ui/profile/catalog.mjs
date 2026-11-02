@@ -56,7 +56,7 @@ export const CAMPUS_PLUGINS = [
     title: '课程与作业',
     description: '教务网、学在浙大、PTA 和大物实验课',
     art: 'courses',
-    modules: ['zdbk', 'xuezai', 'pta', 'lab'],
+    modules: ['zdbk', 'yjsy', 'xuezai', 'pta', 'lab'],
     accounts: ['pta', 'lab'],
     requires: [],
     systems: [

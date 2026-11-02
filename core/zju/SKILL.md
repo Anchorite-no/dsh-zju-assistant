@@ -18,6 +18,7 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 | 用户目标 | 调用 |
 |---|---|
 | 某天的课、下节课或教室 | `campus_schedule_read`，用 from/to 指定日期，已经处理校历、单双周、放假和调休；只看教务原始周课表时用 `zdbk timetable` |
+| 研究生课表（研究生，或选了研究生课的本科生） | `yjsy timetable`，研究生院教务系统的课表，默认现在这个大学期，每次课的日期已经算好；本科教务网 `zdbk` 里没有研究生课 |
 | 实验课哪天做什么、在哪个实验室 | `lab timetable`，按日期列出实验名、实验室、开始时间和教师 |
 | 考试时间、考场、座位 | `zdbk exams`，可加 `--course 课程名`，期中与期末分开返回 |
 | 成绩、GPA、学分 | `zdbk grades`，一次返回全部课程成绩、各学期与总体五分制绩点、主修绩点和已获学分 |
@@ -45,6 +46,7 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 | 保存已选定的志愿 | `zdbk selection select --course 课程名 --teacher 教师 --confirm` |
 | 查实验班 | `lab labs --course 课程名` |
 | 选明确的实验 | `lab select --course 课程名 --lab 实验名 --week 周次 --confirm`，退掉加 `--cancel` |
+| 这几天在智云上有哪些课次（教室、起止时间） | `zhiyun timetable --from 日期 --to 日期`，默认本周；本人在智云上的全部课次，本科课和研究生课都在 |
 | 找智云课程 | `zhiyun search courses --keyword 课程名`，自动翻页；没选的课也能找到 |
 | 老师在课上说没说过某事（点名、考试范围、作业） | `zhiyun search subtitles --course 课程名 --keyword "点名、签到"`，几个说法用顿号一次给完；搜全部录播字幕，返回第几次课、时间点和前后文 |
 | 下载智云材料 | `zhiyun download --course 课程名 --lesson 课次 --kind ppt`；也可用日期限定 |

@@ -1,7 +1,13 @@
 // Application entry: plugin switch and process status around the synchronized read-only CLI.
 import path from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { main as queryMain } from '../lib/cli.ts'
+/** Whether DingTalk for Mac is running: pgrep exits 1 when nothing matches, and anything else is a failure. */
+function macRunning() {
+  const { status, error } = spawnSync('/usr/bin/pgrep', ['-x', 'DingTalk'], { stdio: 'ignore', timeout: 15000 })
+  if (error || (status !== 0 && status !== 1)) throw error ?? new Error('pgrep failed')
+  return status === 0
+}
 const args = process.argv.slice(2)
 if (process.env.DINGTALK_CHAT_DISABLED === '1') {
   process.stdout.write(
@@ -14,15 +20,17 @@ if (process.env.DINGTALK_CHAT_DISABLED === '1') {
   process.exitCode = 1
 } else if (args.length === 1 && args[0] === 'status') {
   try {
-    const output =
+    const running =
       process.platform === 'win32'
-        ? execFileSync(
-            path.join(process.env.SystemRoot || 'C:\\Windows', 'System32/tasklist.exe'),
-            ['/FI', 'IMAGENAME eq DingTalk.exe', '/FO', 'CSV', '/NH'],
-            { windowsHide: true, encoding: 'utf8', timeout: 15000 }
+        ? /"DingTalk\.exe"/i.test(
+            execFileSync(
+              path.join(process.env.SystemRoot || 'C:\\Windows', 'System32/tasklist.exe'),
+              ['/FI', 'IMAGENAME eq DingTalk.exe', '/FO', 'CSV', '/NH'],
+              { windowsHide: true, encoding: 'utf8', timeout: 15000 }
+            )
           )
-        : ''
-    process.stdout.write(JSON.stringify({ ok: true, running: /"DingTalk\.exe"/i.test(output) }) + '\n')
+        : process.platform === 'darwin' && macRunning()
+    process.stdout.write(JSON.stringify({ ok: true, running }) + '\n')
   } catch {
     process.stdout.write(
       JSON.stringify({ ok: false, status: 'local_reader_failed', message: '无法检查钉钉运行状态。' }) + '\n'

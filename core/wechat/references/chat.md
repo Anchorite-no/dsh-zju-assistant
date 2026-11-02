@@ -1,8 +1,19 @@
 # 本机微信聊天查询
 
-入口为 `node <SKILL>/scripts/wechat.mjs chat <子命令>`。需要 Windows 和 应用自带 Node 24.18 以上版本。首次取得密钥需要运行且已登录的微信，之后关闭微信也能查询。本轮实测微信 4.1.15.13。只读本机已同步的数据，不代表手机或云端的完整历史。
+入口为 `node <SKILL>/scripts/wechat.mjs chat <子命令>`。需要 Windows 或 macOS，和应用自带 Node 24.18 以上版本。Windows 上首次取得密钥需要运行且已登录的微信，之后关闭微信也能查询，本轮实测微信 4.1.15.13。只读本机已同步的数据，不代表手机或云端的完整历史。
 
-## 离线查询
+## macOS
+
+2026-11-02 照 weread-skill 的 macOS 后端（f629ca9）加上，Python 那部分改写成 Node（`lib/macos.mjs`），查询、筛选、分页和导出和 Windows 共用一套。原后端在 Apple 芯片、macOS 26.6.2、微信 4.1.13 上实测过，那台机器事先关了 SIP；这里没有 Mac，Node 版只用合成数据测过解密、WAL、找账号和解图片。
+
+- 账号在 `~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/<账号>/db_storage`，`--data-dir` 和 Windows 一样认账号文件夹、`db_storage`、`xwechat_files` 或它的上一层。
+- 取密钥：第一次用时用 `/usr/bin/clang` 编译 `scripts/local/macos-memory.c`，`codesign` 临时签名并只给它 `com.apple.security.cs.debugger` 权限，按源码版本存在 `~/Library/Caches/weread-skill/native/`（`WECHAT_NATIVE_DIR` 可以改）。它只接受同一用户的 `WeChat.app` 进程，收到各库首页的密文，扫进程里可读写的内存，候选密钥用该库首页的 HMAC 认证过才经管道交回。要的库有一个没找到就整体报 `wechat_key_unavailable`。
+- 解密：SQLCipher 4 逐页校验 HMAC、AES-256-CBC 解密，合并 WAL 里校验和正确、已提交的帧，读的过程中库变了就重读。明文只在内存里，用完清零。
+- 每次都从运行中的微信取密钥，不缓存，`--offline` 报 `invalid_input`。给了 `--since` 时只读最近写过的分库（和 Windows 一样留两天余量）。
+- 图片：V1 用固定密钥，V2 的密钥同样由读取程序认证后交回，尾部异或值从图片结尾或同一密钥能解开的缩略图推出。
+- 错误：`macos_build_failed` 是编译或签名失败（缺 Xcode 命令行工具时运行 `xcode-select --install`）；`wechat_memory_denied` 是系统不让读微信进程。按 Apple 的说明，调试权限绕不过系统完整性保护，SIP 开着时官方微信多半会这样，这里不改 SIP、不重签名微信、也不操作微信界面。
+
+## 离线查询（Windows）
 
 首次在微信登录时执行 `node scripts/wechat.mjs chat search --type text --limit 1`，会为联系人、会话和当前所有消息分库准备密钥。密钥经 Windows DPAPI CurrentUser 加密保存到 `%LOCALAPPDATA%/weread-skill/chat-keys/`，仅供当前 Windows 用户使用；每次读取仍校验对应数据库的 HMAC。之后六个查询命令自动使用本机密钥，不要求微信运行，也不需要每次添加参数。
 

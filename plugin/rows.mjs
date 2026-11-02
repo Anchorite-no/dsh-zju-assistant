@@ -23,8 +23,8 @@ export const ROWS = [
   { key: 'community', title: '校园社区', id: 'zju-community', on: true, modules: ['cc98', 'chalaoshi'], accounts: ['cc98'], settings: 'CC98 账号' },
   { key: 'notices', title: '校园通知', id: 'zju-notices', on: true, modules: ['notice'], settings: '屏蔽词、按个人档案判断相关度' },
   { key: 'mail', title: '浙大邮箱', id: 'zju-mail', on: true, modules: [], settings: '浙大邮箱的连接' },
-  { key: 'wechat-chat', title: '微信聊天', id: 'zju-wechat-chat', on: false, modules: [], platforms: ['win32'], settings: '监控哪些群和私聊、收谁的消息' },
-  { key: 'dingtalk', title: '钉钉聊天', id: 'zju-dingtalk', on: false, modules: [], platforms: ['win32'], settings: '监控哪些群和私聊、收谁的消息' },
+  { key: 'wechat-chat', title: '微信聊天', id: 'zju-wechat-chat', on: false, modules: [], platforms: ['win32', 'darwin'], settings: '监控哪些群和私聊、收谁的消息' },
+  { key: 'dingtalk', title: '钉钉聊天', id: 'zju-dingtalk', on: false, modules: [], platforms: ['win32', 'darwin'], settings: '监控哪些群和私聊、收谁的消息' },
   { key: 'wechat', title: '微信公众号', id: 'zju-wechat', on: false, modules: [], settings: '微信读书登录、跟踪的公众号' },
 ]
 

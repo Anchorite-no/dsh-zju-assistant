@@ -25,6 +25,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+scripts/local/macos-memory.c and macos-debugger.plist come unchanged from weread-skill's macOS backend
+(commit f629ca9, contributed by spdc-elm): it ports this project's authenticated codec traversal to Mach APIs.
+lib/macos.mjs ports that backend's snapshot.py and macos_image.py (SQLCipher pages, committed WAL, V1/V2 image
+cache) to Node.
+
 Chat media format references (the local parser and key handling are implemented here):
 - WeChat V1/V2 image layout and ASCII image-key discovery:
   https://github.com/ylytdeng/wechat-decrypt

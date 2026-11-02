@@ -32,7 +32,8 @@ function decrypt(data: Buffer, key: Buffer): Buffer {
  */
 const VENDORS = ['GenuineIntel', 'AuthenticAMD', 'HygonGenuine', '  Shanghai  ', 'CentaurHauls', 'VIA VIA VIA ', 'AMDisbetter!', 'GenuineIotel']
 function cpuKey(header: Buffer): Buffer {
-  if (process.platform !== 'win32') throw new SkillError('unsupported_platform', '本地数据库读取目前仅支持 Windows 钉钉 v3 数据目录。')
+  if (process.platform === 'darwin') return macGlobalKey(header)
+  if (process.platform !== 'win32') throw new SkillError('unsupported_platform', '本地数据库读取目前只支持 Windows 和 macOS 钉钉的数据目录。')
   const register = (vendor: string, at: number) => Buffer.from(vendor.slice(at, at + 4), 'latin1').readInt32LE(0)
   // Leaf 0 returns the highest leaf in EAX; it is small, so a short scan finds it without reading the CPU.
   for (let eax = 0; eax <= 64; eax++) {
@@ -42,6 +43,18 @@ function cpuKey(header: Buffer): Buffer {
     }
   }
   throw new SkillError('database_key_unavailable', '全局数据库密钥未通过校验；可能不属于当前电脑或版本尚不兼容。')
+}
+
+/**
+ * DingTalk for Mac does not read the CPU: its global-key helper returns this fixed CPUID string, Apple chip or not,
+ * and the key is its first 16 ASCII bytes. Found in the 9.0.2 arm64 binary and confirmed on a real global store by
+ * dingtalk-skill's macOS support (2026-11-01); still checked against the header, so another version is reported
+ * instead of read as garbage.
+ */
+const MAC_GLOBAL_KEY = Buffer.from('7197016915918185882701231384169'.slice(0, 16), 'latin1')
+export function macGlobalKey(header: Buffer): Buffer {
+  if (header.length === 16 && decrypt(header, MAC_GLOBAL_KEY).equals(HEADER)) return Buffer.from(MAC_GLOBAL_KEY)
+  throw new SkillError('database_key_unavailable', '全局数据库密钥未通过校验；这一版 Mac 钉钉可能还不兼容（实测过的是 9.0.2）。')
 }
 
 /** The per-account database key: PBKDF2-HMAC-SHA1(uid+salt, "666DingT"), then the first 16 hex chars of its MD5. */
@@ -237,12 +250,26 @@ function looksLikeRoot(dir: string): boolean {
 }
 
 /**
- * The DingTalk folder to read: the given one, else DINGTALK_DATA_DIR, else %APPDATA%/DingTalk. A picked folder may be
- * one level off, so an account folder (…_v3, or its DBFiles) steps up to the root and a folder holding DingTalk steps
- * down into it.
+ * DingTalk for Mac's data folder: the direct-download app's, then the two App Store sandboxes'. Only folders that hold
+ * DingTalk data count; with none the first is given (so the error names the usual place), with several the user picks.
+ */
+export function macRoot(home = os.homedir()): string {
+  const library = path.join(home, 'Library')
+  const candidates = [path.join(library, 'Application Support', 'DingTalkMac'),
+    ...['5ZSL2CJU2T.com.dingtalk.mac', 'com.alibaba.DingTalkMac'].map(bundle => path.join(library, 'Containers', bundle, 'Data', 'Library', 'Application Support', 'DingTalkMac'))]
+  const found = candidates.filter(looksLikeRoot)
+  if (found.length > 1) throw new SkillError('data_dir_ambiguous', '找到了几个钉钉数据目录，请把聊天数据位置设成正在用的那一个（命令行用 --data-dir）。', { candidates: found })
+  return found[0] ?? candidates[0]!
+}
+
+/**
+ * The DingTalk folder to read: the given one, else DINGTALK_DATA_DIR, else %APPDATA%/DingTalk (on a Mac, macRoot). A
+ * picked folder may be one level off, so an account folder (…_v3, or its DBFiles) steps up to the root and a folder
+ * holding DingTalk steps down into it.
  */
 export function dataRoot(root?: string): string {
   const given = root || process.env.DINGTALK_DATA_DIR
+  if (!given && process.platform === 'darwin') return macRoot()
   // The desktop host supplies Windows' appData path. Standalone/headless launches can omit
   // APPDATA; never resolve that case relative to the command's working directory.
   if (!given) return path.resolve(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'DingTalk')

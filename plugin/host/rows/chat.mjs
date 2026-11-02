@@ -1,6 +1,6 @@
 /**
  * 微信聊天、钉钉聊天两行共用的：开着时起一个 ChatWatch（chat-watch.mjs）登记到根服务，dsh 开着时每隔一阵读一次选了的群和私聊，
- * 新消息进校园事务的通知；关掉时停下。只能在 Windows 上用（读的是本机客户端的数据）。
+ * 新消息进校园事务的通知；关掉时停下。只能在 Windows 和 macOS 上用（读的是本机客户端的数据）。
  */
 import path from 'node:path'
 import { defineTool } from '@deepseek-ai/dsh-tools'

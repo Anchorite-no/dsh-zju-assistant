@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "只读查询 Windows 钉钉本地会话、联系人、群成员与聊天记录",
+  "description": "只读查询 Windows、macOS 钉钉本地会话、联系人、群成员与聊天记录",
   "engines": {
     "node": ">=24"
   },

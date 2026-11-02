@@ -18,6 +18,9 @@ const explanations: Record<string, string> = {
   image_decode_failed: '图片缓存解密失败。',
   unsupported_image: '当前图片缓存格式无法识别。',
   media_conversion_failed: '媒体转换失败，已保存的源文件保留在输出目录。',
+  wechat_not_running: '电脑版微信没有运行，解图片要用到它，请打开并登录微信。',
+  wechat_memory_denied: 'macOS 不让读取微信进程，图片解不开；系统完整性保护（SIP）开着时多半如此。',
+  macos_build_failed: '无法编译或签名 Mac 上读微信用的小程序，需要 Xcode 命令行工具。',
 }
 
 export function wave(pcm: Uint8Array, rate = 24000) {
@@ -30,6 +33,7 @@ export function wave(pcm: Uint8Array, rate = 24000) {
 }
 
 async function image(source: string, profile: string, destination: string) {
+  if (process.platform === 'darwin') return (await import('./macos.mjs')).macImage(source, profile, destination) as Promise<{ file: string; format: string }>
   const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe')
   const helper = fileURLToPath(new URL('../scripts/local/read-image.ps1', import.meta.url))
   const args = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', helper, '-Source', source, '-Profile', profile, '-Destination', destination]

@@ -60,10 +60,10 @@ const PANEL_LIST: readonly { id: string, row: string, order: number, label: stri
   { id: PANELS.learning, row: 'courses', order: 32, label: '学习', Icon: LearningIcon, Page: LearningPage },
 ]
 
-/** 两个聊天只能在 Windows 上用：读的是本机客户端的数据。 */
+/** 两个聊天只能在 Windows 和 macOS 上用：读的是本机客户端的数据。 */
 function ChatConfig({ platform }: { platform: 'wechat' | 'dingtalk' }) {
   const { platform: system } = useStatus()
-  if (system && system !== 'win32') return <p className="campus-note">只能在 Windows 上用。</p>
+  if (system && system !== 'win32' && system !== 'darwin') return <p className="campus-note">只能在 Windows 和 macOS 上用。</p>
   return <ChatSettings key={platform} platform={platform} />
 }
 

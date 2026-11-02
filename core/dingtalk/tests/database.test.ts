@@ -6,7 +6,7 @@ import path from 'node:path'
 import test, { afterEach } from 'node:test'
 import { DatabaseSync } from 'node:sqlite'
 import {
-  checksum, discover, mergeWal, selectProfile, setGlobalKeyProvider, setReader, snapshot, userKey, v2UserKey, type Profile,
+  checksum, discover, macGlobalKey, macRoot, mergeWal, selectProfile, setGlobalKeyProvider, setReader, snapshot, userKey, v2UserKey, type Profile,
 } from '../lib/database.ts'
 import { run } from '../lib/cli.ts'
 import { SkillError } from '../lib/errors.ts'
@@ -333,4 +333,24 @@ test('v2 discovery does not require a v3 global store', () => {
 
   const profiles = discover(dir)
   assert.deepEqual(profiles.map(profile => ({ id: profile.id, uid: profile.uid })), [{ id: `${uid}_v2`, uid }])
+})
+
+test('a Mac global store opens with the fixed Mac key, and another key is reported instead of misread', () => {
+  const key = Buffer.from('7197016915918185', 'latin1')
+  const image = encrypt(source(), key)
+  assert.deepEqual(macGlobalKey(image.subarray(0, 16)), key)
+  assert.equal(caught<SkillError>(() => macGlobalKey(encrypt(source()).subarray(0, 16))).status, 'database_key_unavailable')
+})
+
+test('the Mac data folder: the direct-download app first, sandboxes too, several ask for a choice', () => {
+  const home = mkdtempSync(path.join(tmpdir(), 'dingtalk-mac-home-'))
+  const direct = path.join(home, 'Library', 'Application Support', 'DingTalkMac')
+  const store = path.join(home, 'Library', 'Containers', '5ZSL2CJU2T.com.dingtalk.mac', 'Data', 'Library', 'Application Support', 'DingTalkMac')
+  assert.equal(macRoot(home), direct, 'with nothing found the usual place is named')
+  mkdirSync(path.join(store, 'globalStorage'), { recursive: true })
+  assert.equal(macRoot(home), store)
+  mkdirSync(path.join(direct, '900000000001_v3'), { recursive: true })
+  const error = caught<SkillError>(() => macRoot(home))
+  assert.equal(error.status, 'data_dir_ambiguous')
+  assert.deepEqual(error.details.candidates, [direct, store])
 })

@@ -2,7 +2,9 @@
 
 同步自 `D:\Code\Projects\dingtalk-skill` 的 2026-10-16 工作区。保留其只读查询行为，Python 数据库、消息和内容解析已改写为 Node。全局数据库密钥按已知 x64 CPU vendor 格式生成候选并以数据库页头校验，不需要本机编译器或 PowerShell 7。
 
-默认数据根目录 `%APPDATA%/DingTalk`。桌面壳用 Windows 应用数据目录补齐缺失的 APPDATA；独立命令缺少 APPDATA 时使用当前用户的 `AppData/Roaming`，不会相对工作目录查找。数据不在默认位置时用 `--data-dir` 或 `DINGTALK_DATA_DIR` 指定 DingTalk 数据根目录（插件把配置里的「聊天数据位置」经这个变量传进来）；指到某个 `_v2`/`_v3` 账号文件夹或它的 `DBFiles` 时退回根目录，指到 DingTalk 的上一层时进到 DingTalk。v2 账号从目录名取得数字 UID，以 `MD5(uid)` 的十六进制前 16 个字符派生密钥；v3 账号从全局库选取 UID（不读取令牌字段），再结合 `user_config` 的 salt 派生密钥。两种格式都逐个验证数据库页头，多账号必须明确选择。
+默认数据根目录 `%APPDATA%/DingTalk`。桌面壳用 Windows 应用数据目录补齐缺失的 APPDATA；独立命令缺少 APPDATA 时使用当前用户的 `AppData/Roaming`，不会相对工作目录查找。
+
+macOS（2026-11-02 照 dingtalk-skill 的 `codex/macos-support` 分支加上，spdc-elm 的 0553971，在 Apple 芯片、钉钉 9.0.2 上实测过；那个分支的 PR 还没合进 dingtalk-skill 的 main）：依次看 `~/Library/Application Support/DingTalkMac` 和两个 App Store 沙盒（`~/Library/Containers/5ZSL2CJU2T.com.dingtalk.mac/…`、`com.alibaba.DingTalkMac/…` 下的 `Data/Library/Application Support/DingTalkMac`），只认里面有钉钉数据的，几个都有时报 `data_dir_ambiguous` 并列出候选。Mac 钉钉的全局库密钥不取 CPU，是固定的 CPUID 字符串 `7197016915918185882701231384169` 的前 16 个 ASCII 字节，同样先用全局库页头校验，校验不过报 `database_key_unavailable`。账号库的密钥派生、目录结构和 Windows 一样。我们没有 Mac，这一段只用合成数据测过；Intel Mac 和 9.0.2 以外的版本原分支也没有实测。数据不在默认位置时用 `--data-dir` 或 `DINGTALK_DATA_DIR` 指定 DingTalk 数据根目录（插件把配置里的「聊天数据位置」经这个变量传进来）；指到某个 `_v2`/`_v3` 账号文件夹或它的 `DBFiles` 时退回根目录，指到 DingTalk 的上一层时进到 DingTalk。v2 账号从目录名取得数字 UID，以 `MD5(uid)` 的十六进制前 16 个字符派生密钥；v3 账号从全局库选取 UID（不读取令牌字段），再结合 `user_config` 的 salt 派生密钥。两种格式都逐个验证数据库页头，多账号必须明确选择。
 
 同一个 UID 的 `_v2` 和 `_v3` 目录都校验通过时只列 v3。v3 是较新的格式，钉钉升级后新消息写进 v3，旧的 `_v2` 目录可能还留在磁盘上；两个都列出来，账号选择框里会出现两项一模一样的 UID，按 UID 选账号也选不出唯一一个。只留 v3 还和加入 v2 支持之前的行为一致，已有的监控不受影响。只有 v2 目录的账号照常列出。
 

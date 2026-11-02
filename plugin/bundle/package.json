@@ -6,12 +6,12 @@
   "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Anchorite-no/zju-all-in-one.git",
+    "url": "git+https://github.com/Anchorite-no/dsh-zju-assistant.git",
     "directory": "plugin/bundle"
   },
-  "homepage": "https://github.com/Anchorite-no/zju-all-in-one#readme",
+  "homepage": "https://github.com/Anchorite-no/dsh-zju-assistant#readme",
   "bugs": {
-    "url": "https://github.com/Anchorite-no/zju-all-in-one/issues"
+    "url": "https://github.com/Anchorite-no/dsh-zju-assistant/issues"
   },
   "author": "Anchorite",
   "keywords": [

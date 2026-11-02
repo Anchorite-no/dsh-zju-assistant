@@ -40,8 +40,8 @@
 
 ## 链接
 
-- 源码和说明：https://github.com/Anchorite-no/zju-all-in-one
-- 问题和建议：https://github.com/Anchorite-no/zju-all-in-one/issues
+- 源码和说明：https://github.com/Anchorite-no/dsh-zju-assistant
+- 问题和建议：https://github.com/Anchorite-no/dsh-zju-assistant/issues
 - 只用命令行助手（Codex、Claude Code）的话有 ZJU Skill：https://github.com/Anchorite-no/zju-skill-public
 
 许可证 GPL-3.0-only。

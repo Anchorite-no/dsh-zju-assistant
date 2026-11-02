@@ -97,7 +97,7 @@ function createUpdater({ autoUpdater, packaged, version, feed, token, ask, onCha
 /**
  * 发布新版本的地方。和 package.json 的 build.publish 一样（update.test.mjs 核对）；不在运行时去读，理由同 tray.cjs 的 APP_ID。
  */
-const RELEASES = { owner: 'Anchorite-no', repo: 'zju-all-in-one' }
+const RELEASES = { owner: 'Anchorite-no', repo: 'dsh-zju-assistant' }
 const releasesFeed = () => `https://github.com/${RELEASES.owner}/${RELEASES.repo}/releases.atom`
 const releasePage = tag => `https://github.com/${RELEASES.owner}/${RELEASES.repo}/releases/tag/${encodeURIComponent(tag)}`
 

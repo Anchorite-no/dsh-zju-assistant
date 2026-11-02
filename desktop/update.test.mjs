@@ -183,7 +183,7 @@ test('macOS 上只查有没有新版本：有就说一声，「去下载」打�
   assert.deepEqual(await f.updater.check(), { status: 'available', current: '0.1.7', version: '0.1.8' })
   assert.deepEqual(f.changes, ['checking', 'available'])
   f.updater.install()
-  assert.deepEqual(f.opened, ['https://github.com/Anchorite-no/zju-all-in-one/releases/tag/v0.1.8'])
+  assert.deepEqual(f.opened, ['https://github.com/Anchorite-no/dsh-zju-assistant/releases/tag/v0.1.8'])
 
   // 已是最新，或者发布页上最新的比装着的还旧（自己打的开发版）。
   f.source.feed = async () => atom(['v0.1.7'])

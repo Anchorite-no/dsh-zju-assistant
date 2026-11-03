@@ -13,23 +13,28 @@ import { BlockAssembler } from '@deepseek-ai/dsh-llm'
  * 要先存进它的附件库再引用。这张图不属于哪个对话，问完就从库里拿掉，不然问一次攒一张（场馆的验证码一张两百多 KB）。
  * reasoningEffort 是让它想多深。不给的话 DeepSeek 默认想得很深：筛四十条通知，光思考就把 4000 个 token 用完了，
  * 一个字没答（2026-10-12 实测）。小事给 'low'。各家模型认的写法不一样，这一家不认、或者这样没答成，就照它默认的再问一次。
+ * 一次要给几段字、几张图时给 parts（[{ text } 或 { image }]，照这个顺序交给模型），不给 text 和 image。signal 是调用方那边的取消。
  */
-export async function askModel(ctx, { system, text, image, reasoningEffort, maxTokens = 8000, timeoutMs = 90_000 }) {
+export async function askModel(ctx, { system, text, image, parts, reasoningEffort, maxTokens = 8000, timeoutMs = 90_000, signal }) {
   const llm = ctx.get?.('llm'), selection = ctx.get?.('agentDefaultModel')?.currentSelection()
   if (!llm || !selection?.provider || !selection.model) throw new Error('模型现在用不了。')
-  const content = [{ type: 'text', text }]
-  let forget = () => {}
-  if (image) {
-    const attachments = ctx.get?.('attachments')
-    if (!attachments) throw new Error('这个版本的引擎收不了图片。')
-    const attachment = await attachments.saveImage(image)
-    content.push({ type: 'image', attachment })
-    // 附件库不在本机文件里时给不出位置，那就留着。
-    forget = () => { try { const file = attachments.imageHostPath?.(attachment); if (file) rmSync(file, { force: true }) } catch { /* 删不掉不影响这一次的回答 */ } }
-  }
+  const content = [], saved = []
+  const attachments = ctx.get?.('attachments')
+  // 附件库不在本机文件里时给不出位置，那就留着。
+  const forget = () => { for (const attachment of saved) { try { const file = attachments.imageHostPath?.(attachment); if (file) rmSync(file, { force: true }) } catch { /* 删不掉不影响这一次的回答 */ } } }
+  try {
+    for (const part of parts ?? [{ text }, ...(image ? [{ image }] : [])]) {
+      if (!part.image) { content.push({ type: 'text', text: part.text }); continue }
+      if (!attachments) throw new Error('这个版本的引擎收不了图片。')
+      const attachment = await attachments.saveImage(part.image)
+      saved.push(attachment)
+      content.push({ type: 'image', attachment })
+    }
+  } catch (error) { forget(); throw error }
   const once = async (extra) => {
     const assembler = new BlockAssembler()
-    const request = { provider: selection.provider, model: selection.model, ...(system ? { system } : {}), maxTokens, signal: AbortSignal.timeout(timeoutMs), messages: [{ role: 'user', content }], ...extra }
+    const limit = signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs)
+    const request = { provider: selection.provider, model: selection.model, ...(system ? { system } : {}), maxTokens, signal: limit, messages: [{ role: 'user', content }], ...extra }
     for await (const chunk of llm.stream(request)) assembler.push(chunk)
     const finish = assembler.finish
     if (finish?.kind !== 'stop') throw new Error(finish?.failure?.message ?? `模型没有答完（${finish?.kind ?? '没有结束标记'}）。`)

@@ -5,7 +5,7 @@ export interface CaptchaProof { ticket: string; randStr: string }
 export type VerifyCaptcha = () => Promise<CaptchaProof>;
 
 const HINTS: Record<string, string> = {
-  browser_missing: "请在 DeepSeek Harness 插件页启用内置浏览器（dsh-builtin-browser），再重新查询",
+  browser_missing: "这台电脑上没找到能用的浏览器，请装一个 Chrome 或 Edge 后重新查询",
   verification_required: "请在对话里重新查询，完成官方窗口中的验证后会自动继续",
   plugin_disabled: "请在插件页启用「课程与学习」后重新查询",
   verification_cancelled: "验证窗口已关闭，本次没有继续提交密码",

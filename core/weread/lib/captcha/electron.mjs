@@ -61,10 +61,10 @@ export function validateAnswer(puzzle, answer) {
 
 /** Host owns the window, session and IPC authorization. This module has no Electron/package dependency. */
 export class ElectronCaptcha {
-  /** 宿主可启动独立组件，也可在导航前 attach，观察文章页面自己启动的组件。 */
-  constructor({ webContents, appId, taskId, resultBridge, recognizer }) {
+  /** 宿主可启动独立组件，也可在导航前 attach，观察文章页面自己启动的组件。script 是装哪一份官方组件（PTA 用 turing 的那份）。 */
+  constructor({ webContents, appId, taskId, resultBridge, recognizer, script = 'https://captcha.gtimg.com/TCaptcha.js' }) {
     this.webContents = webContents; this.appId = appId; this.taskId = taskId
-    this.resultBridge = resultBridge; this.recognizer = recognizer
+    this.resultBridge = resultBridge; this.recognizer = recognizer; this.script = script
     this.requests = new Map(); this.resources = new Map(); this.reads = new Set(); this.replies = []; this.closed = false
     this.listener = (_event, method, params, sessionId) => { void this.observe(method, params, sessionId).catch(error => { this.observationError = error.message }) }
   }
@@ -80,7 +80,7 @@ export class ElectronCaptcha {
     const wc = this.webContents
     const result = await wc.executeJavaScript('(async()=>{' +
       'const existing=document.querySelector("#tcaptcha_iframe_dy,#tcaptcha_transform_dy");if(existing){const style=getComputedStyle(existing),r=existing.getBoundingClientRect();if(r.width&&r.height&&style.opacity!=="0"&&style.visibility!=="hidden")return {status:"existing_verification"}};' +
-      'if(typeof TencentCaptcha!=="function")await new Promise((resolve,reject)=>{const s=document.createElement("script");s.src="https://captcha.gtimg.com/TCaptcha.js";s.onload=resolve;s.onerror=reject;document.head.append(s)});' +
+      'if(typeof TencentCaptcha!=="function")await new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=' + JSON.stringify(this.script) + ';s.onload=resolve;s.onerror=reject;document.head.append(s)});' +
       'window.__wereadCaptcha=new TencentCaptcha(' + JSON.stringify(this.appId) + ',r=>window[' + JSON.stringify(this.resultBridge) + '].complete({taskId:' + JSON.stringify(this.taskId) + ',ret:r.ret,ticket:r.ticket,randstr:r.randstr}),{needFeedBack:true});' +
       'window.__wereadCaptcha.show();return {status:"opened"};})()')
     if (result?.status !== 'opened') throw fail('existing_verification', '窗口已有验证码，未新建第二题。')
@@ -150,7 +150,8 @@ export class ElectronCaptcha {
   }
   async layout() {
     const wc = this.webContents
-    const child = wc.mainFrame.framesInSubtree.find(f => /^https:\/\/captcha\.gtimg\.com\/static\/template\//.test(f.url))
+    // 微信读书的组件框架在 captcha.gtimg.com/static/template/，PTA 用的 turing 那份在 turing.captcha.gtimg.com/1/template/。
+    const child = wc.mainFrame.framesInSubtree.find(f => /^https:\/\/(?:captcha\.gtimg\.com\/static|turing\.captcha\.gtimg\.com\/1)\/template\//.test(f.url))
     const inner = await (child||wc.mainFrame).executeJavaScript('('+readLayout.toString()+')()')
     const outer = child
       ? await wc.executeJavaScript('(()=>{const e=document.querySelector("#tcaptcha_iframe_dy");if(!e)return null;const r=e.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height}})()')

@@ -59,7 +59,8 @@ test('根服务挂上以后：档案在 $DSH_HOME/zju-campus，一条路、一�
   assert.ok(fs.existsSync(path.join(home, 'zju-campus', 'profile', '00-个人资料.md')))
   const status = await call('status')
   assert.deepEqual(status.rows, ['', 'courses', 'mail'])
-  assert.equal(status.browser, false)
+  // 这台电脑上有没有扫码、过验证码用得上的浏览器，看跑测试的机器。
+  assert.equal(typeof status.browser, 'boolean')
   const { content, name, invocation } = await skill()
   assert.equal(name, 'zju-campus')
   assert.equal(invocation.userInvocable, false)
@@ -125,7 +126,7 @@ test('各行的标题和插件页的中文标题一样，入口的子行都注�
   }
 })
 
-test('公众号的浏览器桥：cookie 存在插件自己的目录里，请求带着它直接发，新给的记回去；要窗口的几样没装内置浏览器时说清楚', async (t) => {
+test('公众号的浏览器桥：cookie 存在插件自己的目录里，请求带着它直接发，新给的记回去；要窗口的几样没有能用的浏览器时说清楚', async (t) => {
   const dir = temp(t, 'weread'), seen = []
   const fetchImpl = async (url, options) => {
     seen.push({ url, cookie: options.headers.cookie })

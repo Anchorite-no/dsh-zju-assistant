@@ -1,5 +1,5 @@
 /**
- * 「微信公众号」的配置页：微信读书登录状态、跟踪了哪些号。扫码登录和验证在内置浏览器（dsh-builtin-browser）的窗口里做，没装时提示先装。
+ * 「微信公众号」的配置页：微信读书登录状态、跟踪了哪些号。扫码登录和验证在插件自己开的浏览器窗口里做（本机的默认浏览器），这台电脑上没有能用的浏览器时说一声。
  * 页面只照引擎侧存下的画（host/wechat.mjs 的 snapshot）；要等一阵的事（扫码登录、去验证）在后台做，
  * 这里隔一会儿问一次做完没有，离开这一页再回来接着显示。
  * 字要少（用户 2026-10-12 说原来每一行下面都挂着一句灰字，太多）：一行平时只有名字和右边的状态或控件，要用户处理的时候才多一句。
@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button, IconPlusOutlineRegular, Modal, Toast } from '@deepseek-ai/dsh-client-ui-primitives'
 import { errorText, campusApi } from './api.ts'
-import { linkProps, openPlugins, useStatus } from './campus.ts'
+import { linkProps, useStatus } from './campus.ts'
 import { Alert } from './controls.tsx'
 import { clock, dateText, midnight } from './when.ts'
 
@@ -196,12 +196,11 @@ export function WechatSettings() {
 
   return (
     <>
-      {/* 没装内置浏览器时下面那句已经说了，扫码没成的原因不再重复一遍。 */}
-      {(error || (data.problem && (browser || !data.problem.includes('dsh-builtin-browser')))) && <Alert>{error || data.problem}</Alert>}
+      {/* 没有能用的浏览器时下面那句已经说了，扫码没成的原因不再重复一遍。 */}
+      {(error || (data.problem && (browser || !data.problem.includes('没找到能用的浏览器')))) && <Alert>{error || data.problem}</Alert>}
       {!browser && (
         <Alert tone="warn">
-          扫码登录和验证要用内置浏览器，先在插件页装上 dsh-builtin-browser。
-          <Button size="sm" variant="outline" onClick={openPlugins}>去插件页</Button>
+          扫码登录和过验证码要用 Chrome、Edge 这类浏览器，这台电脑上没找到，装一个以后再来扫码。
         </Alert>
       )}
       <section className="campus-section" aria-labelledby="wechat-sources">

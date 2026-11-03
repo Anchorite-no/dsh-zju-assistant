@@ -26,17 +26,21 @@ async function pageReady() {
   return true
 }
 
-/** 微信读书：官方 SDK 返回票据，调用方用它恢复原页面或列表请求。 */
-export async function verifyWeRead({ webContents, recognizer, signal, bind }) {
-  const captcha = new ElectronCaptcha({ webContents, recognizer, appId:'2044038556', taskId:randomUUID(), resultBridge:'wereadVerification' })
+/** 微信读书：官方 SDK 返回票据，调用方用它恢复原页面或列表请求。
+ * appId、script 换成别的站用的组件（PTA）。manual 为真时窗口一直看得见：自动作答没成，就停在窗口里等用户自己做完。 */
+export async function verifyWeRead({ webContents, recognizer, signal, bind, appId = '2044038556', script, manual = false }) {
+  const captcha = new ElectronCaptcha({ webContents, recognizer, appId, script, taskId:randomUUID(), resultBridge:'wereadVerification' })
   bind(captcha)
   try {
     if (!await abortable(webContents.executeJavaScript('(' + pageReady.toString() + ')()'), signal)) {
       throw new SkillError('verification_page_not_ready', '微信读书页面尚未完成初始化，未启动验证码，请稍后重试。')
     }
     await abortable(captcha.open(), signal)
-    if (recognizer) await abortable(captcha.run({ signal }), signal)
-    else while (!captcha.proof) {
+    if (recognizer) {
+      try { await abortable(captcha.run({ signal }), signal) }
+      catch (error) { if (!manual || signal.aborted || captcha.closed) throw error }
+    }
+    while (!captcha.proof) {
       signal.throwIfAborted()
       if (captcha.closed || webContents.isDestroyed()) throw new SkillError('verification_cancelled', '验证窗口已关闭。')
       await pause(200, undefined, { signal })

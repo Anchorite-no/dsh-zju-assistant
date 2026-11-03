@@ -41,7 +41,7 @@ async function fixture(t, { proof={ret:0,ticket:'pta-ticket',randstr:'pta-rand'}
       calls.push(['url',input.url])
       sandbox=vm.createContext({location:{origin:new URL(input.url).origin}})
       sandbox.window=sandbox
-      sandbox.document={createElement:()=>({}),head:{append(script){
+      sandbox.document={querySelector:()=>null,createElement:()=>({}),head:{append(script){
         calls.push(['sdk',script.src])
         sandbox.TencentCaptcha=class{
           constructor(appId,callback){assert.equal(appId,'194593025');this.callback=callback}
@@ -55,6 +55,14 @@ async function fixture(t, { proof={ret:0,ticket:'pta-ticket',randstr:'pta-rand'}
       calls.push(['script',script])
       return {value:await vm.runInContext(script,sandbox,{timeout:1000})}
     },
+    // 验证码模块（core/weread/lib/captcha）用的两样，和插件的浏览器（browser.mjs）给的一样。
+    relay(id,name,receive){sandbox[name]={complete:result=>receive(result)};return {ready:Promise.resolve(),stop(){}}},
+    webContents(id){return {
+      isDestroyed:()=>!opened.has(id),
+      async executeJavaScript(code){calls.push(['script',code]);return vm.runInContext(code,sandbox,{timeout:1000})},
+      debugger:{isAttached:()=>true,on(){},removeListener(){},async sendCommand(){return {}}},
+      mainFrame:{framesInSubtree:[]},
+    }},
   }
   const endpoint=process.platform==='win32'?`\\\\.\\pipe\\pta-test-${randomUUID()}`:path.join(os.tmpdir(),`pta-${randomUUID().slice(0,8)}.sock`)
   const bridge=new WereadBridge({dir:path.join(os.tmpdir(),`unused-pta-${randomUUID()}`),browser:()=>missing?undefined:browser})
@@ -107,7 +115,7 @@ test('background calls and missing browser return clear errors without opening w
   process.env.PTA_INTERACTIVE='0'
   await assert.rejects(verifyCaptcha(),error=>error.code==='NEEDS_USER'&&/对话里重新查询/.test(error.hint))
   process.env.PTA_INTERACTIVE='1'
-  await assert.rejects(verifyCaptcha(),error=>error.code==='NEEDS_USER'&&/dsh-builtin-browser/.test(error.hint))
+  await assert.rejects(verifyCaptcha(),error=>error.code==='NEEDS_USER'&&/Chrome 或 Edge/.test(error.hint))
   assert.equal(calls.length,0)
 })
 

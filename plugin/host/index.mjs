@@ -42,8 +42,9 @@ import { Cc98Feed } from './cc98-feed.mjs'
 import { CampusContext } from './context.mjs'
 import { ContextSources } from './context-sources.mjs'
 import { askModel } from './model.mjs'
-import { startModelBridge } from './vision.mjs'
+import { captchaRecognizer, startModelBridge } from './vision.mjs'
 import { WereadBridge } from './weread-bridge.mjs'
+import { CampusBrowser } from './browser.mjs'
 import { Alerts, cc98Alert, mailAlert } from './alerts.mjs'
 import { CampusPage } from './campus-page.mjs'
 import { zjuTool } from './zju-tool.mjs'
@@ -87,7 +88,11 @@ export default class ZjuCampus extends Service {
       PTA_BROWSER_ENDPOINT: ptaEndpoint, PTA_INTERACTIVE: '0',
     })), 'zju-campus: campus command environment')
     ctx.effect(() => startModelBridge(ctx, { endpoint }), 'zju-campus: model bridge for campus commands')
-    const ptaBrowser = new WereadBridge({ dir:path.join(this.home,'pta-verification'), browser:()=>ctx.get('browser') })
+    // 插件自己的浏览器（browser.mjs，用本机的默认浏览器）：公众号的扫码、验证和 PTA 的验证码开它的窗口；认验证码问现在选的模型（vision.mjs）。
+    this.browser = new CampusBrowser({ dir: path.join(this.home, 'browser') })
+    ctx.effect(() => () => { void this.browser.dispose() }, 'zju-campus: own browser')
+    this.recognizer = () => captchaRecognizer(ctx)
+    const ptaBrowser = new WereadBridge({ dir:path.join(this.home,'pta-verification'), browser:()=>this.browser, recognizer:this.recognizer })
     ctx.effect(() => ptaBrowser.listen(ptaEndpoint, { onlyPta:true, guard:()=>{
       if (!this.active.has('courses') || (process.env.ZJU_DISABLED_MODULES ?? '').split(',').includes('pta')) throw Object.assign(new Error('课程与学习插件已关闭。'), {code:'plugin_disabled'})
     } }), 'zju-campus: PTA verification browser')
@@ -125,8 +130,6 @@ export default class ZjuCampus extends Service {
     this.contextSources = new ContextSources({ store: this.store, account: this.account, plugins: this.plugins, chatWatches: () => Object.fromEntries(this.watches().map(watch => [watch.platform, watch])), mail: this.mail, fill: this.fill })
     this.context = new CampusContext({ store: this.store, observe: () => this.contextSources.observe() })
     this.page = new CampusPage({ account: this.account, coreRoot: CORE_ROOT })
-    // 装没装 dsh-builtin-browser：只有微信公众号的扫码、验证和 PTA 的验证码要用它的窗口，页面上的链接不用。
-    this.hasBrowser = () => !!ctx.get('browser')
 
     ctx.connection.fetch.register({
       path: '/api/zju-campus', methods: ['POST'], requestBody: 'buffered',
@@ -233,7 +236,8 @@ export default class ZjuCampus extends Service {
       return operation === 'read' ? part.snapshot() : part[operation](input)
     }
     switch (action) {
-      case 'status': return { rows: this.rows(), browser: this.hasBrowser(), platform: process.platform }
+      // browser：这台电脑上有没有扫码、过验证码用得上的浏览器。
+      case 'status': return { rows: this.rows(), browser: this.browser.available(), platform: process.platform }
       case 'account-read': return this.account.snapshot()
       case 'account-save': return this.saveAccount(input)
       case 'identity-refresh': return this.fill.refresh({ overwrite: true })

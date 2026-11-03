@@ -179,6 +179,7 @@ function ChatPicker({
       open
       title="选择要监控的聊天"
       closeLabel="关闭"
+      className="campus-chat-picker-dialog"
       onClose={onClose}
       footer={
         <Button variant="outline" onClick={onClose}>
@@ -220,7 +221,7 @@ function ChatPicker({
           </Button>
         </form>
         {error && <Alert>{error}</Alert>}
-        <div className="campus-wechat-picker">
+        <div className="campus-wechat-picker campus-chat-pick-list">
           <ul className="campus-rows">
             {data?.chats?.map((chat) => (
               <li className="campus-row" key={chat.id}>
@@ -511,13 +512,20 @@ interface Place {
   folder: string
   error: string | null
 }
-/** 聊天数据位置：很多人把微信、钉钉的数据挪出了 C 盘，自动找不到时在这里选文件夹，或者把路径粘贴进来。 */
-function DataFolder({ platform }: { platform: Platform }) {
+/**
+ * 聊天数据位置：很多人把微信、钉钉的数据挪出了 C 盘，自动找不到时在这里选文件夹，或者把路径粘贴进来。
+ * onProblem 收到这里正显示的那句提示（没有时是空串），下面「监控的聊天」里同一句就不再重复。
+ */
+function DataFolder({ platform, onProblem }: { platform: Platform; onProblem: (message: string) => void }) {
   const [place, setPlace] = useState<Place | null>(null),
     [draft, setDraft] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('')
   const alive = useRef(true)
+  const problem = error || place?.error || ''
+  useEffect(() => {
+    onProblem(problem)
+  }, [problem, onProblem])
   useEffect(() => {
     alive.current = true
     call<Place>(platform, 'location').then(
@@ -608,7 +616,8 @@ export function ChatSettings({ platform }: { platform: Platform }) {
     [pending, setPending] = useState<string[]>([]),
     [adding, setAdding] = useState(false),
     [people, setPeople] = useState<Track | null>(null),
-    [history, setHistory] = useState<Track | null>(null)
+    [history, setHistory] = useState<Track | null>(null),
+    [folderProblem, setFolderProblem] = useState('')
   const alive = useRef(true)
   const reload = useCallback(async () => {
     try {
@@ -649,6 +658,12 @@ export function ChatSettings({ platform }: { platform: Platform }) {
   if (!data) return error ? <Alert>{error}</Alert> : <p className="campus-note">正在读取设置…</p>
   // 「同步中…」只看同步本身，后台在查找聊天、改设置不算。
   const syncing = pending.includes('refresh') || data.syncing
+  // 没读到的原因按原话归拢：几个聊天是同一个原因（多半是数据位置不对）时在列表上面说一次，
+  // 「聊天数据位置」里已经说了的不再说；只有一个聊天的原因跟在它那一行下面，一行小字（2026-11-04）。
+  const reasons = new Map<string, number>()
+  for (const track of data.tracks) if (track.error) reasons.set(track.error, (reasons.get(track.error) ?? 0) + 1)
+  const shared = [...reasons].filter(([reason, count]) => count > 1 && reason !== folderProblem)
+  const ownReason = (track: Track) => (track.error && reasons.get(track.error) === 1 && track.error !== folderProblem ? track.error : '')
   return (
     <>
       {(error || data.error) && <Alert>{error || data.error}</Alert>}
@@ -677,7 +692,7 @@ export function ChatSettings({ platform }: { platform: Platform }) {
           />
         </Field>
       </section>
-      <DataFolder platform={platform} />
+      <DataFolder platform={platform} onProblem={setFolderProblem} />
       <section className="campus-section">
         <div className="campus-section-head">
           <h2 className="campus-section-title">监控的聊天</h2>
@@ -688,6 +703,11 @@ export function ChatSettings({ platform }: { platform: Platform }) {
         {!data.tracks.length && (
           <p className="campus-note">还没有监控的聊天。</p>
         )}
+        {shared.map(([reason, count]) => (
+          <Alert tone="warn" key={reason}>
+            {count === data.tracks.length ? '监控的聊天这次都没读到' : `有 ${count} 个聊天这次没读到`}：{reason}
+          </Alert>
+        ))}
         {/* 一个聊天一行：名字（点开看收到的消息）、接收谁的消息、放进通知的方式、停止监控；两个下拉框的说明只在表头写一次。 */}
         {!!data.tracks.length && (
           <div className="campus-chat-tracks">
@@ -698,7 +718,8 @@ export function ChatSettings({ platform }: { platform: Platform }) {
               <span />
             </div>
             {data.tracks.map((track) => {
-              const locked = pending.includes(track.key)
+              const locked = pending.includes(track.key),
+                reason = ownReason(track)
               return (
                 <div className="campus-chat-track" key={track.key}>
                   <button
@@ -742,7 +763,7 @@ export function ChatSettings({ platform }: { platform: Platform }) {
                   >
                     停止监控
                   </button>
-                  {track.error && <Alert tone="warn">{track.error}</Alert>}
+                  {reason && <p className="campus-note campus-chat-problem">这次没读到：{reason}</p>}
                   {/* 改动排在同步后面做，同步要读消息、AI 整理时会等上一阵。 */}
                   {locked && syncing && <p className="campus-note">正在同步，同步完就改好。</p>}
                   {track.audience !== 'all' && (

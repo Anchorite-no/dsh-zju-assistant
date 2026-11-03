@@ -108,9 +108,9 @@ export default class ZjuCampus extends Service {
     this.learning = new Learning({ file: cache('learning.json'), account: this.account, plugins: this.plugins, chats: this.documents, downloads: new Downloads() })
     this.chaoxing = new Chaoxing({ file: cache('chaoxing.json'), account: this.account, plugins: this.plugins, chats: this.documents, downloads: new Downloads() })
     this.xuezai = new Xuezai({ file: cache('xuezai.json'), account: this.account, plugins: this.plugins, chats: this.documents, downloads: new Downloads(), course: id => this.learning.known(id) })
-    // 「课程讲解」的可选依赖（排公式的 TeX、检查版面的浏览器），装在插件的数据目录里。装好的 TeX 的位置写进 LEARN_TEX_BIN，命令行工具起的命令会继承。
+    // 「课程讲解」的依赖（排公式的 TeX、检查版面的浏览器、动画用的库），装在插件的数据目录里。装好的 TeX 和库的位置写进 LEARN_TEX_BIN、LEARN_LIBS，命令行工具起的命令会继承。
     this.learnKit = new LearnKit({ dataDir: this.home, plugins: this.plugins })
-    ctx.effect(() => () => { delete process.env.LEARN_TEX_BIN }, 'zju-campus: learn tex path')
+    ctx.effect(() => () => { delete process.env.LEARN_TEX_BIN; delete process.env.LEARN_LIBS }, 'zju-campus: learn tex and library paths')
 
     this.mail = new Mail({ file: this.store.file('mail.json'), plugins: this.plugins, vault: mailVault(() => ctx.get('credentials')) })
     ctx.effect(() => () => this.mail.changed(), 'zju-campus: mailbox connection lifecycle')

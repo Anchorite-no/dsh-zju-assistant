@@ -6,14 +6,27 @@
  * 装在应用的数据目录里，不改系统的 PATH、注册表和开始菜单；卸载就是删掉那个文件夹。
  * 装好以后把位置放进环境变量 LEARN_TEX_BIN（engine/tex.mjs 第一个看的就是它），引擎之后启动的命令都会继承。
  * 千问 TTS 配音由 tts.mjs 单独管理；默认不安装，不影响这两项依赖。
+ *
+ * 动画常用的 gsap 和 three（engine/lib.mjs 把它们做成这一集的 lib/）解开有 30 MB，多数人不开「课程讲解」，所以不随插件带：
+ * 这一行打开时下载（约 6 MB），核对 npm 登记的 SHA-512 后解到数据目录的 tools/learn-libs/node_modules，位置写进 LEARN_LIBS，lib.mjs 先看它。
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { createHash, randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
+import { gunzipSync } from 'node:zlib'
 import { pipeline } from 'node:stream/promises'
 import { Readable, Transform } from 'node:stream'
 
 export const PLUGIN = 'zju-learn'
+
+/** 下载哪两个、什么版本：照仓库里讲解引擎装的那一份（core/learn/engine/vendor/package-lock.json），校验值也从那里来。 */
+export const LIBS = {
+  gsap: { version: '3.15.0', integrity: 'sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A==' },
+  three: { version: '0.186.1', integrity: 'sha512-blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1390LqzzvTmzgXKHPEafJwCb8jA==' },
+}
+/** npm 的下载源，从上往下试：国内的镜像在前，校验值对得上才用。 */
+export const REGISTRIES = ['https://registry.npmmirror.com', 'https://registry.npmjs.org']
 
 /** TeX Live 的安装源，从上往下试，哪个先连上用哪个。 */
 export const MIRRORS = [
@@ -77,6 +90,34 @@ export async function download(url, file, onProgress) {
   await pipeline(Readable.fromWeb(response.body), count, fs.createWriteStream(file))
 }
 
+/**
+ * 把 npm 的 .tgz 解到 dir：去掉最外面那层（package/），只放普通文件。长路径照 pax 或 GNU 的写法读；路径跑出 dir 的整个不要。
+ * 不用系统的 tar：Windows 上的 tar.exe 认不好带中文的路径，用户名是中文时数据目录就带中文。
+ */
+export function untgz(packed, dir) {
+  const tar = gunzipSync(packed), root = path.resolve(dir)
+  let at = 0, long = ''
+  while (at + 512 <= tar.length) {
+    const head = tar.subarray(at, at + 512)
+    if (head.every(byte => byte === 0)) break
+    const field = (from, length) => head.subarray(from, from + length).toString('utf8').replace(/\0[\s\S]*$/, '')
+    const size = parseInt(field(124, 12).trim() || '0', 8), type = field(156, 1) || '0'
+    const body = tar.subarray(at + 512, at + 512 + size)
+    at += 512 + Math.ceil(size / 512) * 512
+    if (type === 'x') { long = /(?:^|\n)\d+ path=([^\n]*)/.exec(body.toString('utf8'))?.[1] ?? ''; continue }
+    if (type === 'L') { long = body.toString('utf8').replace(/\0[\s\S]*$/, ''); continue }
+    const name = long || (field(257, 5) === 'ustar' && field(345, 155) ? `${field(345, 155)}/${field(0, 100)}` : field(0, 100))
+    long = ''
+    if (type !== '0' && type !== '7') continue
+    const parts = name.split('/').slice(1).filter(Boolean)
+    if (!parts.length) continue
+    const file = path.resolve(root, ...parts)
+    if (!file.startsWith(root + path.sep)) throw new Error('压缩包里有跑出目录的路径，没有使用')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, body)
+  }
+}
+
 /** 跑一个程序到结束，输出一行一行交给 onLine；退出码不是 0 时带着最后几行报错。Windows 上的 .bat 要经 cmd 才能启动。 */
 export function run(command, args, { cwd, env, onLine, timeoutMs = INSTALL_LIMIT_MS } = {}) {
   return new Promise((resolve, reject) => {
@@ -105,9 +146,9 @@ export function run(command, args, { cwd, env, onLine, timeoutMs = INSTALL_LIMIT
 export class LearnKit {
   /**
    * dataDir 是应用的数据目录；plugins 是插件开关。env 是引擎进程的环境变量，装好的 TeX 的位置写在里面。
-   * tools 是下载和跑程序的两个函数，browsers 是找浏览器的位置，elsewhere 是 PATH 以外还要看的 TeX 的位置，测试时换成假的。
+   * tools 是下载和跑程序的两个函数，browsers 是找浏览器的位置，elsewhere 是 PATH 以外还要看的 TeX 的位置；libs、registries 是要下载的库和下载源。测试时换成假的。
    */
-  constructor({ dataDir, plugins, env = process.env, tools = { download, run }, browsers = BROWSERS, mirrors = MIRRORS, elsewhere = yearly }) {
+  constructor({ dataDir, plugins, env = process.env, tools = { download, run }, browsers = BROWSERS, mirrors = MIRRORS, elsewhere = yearly, libs = LIBS, registries = REGISTRIES }) {
     this.elsewhere = elsewhere
     this.plugins = plugins
     this.env = env
@@ -115,6 +156,12 @@ export class LearnKit {
     this.browsers = browsers
     this.mirrors = mirrors
     this.home = texHome(dataDir, env)
+    this.libs = libs
+    this.registries = registries
+    this.libsDir = path.join(dataDir, 'tools', 'learn-libs', 'node_modules')
+    /** 正在下载动画库时下到哪了；没下成时 libsError 留着原因。 */
+    this.libsJob = null
+    this.libsError = ''
     // 启动环境里原有的 LEARN_TEX_BIN 是用户自己设的，没装我们这一份时还给他。
     this.inherited = env.LEARN_TEX_BIN
     /** 正在装的那一样装到哪了；装完或者没装成以后，error 留着上一次没装成的原因。 */
@@ -140,6 +187,53 @@ export class LearnKit {
     if (hasTex(this.ownBin())) this.env.LEARN_TEX_BIN = this.ownBin()
     else if (this.inherited === undefined) delete this.env.LEARN_TEX_BIN
     else this.env.LEARN_TEX_BIN = this.inherited
+    this.env.LEARN_LIBS = this.libsDir
+  }
+
+  /** 这个库下好了、版本对。 */
+  hasLib(name) {
+    try { return JSON.parse(fs.readFileSync(path.join(this.libsDir, name, 'package.json'), 'utf8')).version === this.libs[name].version } catch { return false }
+  }
+
+  hasLibs() { return Object.keys(this.libs).every(name => this.hasLib(name)) }
+
+  /** 这一行打开时叫：动画库不全就开始下载，马上返回。已经在下、或者这一行关着，什么都不做。 */
+  prepare() {
+    if (!this.enabled() || this.libsJob || this.hasLibs()) return
+    this.libsJob = { step: '准备', percent: 0 }
+    this.libsError = ''
+    this.libsDone = this.fetchLibs().then(() => { this.libsError = '' }, (error) => { this.libsError = message(error) }).finally(() => { this.libsJob = null })
+  }
+
+  async fetchLibs() {
+    const names = Object.keys(this.libs)
+    for (const [index, name] of names.entries()) {
+      if (this.hasLib(name)) continue
+      const { version, integrity } = this.libs[name]
+      const step = (text, done) => { this.libsJob = { step: text, percent: Math.floor((index + done) / names.length * 100) } }
+      const target = path.join(this.libsDir, name), temp = `${target}.${randomUUID()}.tmp`, packed = `${temp}.tgz`
+      fs.mkdirSync(this.libsDir, { recursive: true })
+      try {
+        const reasons = []
+        for (const registry of this.registries) {
+          try {
+            step(`下载 ${name}`, 0)
+            await this.tools.download(`${registry}/${name}/-/${name}-${version}.tgz`, packed, ({ bytes, total }) => { if (total) step(`下载 ${name}`, bytes / total * 0.9) })
+            if (`sha512-${createHash('sha512').update(fs.readFileSync(packed)).digest('base64')}` !== integrity) throw new Error(`${new URL(registry).host} 给的和应有的不一样`)
+            reasons.length = 0
+            break
+          } catch (error) { reasons.push(message(error)) }
+        }
+        if (reasons.length) throw new Error(`${name} 没有下载成：${reasons[0]}`)
+        step(`解开 ${name}`, 0.9)
+        untgz(fs.readFileSync(packed), temp)
+        fs.rmSync(target, { recursive: true, force: true })
+        fs.renameSync(temp, target)
+      } finally {
+        fs.rmSync(packed, { force: true })
+        fs.rmSync(temp, { recursive: true, force: true })
+      }
+    }
   }
 
   snapshot() {
@@ -153,14 +247,17 @@ export class LearnKit {
           installable: process.platform === 'win32', step: this.job?.step ?? '', percent: this.job?.percent ?? null, error: this.error,
         },
         { id: 'browser', state: this.browsers.some(file => fs.existsSync(file)) ? 'ready' : 'missing', where: null, installable: false, step: '', percent: null, error: '' },
+        // 自动下载的，没有卸载；没下成时页面上的「安装」再下一次。
+        { id: 'libs', state: this.libsJob ? 'installing' : this.hasLibs() ? 'ready' : 'missing', where: null, installable: true, step: this.libsJob?.step ?? '', percent: this.libsJob?.percent ?? null, error: this.libsError },
       ],
     }
   }
 
   /** 开始装一样依赖，马上返回；装到哪了页面隔一会儿来读。已经在装就不再起第二次。 */
   install(input) {
-    if (input?.id !== 'tex') throw new Error('这一样不能在这里安装')
+    if (input?.id !== 'tex' && input?.id !== 'libs') throw new Error('这一样不能在这里安装')
     if (!this.enabled()) throw new Error('「课程讲解」在插件页关着，先打开它。')
+    if (input.id === 'libs') { this.prepare(); return this.snapshot() }
     if (process.platform !== 'win32') throw new Error('这个系统上还不能自动安装，请自己装好 TeX Live。')
     if (this.job) return this.snapshot()
     if (!plain(this.home)) throw new Error(`TeX Live 装不进带中文或空格的位置（${this.home}）。请自己装一份 TeX Live，装好后重新打开应用。`)

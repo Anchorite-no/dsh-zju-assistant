@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { LearnKit, texHome } from './learn.mjs'
+import { createHash } from 'node:crypto'
+import { gzipSync } from 'node:zlib'
+import { LearnKit, texHome, untgz } from './learn.mjs'
 
 const EXE = process.platform === 'win32' ? '.exe' : ''
 const windows = { skip: process.platform !== 'win32' && '安装只做了 Windows 的' }
@@ -11,6 +13,44 @@ const room = (t) => { const root = fs.mkdtempSync(path.join(os.tmpdir(), 'campus
 /** 在一个文件夹里放上假的 latex 和 dvisvgm。 */
 const plant = (dir) => { fs.mkdirSync(dir, { recursive: true }); for (const name of ['latex', 'dvisvgm']) fs.writeFileSync(path.join(dir, name + EXE), '') }
 const part = (kit, id) => kit.snapshot().parts.find(item => item.id === id)
+
+/** 做一个 npm 那样的 .tgz：路径照写（npm 的都在 package/ 下面），超过 100 个字的路径用 pax 头写。 */
+function tgz(files) {
+  const header = (name, size, type) => {
+    const head = Buffer.alloc(512)
+    head.write(name.slice(0, 100), 0)
+    head.write('0000644\0', 100)
+    head.write(size.toString(8).padStart(11, '0') + '\0', 124)
+    head.write(type, 156)
+    head.write('ustar\x0000', 257)
+    return head
+  }
+  const pad = data => Buffer.concat([data, Buffer.alloc((512 - data.length % 512) % 512)])
+  const blocks = []
+  for (const [name, content] of Object.entries(files)) {
+    if (name.length > 100) {
+      const rest = ` path=${name}\n`
+      let length = rest.length + 1
+      while (String(length).length + rest.length !== length) length++
+      const record = Buffer.from(length + rest)
+      blocks.push(header('PaxHeader', record.length, 'x'), pad(record))
+    }
+    const data = Buffer.from(content)
+    blocks.push(header(name, data.length, '0'), pad(data))
+  }
+  return gzipSync(Buffer.concat([...blocks, Buffer.alloc(1024)]))
+}
+const integrity = packed => `sha512-${createHash('sha512').update(packed).digest('base64')}`
+const libOf = url => /\/(gsap|three)\/-\//.exec(url)[1]
+/** 两个假的库和它们的校验值；three 里有一个超过 100 个字的路径。 */
+function fakeLibs() {
+  const deep = `package/examples/jsm/${'addons/'.repeat(16)}Deep.js`
+  const packs = {
+    gsap: tgz({ 'package/package.json': '{"version":"3.15.0"}', 'package/dist/gsap.min.js': 'window.gsap={}' }),
+    three: tgz({ 'package/package.json': '{"version":"0.186.1"}', 'package/build/three.module.js': 'export const REVISION="186"', [deep]: 'export {}' }),
+  }
+  return { packs, deep: deep.slice('package/'.length), libs: { gsap: { version: '3.15.0', integrity: integrity(packs.gsap) }, three: { version: '0.186.1', integrity: integrity(packs.three) } } }
+}
 
 test('where the bundled TeX goes: the data folder, or ProgramData when the user name is not plain ASCII', () => {
   assert.equal(texHome(path.join('C:', 'Users', 'a', 'AppData', 'Roaming', 'CampusAgent'), {}), path.join('C:', 'Users', 'a', 'AppData', 'Roaming', 'CampusAgent', 'tools', 'texlive'))
@@ -130,4 +170,70 @@ test('a failed install leaves nothing behind and says why; a closed plugin or an
   await broken.done
   assert.equal(part(broken, 'tex').error, 'install-tl: 网络断了')
   assert.equal(fs.existsSync(broken.home), false)
+})
+
+test('animation libraries: downloaded when the row opens, checked against npm, unpacked where lib.mjs looks', async (t) => {
+  const root = room(t), env = {}, { packs, deep, libs } = fakeLibs(), urls = [], seen = []
+  let kit
+  const tools = {
+    download: async (url, file, onProgress) => {
+      urls.push(url)
+      if (url.startsWith('https://mirror.example')) throw new Error('mirror.example 回了 502')
+      onProgress({ bytes: 1, total: 2 })
+      seen.push({ ...part(kit, 'libs') })
+      fs.writeFileSync(file, packs[libOf(url)])
+    },
+    run: async () => { assert.fail('不该起程序') },
+  }
+  kit = new LearnKit({ elsewhere: () => [], dataDir: root, plugins: { disabled: () => [] }, env, tools, libs, registries: ['https://mirror.example', 'https://npm.example'] })
+  assert.equal(env.LEARN_LIBS, path.join(root, 'tools', 'learn-libs', 'node_modules'))
+  assert.equal(part(kit, 'libs').state, 'missing')
+  kit.prepare()
+  // 已经在下时再叫一次，不起第二次。
+  kit.prepare()
+  assert.equal(part(kit, 'libs').state, 'installing')
+  await kit.libsDone
+  assert.deepEqual(urls, [
+    'https://mirror.example/gsap/-/gsap-3.15.0.tgz', 'https://npm.example/gsap/-/gsap-3.15.0.tgz',
+    'https://mirror.example/three/-/three-0.186.1.tgz', 'https://npm.example/three/-/three-0.186.1.tgz',
+  ])
+  assert.deepEqual(seen.map(item => [item.step, item.percent]), [['下载 gsap', 22], ['下载 three', 72]])
+  assert.deepEqual([part(kit, 'libs').state, part(kit, 'libs').error], ['ready', ''])
+  assert.equal(fs.readFileSync(path.join(env.LEARN_LIBS, 'gsap', 'dist', 'gsap.min.js'), 'utf8'), 'window.gsap={}')
+  assert.equal(fs.readFileSync(path.join(env.LEARN_LIBS, 'three', ...deep.split('/')), 'utf8'), 'export {}')
+  // 半截的临时文件不留下。
+  assert.deepEqual(fs.readdirSync(env.LEARN_LIBS).sort(), ['gsap', 'three'])
+
+  // 下好了再打开这一行，不再下载。
+  kit.prepare()
+  assert.equal(kit.libsJob, null)
+  assert.equal(urls.length, 4)
+})
+
+test('animation libraries: a download that does not match is not used; a closed row downloads nothing; the page can retry', async (t) => {
+  const root = room(t), state = { disabled: ['zju-learn'] }, { packs, libs } = fakeLibs()
+  let good = false
+  const tools = { download: async (url, file) => { fs.writeFileSync(file, good ? packs[libOf(url)] : 'not the package') }, run: async () => {} }
+  const kit = new LearnKit({ elsewhere: () => [], dataDir: root, plugins: { disabled: () => state.disabled }, env: {}, tools, libs, registries: ['https://npm.example'] })
+  kit.prepare()
+  assert.equal(kit.libsJob, null)
+  assert.throws(() => kit.install({ id: 'libs' }), /关着/)
+
+  state.disabled = []
+  kit.prepare()
+  await kit.libsDone
+  assert.deepEqual([part(kit, 'libs').state, part(kit, 'libs').error], ['missing', 'gsap 没有下载成：npm.example 给的和应有的不一样'])
+  assert.deepEqual(fs.readdirSync(kit.libsDir), [])
+  assert.throws(() => kit.remove({ id: 'libs' }), /不能在这里卸载/)
+
+  good = true
+  assert.equal(kit.install({ id: 'libs' }).parts.find(item => item.id === 'libs').state, 'installing')
+  await kit.libsDone
+  assert.deepEqual([part(kit, 'libs').state, part(kit, 'libs').error], ['ready', ''])
+})
+
+test('unpacking refuses paths that leave the folder', (t) => {
+  const root = room(t), dir = path.join(root, 'out')
+  assert.throws(() => untgz(tgz({ 'package/ok.js': '1', 'package/../../evil.js': '2' }), dir), /跑出目录/)
+  assert.equal(fs.existsSync(path.join(root, 'evil.js')), false)
 })

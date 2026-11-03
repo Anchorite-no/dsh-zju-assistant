@@ -3,7 +3,8 @@
  * 开发时不跑它：用链接装进 profile 时本包就是仓库里的 plugin/，core 在旁边，依赖也是仓库里 npm 装好的那一份。
  * 只拷插件用得到的：校园命令（zju）、公众号（weread）、两个聊天的读取器和它们共用的 chat、课程讲解（learn，不带配音）、
  * 技能里链到的工作流（skills）和初始化（initialize）。不拷 node_modules、测试和开发用的东西；第三方依赖写在 package.json 的 dependencies，
- * 装插件时由包管理器装好，core 的代码往上找得到。讲解引擎按路径读 engine/vendor/node_modules 里的 gsap 和 three，这两个照原样拷。
+ * 装插件时由包管理器装好，core 的代码往上找得到。讲解引擎自带的 engine/vendor/node_modules 也不拷：gsap 和 three 解开有 30 MB，
+ * 「课程讲解」打开时才下载（host/learn.mjs），esbuild 由 dependencies 装 esbuild-wasm（没有安装脚本，pnpm 不会拦）。
  * 用法：node plugin/pack-core.mjs（prepack 跑），node plugin/pack-core.mjs --clean（postpack 跑，删掉拷进来的）。
  */
 import fs from 'node:fs'
@@ -25,14 +26,10 @@ const PARTS = [
   'skills/course-selection', 'skills/course-study', 'skills/exam-prep', 'skills/homework-submit', 'skills/my-week',
   'initialize',
 ]
-/** 讲解引擎自带的依赖里只要这两个；esbuild 带着当前系统的二进制，改由 dependencies 装 esbuild-wasm（没有安装脚本，pnpm 不会拦）。 */
-const VENDOR = ['gsap', 'three']
-
 const copy = (from, to) => copyPublicTree(from, to, source)
 
 fs.rmSync(target, { recursive: true, force: true })
 if (!process.argv.includes('--clean')) {
   for (const part of PARTS) copy(path.join(source, part), path.join(target, part))
-  for (const name of VENDOR) copy(path.join(source, 'learn', 'engine', 'vendor', 'node_modules', name), path.join(target, 'learn', 'engine', 'vendor', 'node_modules', name))
   console.log(`core 已拷到 ${target}`)
 }

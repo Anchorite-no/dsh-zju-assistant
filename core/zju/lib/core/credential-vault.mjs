@@ -1,12 +1,64 @@
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createRequire } from 'node:module'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 const require = createRequire(import.meta.url)
 const SERVICE = 'dsh-zju-assistant.encryption.v1'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const unavailable = () => new Error('无法使用系统凭据库。请解锁系统钥匙串或凭据管理器后重试；现有账号文件不会改为明文。')
 
+/** Android/PRoot 没有 Secret Service 时，使用应用私有目录里的 0600 密钥文件。正式版应改为 Android Keystore 桥。 */
+function keyFile() {
+  const home = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
+  return path.join(home, 'zju-campus', 'profile', 'keyring.json')
+}
+
+function readFileKeys() {
+  try {
+    const value = JSON.parse(fs.readFileSync(keyFile(), 'utf8'))
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('keyring format')
+    return value
+  } catch (error) {
+    if (error.code === 'ENOENT') return {}
+    throw error
+  }
+}
+
+function writeFileKeys(value) {
+  const file = keyFile()
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
+  const tmp = `${file}.${process.pid}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify(value), { mode: 0o600 })
+  fs.chmodSync(tmp, 0o600)
+  fs.renameSync(tmp, file)
+  fs.chmodSync(file, 0o600)
+}
+
+function fileEntry(id) {
+  return {
+    getPassword() {
+      const value = readFileKeys()[id]
+      if (typeof value !== 'string') throw new Error('本地密钥不存在')
+      return value
+    },
+    setPassword(value) {
+      const all = readFileKeys()
+      all[id] = value
+      writeFileKeys(all)
+    },
+    deleteCredential() {
+      const all = readFileKeys()
+      delete all[id]
+      writeFileKeys(all)
+    },
+  }
+}
+
 function systemEntry(id) {
+  const mode = process.env.CAMPUS_FILE_KEYRING
+  if (mode !== '0' && (mode === '1' || process.env.ANDROID_DATA || process.env.ANDROID_ROOT)) return fileEntry(id)
   const { Entry } = require('@napi-rs/keyring')
   // Linux requires persistent Secret Service storage; do not fall back to a session keyring.
   return new Entry(SERVICE, id, { linux: { store: 'secret-service' } })

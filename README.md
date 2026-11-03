@@ -93,9 +93,9 @@
 
 ## 数据和隐私
 
-这个项目没有自己的服务器，数据都在你的电脑上。
+这个项目没有自己的服务器，数据都在你的设备上。
 
-- 校园账号和密码加密保存在 `~/.dsh/zju-campus/profile/accounts.json`，密钥由 Windows 凭据管理器或 macOS 钥匙串保管，旧明文在更新后的插件首次读取时自动迁移；个人资料、记忆、备忘录也在这个文件夹里，是一条一个的 Markdown 文件。
+- 校园账号和密码加密保存在 `$DSH_HOME/zju-campus/profile/accounts.json`（桌面版通常是 `~/.dsh/zju-campus/profile/accounts.json`），密钥由 Windows 凭据管理器、macOS 钥匙串或 Linux Secret Service 保管。Android/PRoot 当前暂用同目录下权限 `0600` 的 `keyring.json`，这是测试用回退，正式版应改用 Android Keystore。旧明文在更新后的插件首次读取时自动迁移；个人资料、记忆、备忘录也在这个文件夹里，是一条一个的 Markdown 文件。
 - 各系统的登录状态和缓存在 `~/.dsh/zju-campus/zju` 和 `cache`。
 - 浙大邮箱的客户端专用密码先经同样的系统凭据库保护，再将密文存入 dsh 的凭据服务。dsh 自己的模型 API Key 仍由宿主管理。详见 [凭据与本地数据](SECURITY.md)。
 - 下载的课件、转写和讲解在「文档」文件夹的 `CampusAgent` 下（macOS 上是 `~/Documents/CampusAgent`），在页面上点「下载」存的文件在「下载」文件夹的 `CampusAgent` 下。

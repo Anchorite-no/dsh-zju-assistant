@@ -1,6 +1,6 @@
 # 运行与配置
 
-安装步骤和架构图见 [README](../README.md)，命令用法见 [SKILL.md](../SKILL.md)。
+命令用法见 [SKILL.md](../SKILL.md)。
 
 Node.js 24+。首次在 Skill 目录执行 `npm install`，安装固定版本的 Electron 44.0.0；Skill 用自己的浏览器，不依赖系统浏览器或其他应用。被应用托管时浏览器由应用提供（`WEREAD_BROWSER_ENDPOINT`），可以用 `npm install --omit=optional` 不装 Electron。
 
@@ -8,7 +8,7 @@ Node.js 24+。首次在 Skill 目录执行 `npm install`，安装固定版本的
 
 ## 配置
 
-默认读取 Skill 根目录的 `.env`，参考 [示例](../.env.example)；同名的系统环境变量优先。`.env` 已被 Git 忽略。也可用 `WEREAD_ENV_FILE` 指定另一份环境配置文件。
+默认读取 Skill 根目录的 `.env`；同名的系统环境变量优先。`.env` 已被 Git 忽略。也可用 `WEREAD_ENV_FILE` 指定另一份环境配置文件。
 
 | 变量 | 作用 |
 |---|---|

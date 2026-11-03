@@ -4,7 +4,7 @@
 
 ## 考勤记录
 
-`tyys rollcall history [--course 课程名]` 列出各学期每次体育课的日期与状态，最近的在前。planned 是应上次数，held 是已有记录的次数；未上课次不计入缺勤。message 已汇总到勤与未到的课次，直接转述。实现与协议见 [开发参考](../lib/tyys/README.md)。
+`tyys rollcall history [--course 课程名]` 列出各学期每次体育课的日期与状态，最近的在前。planned 是应上次数，held 是已有记录的次数；未上课次不计入缺勤。message 已汇总到勤与未到的课次，直接转述。
 
 ## 场馆预约
 

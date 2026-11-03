@@ -22,6 +22,10 @@ function isRetiredPath(name) {
     || /^scripts\/(?:after-pack(?:\.test)?|before-pack|build-dependencies\.test|runtime-deps(?:\.test)?|smoke-packaged)\.cjs$/.test(file)
     || /^scripts\/(?:after-pack|build-dependencies|runtime-deps)\.test\.mjs$/.test(file)
     || file === 'scripts/installer.nsh'
+    // Development references (protocol research, dated test notes) and desktop-only leftovers, removed from releases on 2026-11-04.
+    || /^core\/zju\/(?:lib\/(?:[^/]+\/)*)?readme\.md$/.test(file)
+    || ['core/weread/readme.md', 'core/skills/readme.md', 'start.cmd', 'start.command'].includes(file)
+    || file.startsWith('core/skills/skill-writer/')
 }
 
 function assertPublicFiles(files, { allowRetired = false } = {}) {
@@ -53,7 +57,8 @@ function copyPublicTree(from, to, sourceRoot) {
   for (const entry of fs.readdirSync(from)) {
     if (['node_modules', 'tests', '__pycache__'].includes(entry) || entry.endsWith('.test.mjs') || entry.endsWith('.pyc')) continue
     const child = path.join(from, entry)
-    if (isPrivatePath(`core/${path.relative(sourceRoot, child)}`)) continue
+    const published = `core/${path.relative(sourceRoot, child)}`
+    if (isPrivatePath(published) || isRetiredPath(published)) continue
     copyPublicTree(child, path.join(to, entry), sourceRoot)
   }
 }

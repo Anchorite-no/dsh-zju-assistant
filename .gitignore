@@ -26,6 +26,11 @@ plugin/core/
 /docs/DEVELOPMENT.md
 /core/learn/tools/tts/voicelab/
 **/dev/
+# 协议调研和实测记录（各模块的 README、core 的维护说明、写技能的规范），只留在本机和 zju-skill。
+/core/zju/README.md
+/core/zju/lib/**/README.md
+/core/weread/README.md
+/core/skills/README.md
 AGENTS.md
 CLAUDE.md
 .claude/
@@ -113,4 +118,7 @@ id_ed25519
 /scripts/runtime-deps.test.mjs
 /scripts/smoke-packaged.cjs
 /scripts/review-eval/
+/start.cmd
+/start.command
+/core/skills/skill-writer/
 *.tgz

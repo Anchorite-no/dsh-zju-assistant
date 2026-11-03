@@ -20,6 +20,8 @@ const WRD_KEY = Buffer.from('wrdvpnisthebest!', 'utf8')
 const SESSION_FILES = ['zjuam', 'webvpn']
 /** 从校外实测过公网可达的站点（core/zju/lib/webvpn/README.md 的表），Core 访问它们也是直连。 */
 const KNOWN_PUBLIC = ['zdbk.zju.edu.cn', 'courses.zju.edu.cn', 'classroom.zju.edu.cn', 'eta.zju.edu.cn']
+/** 一个工具结果里最多给助手换多少条链接；通知列表一次几十条，够用。 */
+const MAX_LINKS = 200
 /** 要先到统一身份认证换票的网站，和换票的地址（core/zju/lib/zdbk/client.ts 的 CAS_SERVICE）。 */
 const SITE_LOGINS = { 'zdbk.zju.edu.cn': 'https://zdbk.zju.edu.cn/jwglxt/xtgl/login_ssologin.html' }
 
@@ -105,6 +107,26 @@ export class CampusPage {
   }
 
   transport() { return this.account.read().data.transport === 'direct' ? 'direct' : 'webvpn' }
+
+  /**
+   * 给助手的：一个工具结果里出现的校内地址，经 WebVPN 时各自该开的地址（原地址 → WebVPN 地址，最多 MAX_LINKS 条）。
+   * 助手照它把链接写成 [原地址](WebVPN 地址)：聊天里看着还是原来的地址，点开在校外也能上（2026-11-04）。
+   * 选了校园网直连、或者没有要换的，返回 undefined，助手直接写原地址。
+   */
+  links(value) {
+    if (this.transport() !== 'webvpn') return undefined
+    const found = new Map()
+    for (const raw of JSON.stringify(value ?? null).match(/https?:\/\/[^\s"'<>\\)\]]+/g) ?? []) {
+      const text = raw.replace(/[.,;:!?。，、；：！？）》」』】]+$/u, '')
+      if (found.has(text) || found.size >= MAX_LINKS) continue
+      let url
+      try { url = new URL(text) } catch { continue }
+      if (url.hostname === WEBVPN_HOST) continue
+      const routed = routeUrl(url.href, 'webvpn', this.publicHosts)
+      if (routed && routed !== url.href) found.set(text, routed)
+    }
+    return found.size ? Object.fromEntries(found) : undefined
+  }
 
   cookies() {
     return SESSION_FILES.flatMap((system) => {

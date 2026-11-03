@@ -61,6 +61,7 @@ export function zjuTool(ctx, campus) {
       '执行一条浙大校园命令（ZJU Core）：课表、考试、成绩、作业、课件和录播，学校与学院通知，二课活动，体育场馆，CC98，电子书和知网，读 PDF/Word/PPT 等文档。',
       '先加载 zju-campus 技能，照它和它链到的命令说明写参数。args 是命令行上 zju 后面那一串，一项一个，例如 ["notice","search","--keyword","奖学金"]；不确定参数时先用 ["<模块>","--help"]。',
       '带 --confirm 的是写操作（选课、预约、报名、交作业、签到、发帖），会先请用户批准；不用设 ZJU_ALLOW_WRITE。结果是命令输出的 JSON，ok 为 false 时照 error 里的原因和提示处理。',
+      '结果里有 webvpnLinks（原地址 → WebVPN 地址）时，给用户的这些链接写成 Markdown [原地址或标题](对应的 WebVPN 地址)，显示原来的地址，点开在校外也能上；没有 webvpnLinks 就直接写原地址。',
     ].join(''),
     parameters: {
       args: { type: 'array', required: true, items: { type: 'string' }, description: 'zju 后面的参数，一项一个，如 ["zdbk","timetable"]' },
@@ -94,7 +95,9 @@ export function zjuTool(ctx, campus) {
         await ensureFfmpeg(campus.dataDir())
         result = await run()
       }
-      return result
+      // 经 WebVPN 时附上结果里校内地址该开的 WebVPN 地址，助手照它写链接（campus-page.mjs 的 links）。
+      const links = result && typeof result === 'object' && !Array.isArray(result) ? campus.page?.links(result) : undefined
+      return links ? { ...result, webvpnLinks: links } : result
     },
   })
 }

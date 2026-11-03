@@ -159,6 +159,24 @@ test('页面上的校内链接：经 WebVPN 时校内地址（含 CC98）换成 
   assert.equal(routeUrl(wrapUrl('http://www.cs.zju.edu.cn/x'), 'webvpn'), wrapUrl('http://www.cs.zju.edu.cn/x'))
 })
 
+test('给助手的链接对照：经 WebVPN 时校内地址（含 CC98）配上 WebVPN 地址，公网可达的、统一身份认证、外网和已经换好的不配；直连时不给', (t) => {
+  let transport = 'webvpn'
+  const page = new CampusPage({ browser: {}, account: { read: () => ({ data: { transport } }) }, dataDir: () => '', coreRoot: temp(t, 'no-core'), run: async () => {} })
+  const result = { ok: true, data: [
+    { title: '帖子', url: 'https://www.cc98.org/topic/6622086' },
+    { title: '通知', url: 'http://www.cs.zju.edu.cn/x?y=1', note: '详见http://www.cs.zju.edu.cn/x?y=1。' },
+    { url: 'https://zdbk.zju.edu.cn/jwglxt/x' }, { url: 'https://zjuam.zju.edu.cn/cas/login' }, { url: 'https://example.com/a' },
+    { url: wrapUrl('http://www.cs.zju.edu.cn/other') },
+  ] }
+  assert.deepEqual(page.links(result), {
+    'https://www.cc98.org/topic/6622086': wrapUrl('https://www.cc98.org/topic/6622086'),
+    'http://www.cs.zju.edu.cn/x?y=1': wrapUrl('http://www.cs.zju.edu.cn/x?y=1'),
+  })
+  assert.equal(page.links({ ok: true, data: [{ url: 'https://example.com/' }] }), undefined)
+  transport = 'direct'
+  assert.equal(page.links(result), undefined)
+})
+
 test('在插件的浏览器里打开校内网页：先续上登录，带上 zju.edu.cn 下的会话 cookie，教务网先换票，跳转途中照访问方式换路', async (t) => {
   const dataDir = temp(t, 'core-data'), calls = [], opened = []
   fs.mkdirSync(path.join(dataDir, 'sessions'))

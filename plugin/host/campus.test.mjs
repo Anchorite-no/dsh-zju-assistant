@@ -181,19 +181,20 @@ test('在插件的浏览器里打开校内网页：先续上登录，带上 zju.
   const dataDir = temp(t, 'core-data'), calls = [], opened = []
   fs.mkdirSync(path.join(dataDir, 'sessions'))
   fs.writeFileSync(path.join(dataDir, 'sessions', 'webvpn.json'), JSON.stringify({ cookies: [{ name: 'wengine_vpn_ticketwebvpn_zju_edu_cn', value: 'v', domain: 'webvpn.zju.edu.cn', path: '/', secure: true, hostOnly: true }] }))
-  fs.writeFileSync(path.join(dataDir, 'sessions', 'zjuam.json'), JSON.stringify({ cookies: [{ name: 'iPlanetDirectoryPro', value: 'c', domain: 'zju.edu.cn', path: '/', expires: 2e12 }, { name: 'other', value: 'x', domain: 'example.com', path: '/' }] }))
+  fs.writeFileSync(path.join(dataDir, 'sessions', 'zjuam.json'), JSON.stringify({ extra: { userAgent: 'core-session-agent' }, cookies: [{ name: 'iPlanetDirectoryPro', value: 'c', domain: 'zju.edu.cn', path: '/', expires: 2e12 }, { name: 'other', value: 'x', domain: 'example.com', path: '/' }] }))
   let reroute, alive = false
   const browser = {
     async open() { alive = true; calls.push('open'); return 'w' },
     exists: () => alive,
     async reroute(_id, fn) { reroute = fn },
+    async setUserAgent(_id, ua) { calls.push(['ua', ua]) },
     async restoreAuth(_id, cookies) { calls.push(['cookies', cookies.map(c => c.name)]); return cookies.length },
     async focus() {},
     async openUrl(_id, { url }) { opened.push(url) },
   }
   const page = new CampusPage({ browser, account: { read: () => ({ data: { transport: 'webvpn' } }) }, dataDir: () => dataDir, coreRoot: dataDir, run: async args => { calls.push(args.join(' ')) } })
   assert.deepEqual(await page.open('https://zdbk.zju.edu.cn/jwglxt/x'), { url: 'https://zdbk.zju.edu.cn/jwglxt/x' })
-  assert.deepEqual(calls, ['zjuam session login', 'webvpn session login', 'open', ['cookies', ['iPlanetDirectoryPro', 'wengine_vpn_ticketwebvpn_zju_edu_cn']]])
+  assert.deepEqual(calls, ['zjuam session login', 'webvpn session login', 'open', ['ua', 'core-session-agent'], ['cookies', ['iPlanetDirectoryPro', 'wengine_vpn_ticketwebvpn_zju_edu_cn']]])
   assert.deepEqual(opened, ['https://zjuam.zju.edu.cn/cas/login?service=' + encodeURIComponent('https://zdbk.zju.edu.cn/jwglxt/xtgl/login_ssologin.html'), 'https://zdbk.zju.edu.cn/jwglxt/x'])
   // 第二次用同一个窗口；页面里点到的校内链接经 WebVPN，统一身份认证换回直连，已经换好的不动。
   await page.open('https://www.cc98.org/topic/1')

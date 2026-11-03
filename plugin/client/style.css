@@ -2163,6 +2163,28 @@
   max-height: max(320px, calc(100vh - 190px));
 }
 
+/* 学习页两栏时也照校园事务那样占满这一页标题下面的高度（2026-11-04）：上面几个框的定高按整个窗口算，
+桌面版的内容区比窗口矮，条目多了框底会落到应用外面。两栏时栏占满一行，框不再按窗口定高，内容少时照内容的高度，
+多了在框里滚，下面那行小字跟在框后面。上下叠放时还用上面的定高。 */
+@container (min-width: 761px) {
+  .campus-learn > .campus-affairs-columns {
+    flex: 1 1 0;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .campus-learn > .campus-affairs-columns > .campus-section {
+    min-height: 0;
+  }
+
+  .campus-learn > .campus-affairs-columns > .campus-section > :is(.campus-notice-scroll, .campus-learn-pane) {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+}
+
 /* 一次课的资料、总结、讲解三块之间隔得开一些。 */
 .campus-learn-lesson {
   gap: 28px;
@@ -2518,11 +2540,17 @@ Windows 的雅黑没有 500 这一档，加粗也看不出来）。鼠标放上�
 /* 只有一个聊天没读到时，原因跟在它那一行下面，一行小字，不用提示框。 */
 .campus-chat-problem { color: var(--dsw-alias-state-warn-label, var(--dsw-alias-state-warn-primary)); }
 
-/* 添加聊天的弹窗比别的宽一些、列表高一些，一次能看到十来个群（原来 380px 宽、列表 320px 高，只露四五个）。
-列表高度跟着窗口走：弹窗的标题、搜索框和底下的按钮大约占 280px。 */
+/* 添加聊天的弹窗宽一些，列表随弹窗的剩余空间收缩。 */
 div.campus-chat-picker-dialog { width: min(560px, 100%); max-height: 100%; }
 
-.campus-chat-pick-list { max-height: max(240px, min(calc(100vh - 280px), 560px)); }
+/* Modal 的内容、正文和列表都允许收缩，标题、搜索框和底部按钮留在弹窗内。 */
+.campus-chat-picker-content,
+.campus-chat-picker-content > :last-child,
+.campus-chat-picker-content .campus-section { min-height: 0; }
+
+.campus-chat-picker-dialog > :last-child { flex: none; }
+
+.campus-chat-pick-list { min-height: 0; max-height: 560px; }
 
 /* 列表里一个聊天一行：「群聊」「个人聊天」跟在名字后面，不再另占一行（原来一行 65px 高，320px 的框只露不到五个）。 */
 .campus-chat-pick-list .campus-row { padding-block: 8px; }

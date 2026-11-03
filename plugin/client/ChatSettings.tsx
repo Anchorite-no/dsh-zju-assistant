@@ -98,10 +98,13 @@ const call = <T,>(platform: Platform, operation: string, input: Record<string, u
 
 function ChatPicker({
   platform,
+  watching,
   onClose,
   onAdded
 }: {
   platform: Platform
+  /** 已经在监控的聊天：列表里标「已监控」，不再给监控按钮。 */
+  watching: readonly Chat[]
   onClose: () => void
   onAdded: (data: Snapshot) => void
 }) {
@@ -180,6 +183,7 @@ function ChatPicker({
       title="选择要监控的聊天"
       closeLabel="关闭"
       className="campus-chat-picker-dialog"
+      contentClassName="campus-chat-picker-content"
       onClose={onClose}
       footer={
         <Button variant="outline" onClick={onClose}>
@@ -223,24 +227,28 @@ function ChatPicker({
         {error && <Alert>{error}</Alert>}
         <div className="campus-wechat-picker campus-chat-pick-list">
           <ul className="campus-rows">
-            {data?.chats?.map((chat) => (
-              <li className="campus-row" key={chat.id}>
-                <div className="campus-wechat-main">
-                  <span className="campus-row-title">{chat.name}</span>
-                  <span className="campus-wechat-meta">{chat.kind === 'group' ? '群聊' : '个人聊天'}</span>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={adding.includes(chat.id) || added.includes(chat.id)}
-                  onClick={() => {
-                    void add(chat)
-                  }}
-                >
-                  {added.includes(chat.id) ? '已添加' : adding.includes(chat.id) ? '添加中…' : '监控'}
-                </Button>
-              </li>
-            ))}
+            {data?.chats?.map((chat) => {
+              // 钉钉可能有几个本地账号，同一个会话 id 要连账号一起比；微信只有一个账号，监控时才定下来，只比 id。
+              const watched = watching.some((t) => t.id === chat.id && (!profile || !t.profile || t.profile === profile))
+              return (
+                <li className="campus-row" key={chat.id}>
+                  <div className="campus-wechat-main">
+                    <span className="campus-row-title">{chat.name}</span>
+                    <span className="campus-wechat-meta">{chat.kind === 'group' ? '群聊' : '个人聊天'}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={watched || adding.includes(chat.id) || added.includes(chat.id)}
+                    onClick={() => {
+                      void add(chat)
+                    }}
+                  >
+                    {added.includes(chat.id) ? '已添加' : watched ? '已监控' : adding.includes(chat.id) ? '添加中…' : '监控'}
+                  </Button>
+                </li>
+              )
+            })}
           </ul>
           {data?.chats?.length === 0 && <p className="campus-note">没有匹配的聊天。</p>}
           {data?.hasMore && (
@@ -784,7 +792,7 @@ export function ChatSettings({ platform }: { platform: Platform }) {
           </div>
         )}
       </section>
-      {adding && <ChatPicker platform={platform} onClose={() => setAdding(false)} onAdded={setData} />}
+      {adding && <ChatPicker platform={platform} watching={data.tracks} onClose={() => setAdding(false)} onAdded={setData} />}
       {people && (
         <PeoplePicker
           platform={platform}

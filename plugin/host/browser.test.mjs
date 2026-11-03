@@ -53,6 +53,28 @@ test('没有能用的浏览器时不起任何进程，说清楚要装什么', as
   assert.equal(launched, false)
 })
 
+test('恢复认证保留父域和仅主机 cookie 的范围，导出再恢复不会改变范围', async () => {
+  const browser = new CampusBrowser({ dir: os.tmpdir() }), sent = []
+  const original = [
+    { name: 'tgt', value: 'parent', domain: '.example.org', path: '/', secure: true },
+    { name: 'sid', value: 'host', domain: 'login.example.org', path: '/cas', secure: true },
+  ]
+  browser.cdp = { async send(method, params) { sent.push({ method, params }); return method === 'Storage.getCookies' ? { cookies: original } : {} } }
+  browser.windows.set('w', { alive: true, sessionId: 'page' })
+  await browser.restoreAuth('w', [
+    { name: 'tgt', value: 'parent', domain: 'example.org', path: '/', secure: true },
+    { name: 'sid', value: 'host', url: 'https://login.example.org/cas', path: '/cas', secure: true },
+  ])
+  const first = sent.at(-1).params.cookies
+  assert.equal(first[0].domain, '.example.org')
+  assert.equal(first[1].domain, undefined)
+  assert.equal(first[1].url, 'https://login.example.org/cas')
+  await browser.restoreAuth('w', await browser.flushAuth('w'))
+  assert.deepEqual(sent.at(-1).params.cookies, first)
+  await browser.setUserAgent('w', 'session-agent')
+  assert.deepEqual(sent.at(-1), { method: 'Emulation.setUserAgentOverride', params: { userAgent: 'session-agent' } })
+})
+
 test('给验证码模块的 webContents：事件按会话分给窗口，跨站的子框架列在 framesInSubtree 里，窗口被关掉时看得出来', async () => {
   const browser = new CampusBrowser({ dir: os.tmpdir(), find: () => undefined })
   const sent = []

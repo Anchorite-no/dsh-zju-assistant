@@ -65,7 +65,7 @@ export class Zjuam {
   }
 
   private save(): void {
-    this.store.save(new CookieJar(this.http.jar.cookies.filter(own)));
+    this.store.save(new CookieJar(this.http.jar.cookies.filter(own)), { userAgent: this.http.userAgent });
   }
 
   /** TGT cookie 是否在 jar 里（不代表服务端仍有效） */
@@ -89,6 +89,8 @@ export class Zjuam {
       const probe = await this.http.request(probeUrl);
       if (probe.isRedirect && /[?&]ticket=/.test(probe.location ?? "")) {
         debug("zjuam: TGT 仍有效，复用");
+        // 浏览器复用此登录时必须使用同一 UA；也为旧会话补齐这项元数据。
+        this.save();
         return { reused: true, username: this.username };
       }
       debug("zjuam: TGT 已失效，重新登录");

@@ -159,7 +159,11 @@ export class CampusPage {
         return routed !== next ? routed : undefined
       })
     }
-    await this.browser.restoreAuth(this.window, this.cookies()).catch(() => 0)
+    // TGT 除 cookie 外还绑定登录时的 UA。Core 续登时会保存它，不能用当前 Edge/Chrome 的版本代替。
+    let userAgent
+    try { userAgent = JSON.parse(fs.readFileSync(path.join(this.dataDir(), 'sessions', 'zjuam.json'), 'utf8')).extra?.userAgent } catch { /* 没有可复用的会话 */ }
+    if (typeof userAgent === 'string' && userAgent) await this.browser.setUserAgent(this.window, userAgent)
+    await this.browser.restoreAuth(this.window, this.cookies())
     await this.browser.focus(this.window)
     const site = SITE_LOGINS[url.host]
     if (site) await this.browser.openUrl(this.window, { url: `https://${CAS_HOST}/cas/login?service=${encodeURIComponent(site)}` }).catch(() => {})

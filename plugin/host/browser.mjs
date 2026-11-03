@@ -184,7 +184,7 @@ async function attachTo(portFile) {
 /** CDP 的 cookie 换成原来 ctx.browser 给的写法（domain 不带开头的点，expirationDate 是秒）。 */
 function exported(cookie) {
   const domain = cookie.domain.replace(/^\./, '')
-  return { name: cookie.name, value: cookie.value, domain, path: cookie.path, secure: !!cookie.secure, httpOnly: !!cookie.httpOnly,
+  return { name: cookie.name, value: cookie.value, domain, hostOnly: !cookie.domain.startsWith('.'), path: cookie.path, secure: !!cookie.secure, httpOnly: !!cookie.httpOnly,
     ...(cookie.expires > 0 ? { expirationDate: cookie.expires } : {}), url: `https://${domain}${cookie.path}` }
 }
 
@@ -351,10 +351,16 @@ export class CampusBrowser {
 
   async execute(id, { script }) { return { value: await this.evaluate(this.alive(id).sessionId, script) } }
 
-  /** 把存下的 cookie 放进浏览器，返回放了几条。只属于一个主机的 cookie 不带 domain、带 url。 */
+  /** CAS 会话与登录时的 UA 绑定；只对复用该会话的窗口设置，不影响验证码等其他窗口。 */
+  async setUserAgent(id, userAgent) {
+    await this.send('Emulation.setUserAgentOverride', { userAgent }, this.alive(id).sessionId)
+  }
+
+  /** 把存下的 cookie 放进浏览器。CDP 用前导点区分父域 cookie，否则它只属于一个主机。 */
   async restoreAuth(id, cookies) {
     const window = this.alive(id)
-    const list = cookies.filter(cookie => cookie.name && (cookie.domain || cookie.url)).map(cookie => ({ name: cookie.name, value: cookie.value, ...(cookie.domain ? { domain: cookie.domain } : { url: cookie.url }),
+    const list = cookies.filter(cookie => cookie.name && (cookie.domain || cookie.url)).map(cookie => ({ name: cookie.name, value: cookie.value,
+      ...(cookie.domain && cookie.hostOnly !== true ? { domain: `.${cookie.domain.replace(/^\./, '')}` } : { url: cookie.url || `${cookie.secure ? 'https' : 'http'}://${cookie.domain}${cookie.path || '/'}` }),
       path: cookie.path ?? '/', secure: !!cookie.secure, httpOnly: !!cookie.httpOnly, ...(cookie.expirationDate ? { expires: cookie.expirationDate } : {}) }))
     if (list.length) await this.send('Network.setCookies', { cookies: list }, window.sessionId)
     return list.length

@@ -20,7 +20,7 @@ import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { ROWS, disabledModules } from '../rows.mjs'
 import { ProfileStore } from './store.mjs'
 import { AccountSettings } from './account.mjs'
-import { CORE_ROOT, provideCoreEnv } from './core.mjs'
+import { CORE_ROOT, provideCoreEnv, runCore } from './core.mjs'
 import { IdentityFill } from './identity-fill.mjs'
 import { collegeOptions } from './colleges.mjs'
 import { Documents } from './documents.mjs'
@@ -129,7 +129,8 @@ export default class ZjuCampus extends Service {
     this.noticeContent = new NoticeContent({ feed: this.feed, mail: this.mail, article, reveal: file => downloads.reveal(file) })
     this.contextSources = new ContextSources({ store: this.store, account: this.account, plugins: this.plugins, chatWatches: () => Object.fromEntries(this.watches().map(watch => [watch.platform, watch])), mail: this.mail, fill: this.fill })
     this.context = new CampusContext({ store: this.store, observe: () => this.contextSources.observe() })
-    this.page = new CampusPage({ account: this.account, coreRoot: CORE_ROOT })
+    // 页面上的校内链接在插件的浏览器里打开，带着 Core 的登录（campus-page.mjs）。
+    this.page = new CampusPage({ browser: this.browser, account: this.account, dataDir: () => this.dataDir(), coreRoot: CORE_ROOT, run: runCore })
 
     ctx.connection.fetch.register({
       path: '/api/zju-campus', methods: ['POST'], requestBody: 'buffered',
@@ -243,7 +244,7 @@ export default class ZjuCampus extends Service {
       case 'identity-refresh': return this.fill.refresh({ overwrite: true })
       case 'colleges': return collegeOptions()
       case 'alerts-read': return this.alerts.since(input)
-      case 'page-url': return this.page.url(input?.url)
+      case 'page-open': return this.page.open(input?.url)
       case 'documents-root': return { root: await this.documents.root() }
       case 'affairs-read': return this.affairs.snapshot()
       case 'affairs-refresh': return this.affairs.refresh(input)

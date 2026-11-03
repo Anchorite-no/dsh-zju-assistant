@@ -1,5 +1,6 @@
 /**
- * 插件自己的浏览器（2026-11-04 起；原来借 dsh-builtin-browser 的 ctx.browser）：扫码登录微信读书、过腾讯验证码、读要先验证的公众号原文时开的窗口。
+ * 插件自己的浏览器（2026-11-04 起；原来借 dsh-builtin-browser 的 ctx.browser）：扫码登录微信读书、过腾讯验证码、读要先验证的公众号原文、
+ * 看校内网页（campus-page.mjs，带着 Core 的登录）时开的窗口。
  * 用本机的默认浏览器：它是 Chrome、Edge 这类 Chromium 内核的就用它；不是（Firefox、Safari 不支持 CDP）就用本机装着的另一个 Chromium 浏览器，都没有时报 browser_missing。
  *
  * 起的时候给它插件自己的资料目录（<数据目录>/browser/<哪一种>），不碰用户平时那份资料，已经开着的浏览器也不受影响；
@@ -254,13 +255,25 @@ export class CampusBrowser {
   route({ method, params, sessionId }) {
     if (!method) return
     if (!sessionId) {
-      // 浏览器那一层：用户把窗口关了，页面的会话就断了。
-      if (method === 'Target.detachedFromTarget') for (const window of this.windows.values()) if (window.sessionId === params.sessionId) window.alive = false
+      // 浏览器那一层：用户把窗口关了，页面的会话就断了，这个窗口不再算开着的。
+      if (method === 'Target.detachedFromTarget') {
+        for (const window of this.windows.values()) if (window.sessionId === params.sessionId) { window.alive = false; this.windows.delete(window.id) }
+      }
       return
     }
     for (const window of this.windows.values()) {
       const own = sessionId === window.sessionId, frame = window.frames.get(sessionId)
       if (!own && !frame) continue
+      // 页面要去的地址先给 reroute 看（见 reroute()）：它给了另一个地址就回一个 302 跳过去，没给就照常走。
+      if (own && method === 'Fetch.requestPaused') {
+        let next
+        try { next = window.reroute?.(params.request.url) } catch { /* 认不出的照常走 */ }
+        const reply = next && next !== params.request.url
+          ? this.send('Fetch.fulfillRequest', { requestId: params.requestId, responseCode: 302, responseHeaders: [{ name: 'Location', value: next }] }, sessionId)
+          : this.send('Fetch.continueRequest', { requestId: params.requestId }, sessionId)
+        reply.catch(() => {})
+        return
+      }
       if (method === 'Target.attachedToTarget' && params.targetInfo?.type === 'iframe') {
         window.frames.set(params.sessionId, { url: params.targetInfo.url, targetId: params.targetInfo.targetId })
         this.send('Page.enable', {}, params.sessionId).catch(() => {})
@@ -338,11 +351,11 @@ export class CampusBrowser {
 
   async execute(id, { script }) { return { value: await this.evaluate(this.alive(id).sessionId, script) } }
 
-  /** 把存下的 cookie 放进浏览器，返回放了几条。 */
+  /** 把存下的 cookie 放进浏览器，返回放了几条。只属于一个主机的 cookie 不带 domain、带 url。 */
   async restoreAuth(id, cookies) {
     const window = this.alive(id)
-    const list = cookies.filter(cookie => cookie.name && cookie.domain).map(cookie => ({ name: cookie.name, value: cookie.value, domain: cookie.domain, path: cookie.path ?? '/',
-      secure: !!cookie.secure, httpOnly: !!cookie.httpOnly, ...(cookie.expirationDate ? { expires: cookie.expirationDate } : {}) }))
+    const list = cookies.filter(cookie => cookie.name && (cookie.domain || cookie.url)).map(cookie => ({ name: cookie.name, value: cookie.value, ...(cookie.domain ? { domain: cookie.domain } : { url: cookie.url }),
+      path: cookie.path ?? '/', secure: !!cookie.secure, httpOnly: !!cookie.httpOnly, ...(cookie.expirationDate ? { expires: cookie.expirationDate } : {}) }))
     if (list.length) await this.send('Network.setCookies', { cookies: list }, window.sessionId)
     return list.length
   }
@@ -355,6 +368,19 @@ export class CampusBrowser {
   }
 
   exists(id) { return !!this.windows.get(id)?.alive }
+
+  /** 把窗口提到前面。 */
+  async focus(id) { await this.send('Page.bringToFront', {}, this.alive(id).sessionId).catch(() => {}) }
+
+  /**
+   * 这个窗口里页面（和同进程的子框架）每次要打开一个地址时先问 reroute(地址)：它返回另一个地址就改去那里，返回 undefined 照常走。
+   * 校内网页经 WebVPN 看时用它：页面里点到的校内链接、统一身份认证跳回来的地址都要换路（campus-page.mjs）。
+   */
+  async reroute(id, reroute) {
+    const window = this.alive(id)
+    window.reroute = reroute
+    await this.send('Fetch.enable', { patterns: [{ urlPattern: '*', resourceType: 'Document', requestStage: 'Request' }] }, window.sessionId)
+  }
 
   /**
    * 验证码组件做完时把结果交给 receive：页面里放一个 window[name].complete，和桌面版 preload 给的一样（taskId、ret、ticket、randstr）。

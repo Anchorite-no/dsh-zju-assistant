@@ -16,7 +16,7 @@ import { ROWS } from '../rows.mjs'
 import { coreEnv, provideCoreEnv } from './core.mjs'
 import { isWrite, zjuTool } from './zju-tool.mjs'
 import { WereadBridge, parseSetCookie } from './weread-bridge.mjs'
-import { routeUrl, wrapUrl } from './campus-page.mjs'
+import { CampusPage, routeUrl, unwrapUrl, wrapUrl } from './campus-page.mjs'
 import { filmName, filmResponse } from './film.mjs'
 import { ensureFfmpeg, ffmpegFile, missingFfmpeg } from './ffmpeg.mjs'
 import { mailVault } from './mail-vault.mjs'
@@ -80,10 +80,8 @@ test('根服务挂上以后：档案在 $DSH_HOME/zju-campus，一条路、一�
   // 档案、账号走同一条路；关着的行的东西说清楚是哪一行关着。
   assert.equal((await call('snapshot')).memory.length, 0)
   assert.equal((await call('account-read')).values.transport, 'webvpn')
-  // 页面上的链接用默认浏览器开，这里只换地址：标注表里不是公网可达的校内站点经 WebVPN，标了公网可达的直连。
-  assert.equal((await call('page-url', { url: 'http://bksy.zju.edu.cn/x' })).url, wrapUrl('http://bksy.zju.edu.cn/x'))
-  assert.equal((await call('page-url', { url: 'http://www.cs.zju.edu.cn/x' })).url, 'http://www.cs.zju.edu.cn/x')
-  await assert.rejects(call('page-url', { url: 'javascript:alert(1)' }), /只能打开网页地址/)
+  // 页面上的校内链接在插件的浏览器里开（下面单独测），不是网页地址的在开浏览器之前就拒绝。
+  await assert.rejects(call('page-open', { url: 'javascript:alert(1)' }), /只能打开网页地址/)
   await assert.rejects(call('wechat-read'), /「微信公众号」在插件页「ZJU All-in-One Assistant」里关着/)
 })
 
@@ -146,14 +144,47 @@ test('公众号的浏览器桥：cookie 存在插件自己的目录里，请求�
   assert.deepEqual(parseSetCookie('a=b=c; Secure; HttpOnly', 'https://weread.qq.com/x'), { name: 'a', value: 'b=c', domain: 'weread.qq.com', path: '/', secure: true, httpOnly: true, url: 'https://weread.qq.com/' })
 })
 
-test('页面上的校内链接：经 WebVPN 时校内地址换成 WebVPN 形式，统一身份认证和公网可达的直连', () => {
+test('页面上的校内链接：经 WebVPN 时校内地址（含 CC98）换成 WebVPN 形式，统一身份认证和公网可达的直连', () => {
   assert.equal(routeUrl('https://zdbk.zju.edu.cn/a', 'webvpn'), 'https://zdbk.zju.edu.cn/a')
   assert.equal(routeUrl('https://zjuam.zju.edu.cn/cas/login', 'webvpn'), 'https://zjuam.zju.edu.cn/cas/login')
   assert.equal(routeUrl('http://www.cs.zju.edu.cn/x?y=1', 'webvpn'), wrapUrl('http://www.cs.zju.edu.cn/x?y=1'))
   assert.match(wrapUrl('http://www.cs.zju.edu.cn/x'), /^https:\/\/webvpn\.zju\.edu\.cn\/http\/77726476706e69737468656265737421[0-9a-f]+\/x$/)
+  assert.equal(routeUrl('https://www.cc98.org/topic/1', 'webvpn'), wrapUrl('https://www.cc98.org/topic/1'))
   assert.equal(routeUrl('http://www.cs.zju.edu.cn/x', 'direct'), 'http://www.cs.zju.edu.cn/x')
   assert.equal(routeUrl('https://example.com/', 'webvpn'), 'https://example.com/')
   assert.equal(routeUrl('javascript:alert(1)', 'webvpn'), undefined)
+  // 跳转途中：WebVPN 形式的统一身份认证换回直连，别的 WebVPN 地址不动；还原得回原来的地址。
+  assert.equal(unwrapUrl(wrapUrl('http://www.cs.zju.edu.cn:8080/x?y=1#z')), 'http://www.cs.zju.edu.cn:8080/x?y=1#z')
+  assert.equal(routeUrl(wrapUrl('https://zjuam.zju.edu.cn/cas/login?service=x'), 'webvpn'), 'https://zjuam.zju.edu.cn/cas/login?service=x')
+  assert.equal(routeUrl(wrapUrl('http://www.cs.zju.edu.cn/x'), 'webvpn'), wrapUrl('http://www.cs.zju.edu.cn/x'))
+})
+
+test('在插件的浏览器里打开校内网页：先续上登录，带上 zju.edu.cn 下的会话 cookie，教务网先换票，跳转途中照访问方式换路', async (t) => {
+  const dataDir = temp(t, 'core-data'), calls = [], opened = []
+  fs.mkdirSync(path.join(dataDir, 'sessions'))
+  fs.writeFileSync(path.join(dataDir, 'sessions', 'webvpn.json'), JSON.stringify({ cookies: [{ name: 'wengine_vpn_ticketwebvpn_zju_edu_cn', value: 'v', domain: 'webvpn.zju.edu.cn', path: '/', secure: true, hostOnly: true }] }))
+  fs.writeFileSync(path.join(dataDir, 'sessions', 'zjuam.json'), JSON.stringify({ cookies: [{ name: 'iPlanetDirectoryPro', value: 'c', domain: 'zju.edu.cn', path: '/', expires: 2e12 }, { name: 'other', value: 'x', domain: 'example.com', path: '/' }] }))
+  let reroute, alive = false
+  const browser = {
+    async open() { alive = true; calls.push('open'); return 'w' },
+    exists: () => alive,
+    async reroute(_id, fn) { reroute = fn },
+    async restoreAuth(_id, cookies) { calls.push(['cookies', cookies.map(c => c.name)]); return cookies.length },
+    async focus() {},
+    async openUrl(_id, { url }) { opened.push(url) },
+  }
+  const page = new CampusPage({ browser, account: { read: () => ({ data: { transport: 'webvpn' } }) }, dataDir: () => dataDir, coreRoot: dataDir, run: async args => { calls.push(args.join(' ')) } })
+  assert.deepEqual(await page.open('https://zdbk.zju.edu.cn/jwglxt/x'), { url: 'https://zdbk.zju.edu.cn/jwglxt/x' })
+  assert.deepEqual(calls, ['zjuam session login', 'webvpn session login', 'open', ['cookies', ['iPlanetDirectoryPro', 'wengine_vpn_ticketwebvpn_zju_edu_cn']]])
+  assert.deepEqual(opened, ['https://zjuam.zju.edu.cn/cas/login?service=' + encodeURIComponent('https://zdbk.zju.edu.cn/jwglxt/xtgl/login_ssologin.html'), 'https://zdbk.zju.edu.cn/jwglxt/x'])
+  // 第二次用同一个窗口；页面里点到的校内链接经 WebVPN，统一身份认证换回直连，已经换好的不动。
+  await page.open('https://www.cc98.org/topic/1')
+  assert.equal(calls.filter(c => c === 'open').length, 1)
+  assert.equal(opened.at(-1), wrapUrl('https://www.cc98.org/topic/1'))
+  assert.equal(reroute('http://www.cs.zju.edu.cn/a'), wrapUrl('http://www.cs.zju.edu.cn/a'))
+  assert.equal(reroute(wrapUrl('https://zjuam.zju.edu.cn/cas/login')), 'https://zjuam.zju.edu.cn/cas/login')
+  assert.equal(reroute(wrapUrl('http://www.cs.zju.edu.cn/a')), undefined)
+  assert.equal(reroute('https://example.com/'), undefined)
 })
 
 test('讲解只认讲解目录 dist 里的 .html 文件名，页面带着 CSP 沙箱，不能联网', async (t) => {

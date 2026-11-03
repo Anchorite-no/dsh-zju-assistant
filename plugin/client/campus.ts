@@ -59,23 +59,23 @@ export function openPlugins(): void {
   get<{ openList: () => void }>('pluginNavigation')?.openList()
 }
 
-const isCampusHost = (host: string) => host === 'zju.edu.cn' || host.endsWith('.zju.edu.cn')
+/** 只在校网里能上的网站：学校的，加上 CC98（和 host/campus-page.mjs 的 isIntranetHost 一样）。 */
+const isIntranetHost = (host: string) => host === 'zju.edu.cn' || host.endsWith('.zju.edu.cn') || host === 'cc98.org' || host.endsWith('.cc98.org')
 
 /**
- * 看一个网页：一律用系统的默认浏览器打开，登录状态留在用户自己的浏览器里，dsh 重开也还在。
- * 右侧栏的浏览器重开 dsh 就丢了登录（它的 cookie 只在内存里），dsh-builtin-browser 是另一个插件，都不用。
- * 校内地址先问根服务按访问方式换好（默认经 WebVPN），问不到就打开原来的地址。
- * 桌面版里 window.open 由 dsh 交给系统浏览器，dsh web 里是这个浏览器的新标签页。
+ * 看一个网页。校内的（学校的网站和 CC98）交给根服务，在插件自己的浏览器窗口里打开：先续上 Core 的登录、带上它的会话，
+ * 在校外时后台经 WebVPN 走，链接还是原来的地址，不用再登一遍（host/campus-page.mjs）。
+ * 别的网站，或者这台电脑上没有能用的浏览器时，用系统的默认浏览器打开原来的地址（桌面版里 window.open 交给系统浏览器，dsh web 里是新标签页）。
+ * 右侧栏的浏览器重开 dsh 就丢了登录（它的 cookie 只在内存里），不用它。
  */
 export async function openPage(url: string): Promise<void> {
   let target: URL
   try { target = new URL(url) } catch { return }
   if (target.protocol !== 'http:' && target.protocol !== 'https:') return
-  let href = target.href
-  if (isCampusHost(target.hostname)) {
-    try { href = (await campusApi<{ url: string }>('page-url', { url: href })).url } catch { /* 照原来的地址开 */ }
+  if (isIntranetHost(target.hostname)) {
+    try { await campusApi('page-open', { url: target.href }); return } catch { /* 用默认浏览器开原来的地址 */ }
   }
-  window.open(href, '_blank', 'noopener,noreferrer')
+  window.open(target.href, '_blank', 'noopener,noreferrer')
 }
 
 /** 页面上的链接都经 openPage 打开，不让浏览器自己开。 */

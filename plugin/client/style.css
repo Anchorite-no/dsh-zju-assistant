@@ -2478,7 +2478,10 @@
 
 .campus-chat-track .campus-select { height: 28px; }
 
-.campus-chat-name { min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+/* 名字是这一行的主角：和下拉框里的字一样的颜色和字号（文字链接默认是灰的小字，夹在黑字中间很扎眼），鼠标放上去出下划线，点开是收到的消息。 */
+.campus-chat-name { min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; color: var(--dsw-alias-label-primary); font-size: 13px; font-weight: 500; }
+
+.campus-chat-name:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 
 .campus-chat-stop { justify-self: end; white-space: nowrap; }
 

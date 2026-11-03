@@ -1537,7 +1537,7 @@
 
 }
 
-/* 通知多了不把页面拉长：列表放在一个定高的框里自己滚动，框的高度跟着窗口走，底边大致落在窗口底部。
+/* 学习页的列表放在一个定高的框里自己滚动，框的高度跟着窗口走，底边大致落在窗口底部。
 行的悬停底色比内容左右各宽 8px，框也左右各让出 8px，免得被裁掉。 */
 .campus-notice-scroll {
   max-height: max(320px, calc(100vh - 190px));
@@ -1547,7 +1547,14 @@
   overscroll-behavior: contain;
 }
 
-.campus-notice-scroll:has(> .campus-flow:empty) {
+/* 校园事务的通知不另开滚动框（2026-11-03）：条数多了、展开了，跟着整页在应用的内容区里滚动。
+定高的框按整个窗口算高度，桌面版的内容区比窗口矮，框底会落到应用外面，框里滚到头也带不动整页。左右照样各让出 8px。 */
+.campus-notice-list {
+  margin: 0 -8px;
+  padding: 0 8px;
+}
+
+:is(.campus-notice-scroll, .campus-notice-list):has(> .campus-flow:empty) {
   display: none;
 }
 

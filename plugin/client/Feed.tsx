@@ -379,8 +379,8 @@ export function FeedColumn({ now, memos }: { now: number, memos: NoticeMemos }) 
               </p>
             )}
             {snapshot && (
-              // 条数多了在这个框里滚动。换页签、换时间、换来源都是换了一份列表，整个重画（回到顶上），不放进出的动画。
-              <div className="campus-notice-scroll" key={`${tab}:${range}:${picked}`}>
+              // 条数多了跟着整页滚动，不另开滚动框。换页签、换时间、换来源都是换了一份列表，整个重画，不放进出的动画。
+              <div className="campus-notice-list" key={`${tab}:${range}:${picked}`}>
                 <Flow items={shown} keyOf={itemKey} limit={expanded ? Infinity : LIMIT} label="通知">
                   {(item) => {
                     const memo = memoOf(item)

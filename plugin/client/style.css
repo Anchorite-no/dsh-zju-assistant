@@ -2442,15 +2442,47 @@
 
 .campus-section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 
-.campus-chat-track { display: flex; flex-direction: column; gap: 14px; padding: 20px 0; border-bottom: 1px solid var(--dsw-alias-border-l2); }
+/* 监控的聊天（2026-11-04，原来一个聊天占一大块）：一个聊天一行，名字、两个下拉框、停止监控，各行和表头用 subgrid 对齐；
+提示、指定的成员这些附加的话占满一行，跟在那个聊天下面。 */
+.campus-chat-tracks {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 176px) minmax(120px, 152px) auto;
+  column-gap: 12px;
+}
+
+.campus-chat-tracks-head,
+.campus-chat-track {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+}
+
+.campus-chat-tracks-head {
+  padding-bottom: 6px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.campus-chat-track {
+  row-gap: 6px;
+  padding: 8px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
 
 .campus-chat-track:last-child { border-bottom: 0; }
 
-.campus-chat-name { text-align: left; font-weight: 600; overflow-wrap: anywhere; }
+.campus-chat-track > :is(.campus-alert, .campus-note, .campus-chat-selected) { grid-column: 1 / -1; }
+
+.campus-chat-track .campus-select { height: 28px; }
+
+.campus-chat-name { min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+
+.campus-chat-stop { justify-self: end; white-space: nowrap; }
 
 .campus-chat-folder { overflow-wrap: anywhere; }
-
-.campus-chat-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 
 .campus-chat-person { display: flex; gap: 10px; align-items: center; cursor: pointer; }
 
@@ -2471,8 +2503,13 @@ button.campus-chat-open { border: 0; background: transparent; padding: 0; text-a
 /* 个人消息里的 CC98 用一点紫色，和邮箱（同公众号的浅蓝）、聊天（浅绿）分得开。 */
 .campus-notice-account[data-kind='cc98'] > span { --campus-violet: #7d5bd6; color: color-mix(in srgb, var(--campus-violet) 80%, var(--dsw-alias-label-primary)); background: color-mix(in srgb, var(--campus-violet) 13%, transparent); }
 
-@container (max-width: 480px) {
-  .campus-chat-options { grid-template-columns: 1fr; }
+/* 配置页窄的时候（插件页放在窄窗口里）：名字和停止监控一行，两个下拉框下一行，表头不要了。 */
+@container campus-config (max-width: 520px) {
+  .campus-chat-tracks { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+  .campus-chat-tracks-head { display: none; }
+
+  .campus-chat-track > .campus-chat-stop { grid-row: 1; grid-column: 2; }
 
 }
 
@@ -3046,6 +3083,17 @@ button.campus-pin:focus-visible {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  container: campus-config / inline-size;
+}
+
+/* 一页里有好几节时（聊天的自动同步、数据位置、监控的聊天；公众号的来源和跟踪的号）节和节之间拉开，
+不然上一节最后的输入框和下一节的标题贴在一起（2026-11-04）。节末尾是一个表单项时，去掉它下面那截留白，各节间距才一样。 */
+.campus-config > .campus-section + .campus-section {
+  margin-top: 28px;
+}
+
+.campus-config > .campus-section > .campus-field:last-child {
+  padding-bottom: 0;
 }
 
 .campus-config > .campus-alert {

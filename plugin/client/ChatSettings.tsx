@@ -688,34 +688,29 @@ export function ChatSettings({ platform }: { platform: Platform }) {
         {!data.tracks.length && (
           <p className="campus-note">还没有监控的聊天。</p>
         )}
-        {data.tracks.map((track) => {
-          const locked = pending.includes(track.key)
-          return (
-            <div className="campus-chat-track" key={track.key}>
-              <div className="campus-section-head">
-                <button
-                  type="button"
-                  className="campus-textlink campus-chat-name"
-                  onClick={() => setHistory(track)}
-                >
-                  {track.name}
-                </button>
-                <button
-                  type="button"
-                  className="campus-textlink"
-                  disabled={locked}
-                  onClick={() => run(track.key, 'remove', { key: track.key })}
-                >
-                  停止监控
-                </button>
-              </div>
-              {track.error && <Alert tone="warn">{track.error}</Alert>}
-              {/* 改动排在同步后面做，同步要读消息、AI 整理时会等上一阵。 */}
-              {locked && syncing && <p className="campus-note">正在同步，同步完就改好。</p>}
-              <div className="campus-chat-options">
-                <Field label="接收谁的消息">
+        {/* 一个聊天一行：名字（点开看收到的消息）、接收谁的消息、放进通知的方式、停止监控；两个下拉框的说明只在表头写一次。 */}
+        {!!data.tracks.length && (
+          <div className="campus-chat-tracks">
+            <div className="campus-chat-tracks-head" aria-hidden="true">
+              <span>聊天</span>
+              <span>接收谁的消息</span>
+              <span>放进通知的方式</span>
+              <span />
+            </div>
+            {data.tracks.map((track) => {
+              const locked = pending.includes(track.key)
+              return (
+                <div className="campus-chat-track" key={track.key}>
+                  <button
+                    type="button"
+                    className="campus-textlink campus-chat-name"
+                    title={track.name}
+                    onClick={() => setHistory(track)}
+                  >
+                    {track.name}
+                  </button>
                   <Select
-                    label={`${track.name}的发送者`}
+                    label={`${track.name}：接收谁的消息`}
                     value={track.audience}
                     disabled={locked}
                     options={[
@@ -729,10 +724,8 @@ export function ChatSettings({ platform }: { platform: Platform }) {
                     ]}
                     onChange={(value) => run(track.key, 'set', { key: track.key, audience: value })}
                   />
-                </Field>
-                <Field label="放进通知的方式">
                   <Select
-                    label={`${track.name}的整理方式`}
+                    label={`${track.name}：放进通知的方式`}
                     value={track.mode}
                     disabled={locked}
                     options={[
@@ -741,23 +734,34 @@ export function ChatSettings({ platform }: { platform: Platform }) {
                     ]}
                     onChange={(value) => run(track.key, 'set', { key: track.key, mode: value })}
                   />
-                </Field>
-              </div>
-              {track.audience !== 'all' && (
-                <div className="campus-chat-selected">
-                  <span className="campus-note">
-                    {track.senders.map((p) => p.name).join('、') ||
-                      (track.audience === 'managers' ? '当前仅接收群主' : '尚未选择成员')}
-                  </span>
-                  <Button variant="outline" size="sm" disabled={locked} onClick={() => setPeople(track)}>
-                    选择成员
-                  </Button>
+                  <button
+                    type="button"
+                    className="campus-textlink campus-chat-stop"
+                    disabled={locked}
+                    onClick={() => run(track.key, 'remove', { key: track.key })}
+                  >
+                    停止监控
+                  </button>
+                  {track.error && <Alert tone="warn">{track.error}</Alert>}
+                  {/* 改动排在同步后面做，同步要读消息、AI 整理时会等上一阵。 */}
+                  {locked && syncing && <p className="campus-note">正在同步，同步完就改好。</p>}
+                  {track.audience !== 'all' && (
+                    <div className="campus-chat-selected">
+                      <span className="campus-note">
+                        {track.senders.map((p) => p.name).join('、') ||
+                          (track.audience === 'managers' ? '当前仅接收群主' : '尚未选择成员')}
+                      </span>
+                      <Button variant="outline" size="sm" disabled={locked} onClick={() => setPeople(track)}>
+                        选择成员
+                      </Button>
+                    </div>
+                  )}
+                  {track.mode === 'summary' && !!track.skipped && <p className="campus-note">这次整理跳过 {track.skipped} 条闲聊。</p>}
                 </div>
-              )}
-              {track.mode === 'summary' && !!track.skipped && <p className="campus-note">这次整理跳过 {track.skipped} 条闲聊。</p>}
-            </div>
-          )
-        })}
+              )
+            })}
+          </div>
+        )}
       </section>
       {adding && <ChatPicker platform={platform} onClose={() => setAdding(false)} onAdded={setData} />}
       {people && (

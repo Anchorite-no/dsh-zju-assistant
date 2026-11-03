@@ -1,6 +1,6 @@
 {
   "name": "dsh-zju-assistant",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "ZJU All-in-One Assistant：浙大学生的一站式校园助手，装进 DeepSeek Harness。课表、作业、通知、学习页、日程表，和已授权的选课、预约、交作业",
   "icon": "./icon.svg",
   "license": "GPL-3.0-only",
@@ -37,7 +37,7 @@
     "dsh": ">=0.2.1-rc.3 <0.3.0"
   },
   "dependencies": {
-    "dsh-zju-campus": "0.1.3"
+    "dsh-zju-campus": "0.1.4"
   },
   "dsh": {
     "manifestVersion": 1,

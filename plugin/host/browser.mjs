@@ -54,9 +54,17 @@ function expand(value, env) {
   })
 }
 
-/** Windows：打开 https 链接用的那个程序（注册表里用户选的 ProgId，再看它的打开命令）。 */
+/**
+ * Windows：打开 https 链接用的那个程序（注册表里用户选的 ProgId，再看它的打开命令）。
+ * 新一些的 Windows 11 把用户的选择记在 UserChoiceLatest（有的在它的 ProgId 子键里），UserChoice 可能还停在旧值，所以先看它。
+ */
 function windowsDefault({ env, run }) {
-  const progId = /ProgId\s+REG_SZ\s+(\S+)/.exec(run('reg', ['query', 'HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice', '/v', 'ProgId']))?.[1]
+  const base = 'HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\'
+  let progId
+  for (const key of ['UserChoiceLatest', 'UserChoiceLatest\\ProgId', 'UserChoice']) {
+    progId = /ProgId\s+REG_SZ\s+(\S+)/.exec(run('reg', ['query', base + key, '/v', 'ProgId']))?.[1]
+    if (progId) break
+  }
   if (!progId) return undefined
   const command = /REG_(?:EXPAND_)?SZ\s+(.+)/.exec(run('reg', ['query', `HKCR\\${progId}\\shell\\open\\command`, '/ve']))?.[1]?.trim()
   if (!command) return undefined

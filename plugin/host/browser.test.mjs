@@ -9,9 +9,12 @@ const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
 const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const WIN_ENV = { 'ProgramFiles(x86)': 'C:\\Program Files (x86)', ProgramFiles: 'C:\\Program Files', LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local' }
 
-/** 假的 reg query：https 交给 progId，它的打开命令是 command。 */
-const registry = (progId, command) => (_command, args) => {
-  if (args.includes('ProgId')) return `\r\nHKEY_CURRENT_USER\\...\\UserChoice\r\n    ProgId    REG_SZ    ${progId}\r\n`
+/** 假的 reg query：https 交给 progId（记在 UserChoice 下），它的打开命令是 command。latest 给了就是 UserChoiceLatest 里记的那个。 */
+const registry = (progId, command, latest) => (_command, args) => {
+  if (args.includes('ProgId') && args[1].endsWith('\\UserChoiceLatest')) return latest ? `\r\n    ProgId    REG_SZ    ${latest}\r\n` : ''
+  if (args.includes('ProgId') && args[1].endsWith('\\UserChoice')) return `\r\nHKEY_CURRENT_USER\\...\\UserChoice\r\n    ProgId    REG_SZ    ${progId}\r\n`
+  if (args.includes('ProgId')) return ''
+  if (latest && args[1] === `HKCR\\${latest}\\shell\\open\\command`) return `\r\n    (默认)    REG_SZ    "${CHROME}" --single-argument %1\r\n`
   if (args[1] === `HKCR\\${progId}\\shell\\open\\command`) return `\r\nHKEY_CLASSES_ROOT\\${progId}\\shell\\open\\command\r\n    (默认)    REG_SZ    ${command}\r\n`
   return ''
 }
@@ -27,6 +30,9 @@ test('默认浏览器是 Chromium 内核的就用它，Firefox 这类不支持 C
   // 注册表里写的程序已经卸掉了，也照装着的找。
   assert.equal(findBrowser({ platform: 'win32', env: WIN_ENV, exists: file => file === EDGE, run: registry('ChromeHTML', `"${CHROME}" %1`) }).kind, 'edge')
   assert.equal(findBrowser({ platform: 'win32', env: WIN_ENV, exists: () => false, run: firefox }), undefined)
+  // 新的 Windows 11 把用户改过的选择记在 UserChoiceLatest，UserChoice 还是旧的 Edge：以前者为准。
+  assert.deepEqual(findBrowser({ platform: 'win32', env: WIN_ENV, exists: both, run: registry('MSEdgeHTM', `"${EDGE}" --single-argument %1`, 'ChromeHTML') }),
+    { kind: 'chrome', name: 'Chrome', path: CHROME, isDefault: true })
 })
 
 test('macOS 看 LaunchServices 里 https 交给谁；没改过（Safari）时用装着的 Chrome', () => {

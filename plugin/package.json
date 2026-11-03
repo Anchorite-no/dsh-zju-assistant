@@ -1,6 +1,6 @@
 {
   "name": "dsh-zju-campus",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "ZJU All-in-One Assistant（dsh-zju-assistant）的实现：校园账号和各个子插件。",
   "icon": "./icon.svg",
   "license": "GPL-3.0-only",

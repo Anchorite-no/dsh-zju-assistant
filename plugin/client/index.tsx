@@ -109,6 +109,28 @@ function whileOn(ctx: Context, slot: string, row: string, register: () => () => 
   })
 }
 
+/**
+ * 设置导航里文字是 label 的那一项，按钮加上 data-campus-nav=key。只加一个属性，不增删引擎画的节点；
+ * 设置窗口每次打开都重画导航，所以一直看着页面，有变化时下一帧再找一遍。返回停下的函数，标记一起撤掉。
+ */
+function markSettingsNav(label: string, key: string): () => void {
+  let frame = 0
+  const mark = () => {
+    frame = 0
+    for (const button of document.querySelectorAll<HTMLButtonElement>('button[class*="navCell"]')) {
+      if (button.dataset.campusNav !== key && button.textContent?.trim() === label) button.dataset.campusNav = key
+    }
+  }
+  const observer = new MutationObserver(() => { frame ||= requestAnimationFrame(mark) })
+  observer.observe(document.body, { childList: true, subtree: true })
+  mark()
+  return () => {
+    observer.disconnect()
+    if (frame) cancelAnimationFrame(frame)
+    for (const button of document.querySelectorAll<HTMLElement>(`[data-campus-nav="${key}"]`)) delete button.dataset.campusNav
+  }
+}
+
 export function apply(ctx: Context): void {
   ctx.effect(() => {
     const tag = document.createElement('style')
@@ -130,6 +152,9 @@ export function apply(ctx: Context): void {
   // 设置里的「个人档案」：基础信息和记忆，排在通用设置后面。
   ctx.slots.inject('settings.section', () =>
     ctx.slots.register({ name: 'settings.section', id: 'zju-campus-profile', order: 5, label: '个人档案' }, ProfileSettings))
+  // 设置的导航按分区 id 选图标，插件的分区一律是齿轮，和「通用设置」撞了，又传不了自己的图标（2026-11-04）。
+  // 给「个人档案」那一项的按钮加个标记，style.css 照它换一个图标。
+  ctx.effect(() => markSettingsNav('个人档案', 'profile'), 'zju-campus: profile icon in settings nav')
 
   for (const row of ROWS) {
     const accounts = row.accounts, page = CONFIG[row.key]

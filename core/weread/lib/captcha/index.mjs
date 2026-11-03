@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { setTimeout as pause } from 'node:timers/promises'
 import { ElectronCaptcha } from './electron.mjs'
+import { PtaSliderRecognizer } from './pta.mjs'
 import { SkillError } from '../errors.mjs'
 
 /** 浏览器脚本/导航也必须响应关闭或超时；宿主随后销毁窗口。 */
@@ -26,9 +27,19 @@ async function pageReady() {
   return true
 }
 
-/** 微信读书：官方 SDK 返回票据，调用方用它恢复原页面或列表请求。
- * appId、script 换成别的站用的组件（PTA）。manual 为真时窗口一直看得见：自动作答没成，就停在窗口里等用户自己做完。 */
-export async function verifyWeRead({ webContents, recognizer, signal, bind, appId = '2044038556', script, manual = false }) {
+/** 微信读书模式：保留多模态识别，支持选图、点选、滑块等题型。 */
+export function verifyWeRead(options) {
+  return verifyComponent({ ...options, appId: '2044038556', script: 'https://captcha.gtimg.com/TCaptcha.js' })
+}
+
+/** PTA 模式：同一套取题、输入与回执流程，滑块在本地匹配，不查询模型配置。 */
+export function verifyPta(options) {
+  return verifyComponent({ ...options, appId: '194593025', script: 'https://turing.captcha.qcloud.com/TCaptcha.js',
+    recognizer: new PtaSliderRecognizer(options.webContents) })
+}
+
+/** 官方 SDK 返回票据，由调用方恢复业务请求。manual 为真时，自动作答失败后等用户完成。 */
+async function verifyComponent({ webContents, recognizer, signal, bind, appId, script, manual = false }) {
   const captcha = new ElectronCaptcha({ webContents, recognizer, appId, script, taskId:randomUUID(), resultBridge:'wereadVerification' })
   bind(captcha)
   try {

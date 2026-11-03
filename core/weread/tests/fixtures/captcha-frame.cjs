@@ -98,6 +98,20 @@ app.whenReady().then(async () => {
   })()`)
   const slider=await captcha.capture(),bg=nativeImage.createFromDataURL(slider.background.image),piece=nativeImage.createFromDataURL(slider.piece.image)
   result.slider={background:{size:bg.getSize(),pixel:[...bg.toBitmap().subarray(0,4)]},piece:{size:piece.getSize(),pixel:[...piece.toBitmap().subarray(0,4)],contentBounds:slider.piece.contentBounds},status:(await captcha.submit(slider,{targetX:230,targetY:80})).status,events:await frame.executeJavaScript('dragEvents')}
+  // PTA 本地模式：真实浏览器解码 PNG、匹配，再走同一个跨进程 CDP 拖动与回执流程。
+  const { PtaSliderRecognizer } = await import(pathToFileURL(path.join(__dirname, '../../lib/captcha/pta.mjs')))
+  const { ptaImages } = await import(pathToFileURL(path.join(__dirname, './pta-slider.mjs')))
+  const localImages = await wc.executeJavaScript(`(()=>{
+    const images=(${ptaImages.toString()})({width:600,height:240,pieceWidth:40,pieceHeight:40,targetX:230,y:80});
+    return Object.fromEntries(['background','piece'].map(key=>{const image=images[key],canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;canvas.getContext('2d').putImageData(new ImageData(image.data,image.width,image.height),0,0);return[key,canvas.toDataURL('image/png')]}));
+  })()`)
+  captcha.proof=undefined;captcha.revision='pta-local-fixture'
+  captcha.recognizer=new PtaSliderRecognizer(contents)
+  captcha.display={bg_elem_cfg:{size_2d:[600,240],img_url:'/cap_union_new_getcapbysig?image=pta-bg'},fg_elem_list:[{type:'sprite',size_2d:[40,40],img_url:'/cap_union_new_getcapbysig?image=pta-piece',init_pos:[30,80],move_cfg:{data_type:['DynAnswerType_POS'],move_factor:[2,0]}}]}
+  captcha.resources.set('https://t.captcha.qq.com/cap_union_new_getcapbysig?image=pta-bg',localImages.background)
+  captcha.resources.set('https://t.captcha.qq.com/cap_union_new_getcapbysig?image=pta-piece',localImages.piece)
+  await frame.executeJavaScript("dragEvents=[];document.querySelector('.tc-slider-normal').style.left='20px';document.querySelector('.tc-fg-item').style.left='25px'")
+  result.pta={status:(await captcha.run()).status,events:await frame.executeJavaScript('dragEvents')}
   result.submissions=submissions
   fs.writeFileSync(path.join(directory, 'result.json'), JSON.stringify(result))
   captcha.cancel(); window.close(); server.close(); app.quit()

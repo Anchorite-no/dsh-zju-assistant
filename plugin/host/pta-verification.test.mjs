@@ -65,7 +65,8 @@ async function fixture(t, { proof={ret:0,ticket:'pta-ticket',randstr:'pta-rand'}
     }},
   }
   const endpoint=process.platform==='win32'?`\\\\.\\pipe\\pta-test-${randomUUID()}`:path.join(os.tmpdir(),`pta-${randomUUID().slice(0,8)}.sock`)
-  const bridge=new WereadBridge({dir:path.join(os.tmpdir(),`unused-pta-${randomUUID()}`),browser:()=>missing?undefined:browser})
+  const bridge=new WereadBridge({dir:path.join(os.tmpdir(),`unused-pta-${randomUUID()}`),browser:()=>missing?undefined:browser,
+    recognizer:async()=>{calls.push(['model']);throw new Error('PTA must not request a model')}})
   const stop=bridge.listen(endpoint,{onlyPta:true})
   t.after(stop)
   const before={endpoint:process.env.PTA_BROWSER_ENDPOINT,interactive:process.env.PTA_INTERACTIVE}
@@ -105,6 +106,7 @@ test('PTA resumes login through the DSH browser and saves the verified session',
   assert.match(script,/194593025/);assert.match(script,/turing\.captcha\.qcloud\.com/)
   assert.doesNotMatch(script,/2044038556|password|email/)
   assert.deepEqual(calls.filter(c=>c[0]==='sdk'),[['sdk','https://turing.captcha.qcloud.com/TCaptcha.js']])
+  assert.deepEqual(calls.filter(c=>c[0]==='model'),[])
   assert.equal(opened.size,0)
   await assert.rejects(runtime.call('cookie'),{code:'invalid_action'})
   await assert.rejects(runtime.call('request'),{code:'invalid_action'})

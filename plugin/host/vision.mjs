@@ -45,7 +45,7 @@ export async function lookAt(ctx, { text, image, mediaType }) {
 }
 
 /**
- * 腾讯验证码（微信读书、PTA、公众号原文）认题用的识别器：core/weread/lib/captcha 的那一套，问的是现在选的模型，和场馆验证码一样。
+ * 微信读书、公众号原文认题用的识别器：core/weread/lib/captcha 的那一套，问的是现在选的模型，和场馆验证码一样。PTA 使用本地滑块识别器。
  * 没配模型、或者这个模型看不了图时不给，验证码留在窗口里让用户自己做。引擎的模型服务收不了音频，语音题也交给用户。
  */
 export async function captchaRecognizer(ctx) {

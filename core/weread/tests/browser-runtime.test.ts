@@ -83,7 +83,10 @@ test('the owned Electron crops original media and submits grid, ordered, audio a
     assert.ok(result.slider.events.length>=3)
     assert.equal(result.slider.events[0].type,'down');assert.equal(result.slider.events.at(-1).type,'up')
     assert.ok(result.slider.events.every((event:any)=>event.trusted))
-    assert.deepEqual(result.submissions,[{kind:'image-choice',selected:[2,5]},{kind:'grid-nine',selected:[3,8,9]},{kind:'ordered-click',points:[{x:450,y:80},{x:80,y:300},{x:300,y:200}]},{kind:'audio',text:'012345'},{kind:'slider',left:115}])
+    assert.equal(result.pta.status,'verified')
+    assert.equal(result.pta.events[0].type,'down');assert.equal(result.pta.events.at(-1).type,'up')
+    assert.ok(result.pta.events.every((event:any)=>event.trusted))
+    assert.deepEqual(result.submissions,[{kind:'image-choice',selected:[2,5]},{kind:'grid-nine',selected:[3,8,9]},{kind:'ordered-click',points:[{x:450,y:80},{x:80,y:300},{x:300,y:200}]},{kind:'audio',text:'012345'},{kind:'slider',left:115},{kind:'slider',left:115}])
   }finally{
     assert.ok(path.resolve(directory).startsWith(path.resolve(os.tmpdir())+path.sep))
     await fs.rm(directory,{recursive:true,force:true})

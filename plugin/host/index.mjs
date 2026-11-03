@@ -88,7 +88,7 @@ export default class ZjuCampus extends Service {
       PTA_BROWSER_ENDPOINT: ptaEndpoint, PTA_INTERACTIVE: '0',
     })), 'zju-campus: campus command environment')
     ctx.effect(() => startModelBridge(ctx, { endpoint }), 'zju-campus: model bridge for campus commands')
-    // 插件自己的浏览器（browser.mjs，用本机的默认浏览器）：公众号的扫码、验证和 PTA 的验证码开它的窗口；认验证码问现在选的模型（vision.mjs）。
+    // 插件自己的浏览器（browser.mjs，用本机的默认浏览器）：公众号验证问当前模型（vision.mjs），PTA 模式本地匹配滑块。
     this.browser = new CampusBrowser({ dir: path.join(this.home, 'browser') })
     ctx.effect(() => () => { void this.browser.dispose() }, 'zju-campus: own browser')
     this.recognizer = () => captchaRecognizer(ctx)

@@ -7,7 +7,7 @@
  *                     响应里新给的 cookie 记回去。后台半小时一次的检查都是这两样，不弹窗口。
  *   login、captcha    要用户本人扫码、过验证，开插件自己的浏览器窗口（browser.mjs，用的是本机的默认浏览器）；
  *                     login 等到窗口里有了登录 cookie 再取出来存下；captcha 在页面里装上官方的验证组件，有能看图的模型时
- *                     先让它自动作答（core/weread/lib/captcha，桌面版用的那一套），没有或者没认出来就等用户在窗口里做完，拿票据。
+ *                     先让它自动作答（core/weread/lib/captcha）；PTA 模式在本地匹配滑块，不问模型。没认出来就等用户在窗口里做完，拿票据。
  *   article           文章正文：先直接请求；微信原文被要求验证时，在窗口里打开，同样先自动过、不成再等用户，然后从页面取 HTML。
  *   logout            删掉存下的 cookie。
  *
@@ -165,13 +165,13 @@ export class WereadBridge {
     })
   }
 
-  /** 在页面里装上官方的验证组件，返回票据。有能看图的模型时先自动作答；没有或者没认出来，就停在窗口里等用户做完。 */
+  /** 官方组件返回票据：微信读书问视觉模型，PTA 在本地匹配；失败后留在窗口等用户完成。 */
   captcha(_input, call) { return this.verifySite('weread',call) }
   ptaCaptcha(_input, call) { return this.verifySite('pta',call) }
   async verifySite(site, { interactive, signal }) {
     const pta=site==='pta', origin=pta?'https://pintia.cn':ORIGIN
     const browser = this.needBrowser(interactive, 'verification_required', `${pta?'PTA':'微信读书'}要先完成一次验证，请在对话里重新查询以打开验证窗口。`)
-    const [{ verifyWeRead }, recognizer] = await Promise.all([captchaKit(), this.solver()])
+    const [{ verifyWeRead, verifyPta }, recognizer] = await Promise.all([captchaKit(), pta ? undefined : this.solver()])
     return this.windowed(browser, pta?'PTA 登录验证':'微信读书验证', pta?`${origin}/auth/login`:`${origin}/`, async (session, limit) => {
       await withSignal(browser.waitFor(session, {}).catch(() => {}),signal)
       if ((await browser.execute(session, { script: 'location.origin' })).value !== origin) throw error('verification_cancelled', '验证页面已离开本站。')
@@ -180,8 +180,7 @@ export class WereadBridge {
       const relay = browser.relay(session, 'wereadVerification', input => captcha?.receive(input))
       try {
         await relay.ready
-        const proof = await verifyWeRead({ webContents: browser.webContents(session), recognizer, signal: limit, manual: true, bind: value => { captcha = value },
-          ...(pta ? { appId: '194593025', script: 'https://turing.captcha.qcloud.com/TCaptcha.js' } : {}) })
+        const proof = await (pta ? verifyPta : verifyWeRead)({ webContents: browser.webContents(session), recognizer, signal: limit, manual: true, bind: value => { captcha = value } })
         return { ticket: proof.ticket, randstr: proof.randstr }
       } finally { relay.stop() }
     }, { restore:!pta,signal })

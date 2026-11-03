@@ -83,6 +83,53 @@
 
 两个聊天的 Mac 支持是 2026-11-02 从 weread-skill、dingtalk-skill 迁过来的，我们手上没有 Mac，迁过来以后只用合成数据测过。
 
+### 在 dsh-go（手机版）上
+
+2026-11-03 在 HUAWEI Mate 70（CLS-AL00，Android 12）上装过一遍。手机版不走插件页填包名，
+是从本地压缩包装，而且先要有一个带网页补丁的 dsh-go。
+
+**前提：dsh-go 要带网页 polyfill 的构建。** 系统 WebView 低于 Chrome 116 时，DSH 网页界面缺
+`Promise.withResolvers` 和 `AbortSignal.any`，连接建不起来，页面一直停在「重新连接中…」。
+「校园账号」这类设置页只存在于网页界面里，连不上就等于没地方填学号和密码。补丁
+（`app/assets/web/dsh_web_compat.js`）目前只在本地 dsh-go 工作副本里，没有提交，也没进任何
+release。官方的 dsh-go APK 装这个插件，组件和开关能用，但进不去设置页。
+
+**两个包都要，装组合包。** 从 [Release](https://github.com/nothing793/dsh-zju-assistant/releases) 下载：
+
+| 文件 | 作用 |
+|---|---|
+| `dsh-zju-campus-0.1.2.tgz` | 实现包：十个子插件、页面、`zju` 工具、`zju-campus` 技能 |
+| `dsh-zju-assistant-0.1.2-local.tgz` | 组合包：插件页那张卡片和十行 patch |
+
+组合包的依赖写的是 `file:/root/workspace/dsh-zju-campus-0.1.2.tgz`，两个文件都要放进 guest 的
+`/root/workspace/`（`/sdcard` 在 proot 里挂不上）。要换目录，用
+`node scripts/pack-local.mjs --target <目录>` 重新出包。
+
+```bash
+dsh plugin --profile web add /root/workspace/dsh-zju-assistant-0.1.2-local.tgz
+```
+
+装完重启 dsh-go。声明了 `dsh.bundle.patch` 的新依赖会被安装器自动加进
+`dsh.profile.bundles`，不用手改 profile 的 `package.json`。
+
+装的时候容易撞上的问题：
+
+| 现象 | 原因和处理 |
+|---|---|
+| 网页界面一直「重新连接中…」 | WebView 缺上面两个 API，换带 polyfill 的 dsh-go 构建 |
+| 插件页能看到组件，点不进设置 | 只装了实现包，或者组合包名不是 `dsh-zju-assistant` |
+| 组件行上没有「配置」 | 同上。配置页挂在 `dsh-zju-assistant#<行 id>` 上，包名对不上就找不到 |
+| 保存账号报「无法使用系统凭据库」 | 用本页这两个包。npm 上的同版本号没有这处修改 |
+| pnpm 报 ENOENT，或 proot 建不了临时目录 | 包先拷进 guest，`PROOT_TMP_DIR` 指一个可写目录 |
+| 插件市场里找不到，也没有卸载按钮 | 命令行装的包不进市场列表；卸载跑 `dsh plugin --profile web remove dsh-zju-assistant` |
+| 删掉 tgz 之后再跑 pnpm 就报错 | `file:` 依赖指着那个文件，删了就装不回去 |
+
+排查过程按出现顺序记在 [plugin/README.md](plugin/README.md)。
+
+**为什么发压缩包不发 npm。** npm 上的 `dsh-zju-assistant` 和 `dsh-zju-campus` 0.1.2 是上游
+维护者发布的，我没有发布权限，也不想占同名包。代价是升级麻烦：要重新下载、拷进 guest、
+再 `dsh plugin add` 一次。能用 npm 的话升级只要一条 `dsh plugin add <包名>@<版本>`。
+
 ### 运行方式
 
 - 插件数据放在 `~/.dsh/zju-campus`；指定了 `DSH_HOME` 时跟随该目录。账号在 DSH 插件页填写。

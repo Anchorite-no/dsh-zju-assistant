@@ -78,6 +78,10 @@ TypeError: AbortSignal.any is not a function              （需要 Chrome 116+�
 处理：dsh-go 在网页加载前用 `WebViewCompat.addDocumentStartJavaScript` 注入
 `app/assets/web/dsh_web_compat.js`，补上这两个 API（已存在的实现不覆盖）。
 
+这条改动目前只在本地的 dsh-go 工作副本里，没有提交，也没有进任何 release。所以只装这两个
+tgz 是不够的：官方 APK 上网页界面仍然连不上，插件设置页仍然打不开。装之前先确认手上的
+dsh-go 构建里有这个注入。
+
 ### 7. proot 里 `/sdcard` 挂不上，安装包要先放进 guest
 
 dsh-go 的 proot 启动参数里有 `-b /storage/emulated/0:/sdcard`，实际运行时报：
@@ -157,3 +161,19 @@ dsh plugin --profile web add /root/workspace/dsh-zju-assistant-0.1.2-local.tgz
 
 `-local` 后缀表示这条依赖指向本机文件；发布到 npm 的版本用的是 registry 上的
 `dsh-zju-campus@0.1.2`，不要拿本地变体去发布。
+
+## 发版：为什么是 GitHub Release 里的 tgz
+
+`dsh-zju-assistant` 和 `dsh-zju-campus` 这两个包名在 npm 上已经被上游维护者占用
+（0.1.2，2026-11 可查），本仓库没有发布权限，也不打算用同名包覆盖，所以手机版走
+GitHub Release 挂两个压缩包：
+
+- `dsh-zju-campus-0.1.2.tgz`：实现包；
+- `dsh-zju-assistant-0.1.2-local.tgz`：组合包，依赖写成本机路径。
+
+代价：升级要重新下载、拷进 guest、再跑一次 `dsh plugin add`。走 npm 的话，
+`dsh plugin add <包名>@<版本>` 一条就够了，安装器还会去 registry 查版本和 `engines`。
+
+要注意版本号撞车：这里发布的 0.1.2 包含 Android 凭据回退和手机日历适配，npm 上同为 0.1.2
+的包没有这些改动。以后如果真的要发 npm，先升版本号（比如 0.1.3），别让两个内容不同的包
+共用一个版本号。

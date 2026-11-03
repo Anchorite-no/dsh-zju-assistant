@@ -229,6 +229,11 @@ function handCalendar(snapshot: Snapshot | null): Promise<void> {
   return handToAssistant(`帮我把校历填进日程表：加载 zju-campus 技能，查本科生院公布的 ${year} 学年校历，和这学期的放假、调课通知，找出每个小学期第 1 周的周一、哪几天停课、哪天补课上哪天的课。先把要写的几条和原文链接列给我看，我确认了再用 campus_calendar_write 写进去。`)
 }
 
+/** 写入手机日历：只把指令放进输入框，模型先生成计划、dry-run，再由用户确认。 */
+function handPhoneCalendar(): Promise<void> {
+  return handToAssistant('把这个学期（当前 16 周）的课程、已公布考试和未交截止写入手机日历：加载 zju-campus 技能，调用 campus_schedule 的 phone_calendar 生成计划，再把 plan_id 交给 mcp__calendar__sync 做 dry-run，把新增/更新/删除条数和警告列给我看。等我明确确认后，再用 dry_run=false 和返回的 token 正式写入。不要在我确认前写入，也不要逐条调用 upsert。')
+}
+
 /** 「日程」页签：顶上一行是哪一周、刷新、校历和「+」，下面是课表格子。onEdit 给的是自己加的日程的 id，新加一条时是 null。 */
 function PlanView({ title, onCalendar, onEdit }: { title: ReactNode, onCalendar: () => void, onEdit: (id: string | null, date: string) => void }) {
   const { snapshot, busy, error } = useSyncExternalStore(subscribe, () => state)
@@ -331,6 +336,8 @@ function PlanView({ title, onCalendar, onEdit }: { title: ReactNode, onCalendar:
           <Button size="sm" variant="ghost" aria-label="刷新" className="campus-plan-refresh" data-busy={reading ? '' : undefined} disabled={reading}
             icon={<IconRefreshOutlineRegular size={14} />} onClick={() => { void visit(true) }} />
           <Button size="sm" variant="outline" onClick={onCalendar}>校历</Button>
+          <Button size="sm" variant="outline" disabled={reading || !snapshot || !(source?.state === 'ready' || source?.state === 'graduate')}
+            onClick={() => { setHandError(''); handPhoneCalendar().catch((reason: unknown) => { setHandError(errorText(reason)) }) }}>写入日历</Button>
           <Button size="sm" variant="ghost" aria-label="添加日程" icon={<IconPlusOutlineRegular size={14} />} disabled={!snapshot || !!snapshot.ownProblem}
             onClick={() => { onEdit(null, monday === thisWeek ? today : monday) }} />
         </div>

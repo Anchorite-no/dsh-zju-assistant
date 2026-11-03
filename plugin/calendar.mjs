@@ -281,10 +281,10 @@ export function planDay(data, date) {
       if (at) {
         const key = termKey(at.year, at.term), table = data.timetables?.[key]
         if (!table) day.missing = key
-        else classes.push(...classesOn(table, weekdayOf(source), meeting => meetsIn(meeting, at.week)))
+        else classes.push(...classesOn(table, weekdayOf(source), meeting => meetsIn(meeting, at.week), source, at))
       } else if (!known && data.current && data.timetables?.[data.current]) {
         day.loose = true
-        classes.push(...classesOn(data.timetables[data.current], weekdayOf(source), () => true))
+        classes.push(...classesOn(data.timetables[data.current], weekdayOf(source), () => true, source, null))
       }
     }
   }
@@ -294,7 +294,7 @@ export function planDay(data, date) {
   return day
 }
 
-function classesOn(table, weekday, keep) {
+function classesOn(table, weekday, keep, sourceDate, at) {
   const items = []
   for (const course of table.courses ?? []) {
     for (const meeting of course.meetings ?? []) {
@@ -302,6 +302,8 @@ function classesOn(table, weekday, keep) {
       items.push({
         kind: 'class', title: course.name, time: meeting.startTime, end: meeting.endTime, sub: meeting.location ?? '',
         teacher: course.teacher ?? '', periods: meeting.periods ?? [], weeks: meeting.weeks ?? '', weekPattern: meeting.weekPattern ?? '',
+        courseId: course.id ?? '', confirmed: course.confirmed !== false, sourceDate,
+        ...(at ? { term: { year: at.year, term: at.term, week: at.week } } : {}),
       })
     }
   }

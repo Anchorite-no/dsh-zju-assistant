@@ -98,7 +98,9 @@ export default class ZjuCampus extends Service {
     // 日程表：教务网的课表和考试，档案里的校历，再把作业截止和备忘录里写了时间的事排进去。
     this.schedule = new Schedule({
       file: cache('schedule.json'), calendarFile: this.store.file('calendar.json'), account: this.account, plugins: this.plugins,
-      tasks: () => this.affairs.tasks(), refreshTasks: options => this.affairs.refreshAll(options), memos: () => this.store.memos.list().notes,
+      tasks: () => this.affairs.tasks(), refreshTasks: options => this.affairs.refreshAll(options), taskSources: () => this.affairs.snapshot().sources,
+      memos: () => this.store.memos.list().notes,
+      planDir: process.env.DSH_CALENDAR_PLAN_DIR || path.join(this.home, 'calendar-plans'),
     })
     this.learning = new Learning({ file: cache('learning.json'), account: this.account, plugins: this.plugins, chats: this.documents, downloads: new Downloads() })
     this.chaoxing = new Chaoxing({ file: cache('chaoxing.json'), account: this.account, plugins: this.plugins, chats: this.documents, downloads: new Downloads() })
@@ -249,6 +251,8 @@ export default class ZjuCampus extends Service {
       case 'affairs-file-reveal': return this.affairs.reveal(input)
       case 'schedule-read': return this.schedule.snapshot()
       case 'schedule-refresh': return this.schedule.refresh(input)
+      case 'schedule-semester-plan': return this.schedule.semesterPlan(input)
+      case 'schedule-deadlines': return this.schedule.deadlines(input)
       case 'calendar-save': return this.schedule.saveCalendar(input)
       case 'schedule-event-save': return this.schedule.saveEvent(input)
       case 'schedule-event-remove': return this.schedule.removeEvent(input)

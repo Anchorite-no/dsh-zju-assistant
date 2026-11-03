@@ -12,8 +12,8 @@ const timetable = (term, courses, year = '2026-2027') => ({
   term: { year, term }, timezone: 'Asia/Shanghai', periodTimes: [{ period: 1, startTime: '08:00', endTime: '08:45' }],
   courses, currentTime: '2026-10-18T10:00:00+08:00', cache: { hit: true },
 })
-const AUTUMN = timetable('秋', [{ name: '数据结构基础', teacher: '张老师', term: '秋冬', confirmed: true, exam: '', meetings: [meeting(1, '10:00', '11:35'), meeting(3, '13:25', '15:50', { weekPattern: '单周' })] }])
-const WINTER = timetable('冬', [{ name: '操作系统', teacher: '陈老师', term: '冬', confirmed: true, exam: '', meetings: [meeting(2, '08:00', '09:35')] }])
+const AUTUMN = timetable('秋', [{ xkkh: '(2026-2027-1)-CS2055M-0017167-1', name: '数据结构基础', teacher: '张老师', term: '秋冬', confirmed: true, exam: '', meetings: [meeting(1, '10:00', '11:35'), meeting(3, '13:25', '15:50', { weekPattern: '单周' })] }])
+const WINTER = timetable('冬', [{ xkkh: '(2026-2027-1)-CS2056M-0017168-1', name: '操作系统', teacher: '陈老师', term: '冬', confirmed: true, exam: '', meetings: [meeting(2, '08:00', '09:35')] }])
 const EXAMS = { term: { year: '2026-2027', term: '秋冬' }, count: 2, courses: [
   { name: '数据结构基础', term: '秋冬', credits: '2.5', midterm: { status: '未公布' }, final: { status: '已公布', date: '2026-10-21', startTime: '10:30', endTime: '12:30', location: '紫金港西1-101', seat: '23' } },
   { name: '大学物理', term: '秋冬', credits: '4', midterm: { status: '已公布', time: '另行通知' }, final: { status: '未公布' } },
@@ -34,7 +34,12 @@ function setup(t, { accounts = { zju_username: '3240100001', zju_password: 'x' }
   t.after(() => { fs.rmSync(root, { recursive: true, force: true }) })
   const world = {
     accounts, disabled: [], calls: [], now: Date.parse('2026-10-18T02:00:00Z'), tasks: [], memos: [],
-    results: { 'zdbk timetable': AUTUMN, 'zdbk exams': EXAMS, 'zdbk timetable --year 2026-2027 --term 冬': WINTER, 'yjsy timetable --year 2026-2027 --term 秋冬': graduate() },
+    results: {
+      'zdbk timetable': AUTUMN, 'zdbk exams': EXAMS,
+      'zdbk timetable --year 2026-2027 --term 秋': AUTUMN, 'zdbk timetable --year 2026-2027 --term 冬': WINTER,
+      'zdbk exams --year 2026-2027 --term 秋': EXAMS, 'zdbk exams --year 2026-2027 --term 冬': { term: { year: '2026-2027', term: '冬' }, count: 0, courses: [] },
+      'yjsy timetable --year 2026-2027 --term 秋冬': graduate(),
+    },
     file: path.join(root, 'cache', 'schedule.json'), calendarFile: path.join(root, 'profile', 'calendar.json'),
   }
   world.create = () => new Schedule({
@@ -61,11 +66,67 @@ test('core results keep only what the schedule needs', () => {
   const table = fromTimetable(AUTUMN)
   assert.equal(table.year, '2026-2027')
   assert.equal(table.term, '秋')
+  assert.equal(table.courses[0].id, '(2026-2027-1)-CS2055M-0017167-1')
+  assert.equal(table.courses[0].confirmed, true)
   assert.deepEqual(table.courses[0].meetings[1], { weekday: 3, periods: [3, 4], startTime: '13:25', endTime: '15:50', location: '东1A-101', weeks: '第1-8周', weekPattern: '单周' })
   assert.equal(fromTimetable({ ...AUTUMN, term: { year: '2026-2027', term: '1|秋' } }).term, '秋')
   assert.throws(() => fromTimetable({ courses: [] }), /格式不对/)
   // 只排公布了日期的考试；考场没出的说明一下。
   assert.deepEqual(fromExams(EXAMS), [{ kind: 'exam', from: 'zdbk', date: '2026-10-21', time: '10:30', end: '12:30', title: '数据结构基础 期末考试', sub: '紫金港西1-101 · 座位 23' }])
+})
+
+test('the semester plan covers the current 16 weeks, skips holidays, and writes a plan file', async (t) => {
+  const world = setup(t)
+  const schedule = world.create()
+  const plan = await schedule.semesterPlan()
+  assert.equal(plan.scope, 'zju:2026-2027-1')
+  assert.equal(plan.label, '2026-2027 秋冬')
+  assert.deepEqual(plan.range, { from: '2026-09-14', to: '2027-01-03' })
+  assert.ok(plan.plan_id.length >= 8)
+  assert.ok(fs.existsSync(plan.plan_path))
+  // 秋 8 周周一 8 次、周三单周 4 次；国庆停掉 10-05 和 10-07；冬 8 周周二 8 次。
+  assert.equal(plan.counts.class, 19)
+  assert.equal(plan.counts.exam, 1)
+  const saved = JSON.parse(fs.readFileSync(plan.plan_path, 'utf8'))
+  assert.equal(saved.version, 1)
+  assert.equal(saved.scope, plan.scope)
+  assert.equal(saved.events.length, plan.total)
+  assert.ok(saved.events.every(event => event.key.startsWith('zju:2026-2027-1:')))
+  assert.ok(!saved.events.some(event => event.kind === 'class' && event.begin.startsWith('2026-10-05')))
+  assert.ok(!saved.events.some(event => event.kind === 'class' && event.begin.startsWith('2026-10-07')))
+  assert.ok(saved.events.some(event => event.kind === 'exam' && event.begin.startsWith('2026-10-21')))
+})
+
+test('the semester plan writes unsubmitted deadlines but never submitted ones', async (t) => {
+  const world = setup(t)
+  world.tasks = [
+    { id: 'xuezai:作业|数据结构基础|作业 A', source: 'xuezai', title: '作业 A', course: '数据结构基础', deadline: '2026-10-22T15:59:00.000Z', done: false },
+    { id: 'pta:set/1', source: 'pta', title: '题目集 1', course: '', deadline: '2026-10-23T15:59:00.000Z', done: true },
+  ]
+  const schedule = world.create()
+  const plan = await schedule.semesterPlan()
+  assert.equal(plan.counts.due, 1)
+  const saved = JSON.parse(fs.readFileSync(plan.plan_path, 'utf8'))
+  const due = saved.events.filter(event => event.kind === 'due')
+  assert.equal(due.length, 1)
+  assert.equal(due[0].title, '截止｜作业 A')
+  assert.ok(due[0].key.startsWith('zju:2026-2027-1:due:xuezai:'))
+  assert.match(due[0].description, /状态：未提交/)
+})
+
+test('deadlines only returns unsubmitted items inside the requested window', async (t) => {
+  const world = setup(t)
+  world.tasks = [
+    { id: 'xuezai:a', source: 'xuezai', title: '两天后', course: '数据结构基础', deadline: '2026-10-20T15:59:00.000Z', done: false },
+    { id: 'xuezai:b', source: 'xuezai', title: '十天后', course: '', deadline: '2026-10-28T15:59:00.000Z', done: false },
+    { id: 'xuezai:c', source: 'xuezai', title: '已交', course: '', deadline: '2026-10-20T15:59:00.000Z', done: true },
+    { id: 'xuezai:d', source: 'xuezai', title: '没有截止', course: '', deadline: null, done: false },
+  ]
+  const schedule = world.create()
+  const result = await schedule.deadlines({ days: 7 })
+  assert.deepEqual(result.items.map(item => item.title), ['两天后'])
+  assert.equal(result.today, '2026-10-18')
+  assert.equal(result.to, '2026-10-24')
 })
 
 test('the page first gets the cache, then the timetable and exams from zdbk', async (t) => {

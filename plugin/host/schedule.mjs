@@ -10,15 +10,15 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { ACCOUNTS, accountReady } from '../accounts.mjs'
 import { runCore } from './core.mjs'
 import { accountPlugin, fingerprint } from './affairs.mjs'
 import { fromStudentId } from './identity-fill.mjs'
 import { Holidays, ZJU_CALENDARS } from './holidays.mjs'
 import {
-  TERM_NAMES, WEEKDAY_NAMES, addDays, beijing, dayNumber, isDate, layerCalendars, memoEvents, normalizeCalendar, normalizeEvent, ownEvents,
-  planDays, semesterKey, termAt, termKey, weekdayOf,
+  TERM_NAMES, WEEKDAY_NAMES, addDays, beijing, dateOf, dayNumber, isDate, layerCalendars, memoEvents, normalizeCalendar, normalizeEvent, ownEvents,
+  planDay, planDays, semesterKey, termAt, termKey, weekdayOf,
 } from '../calendar.mjs'
 
 /** 读成功以后，这么久之内再进页面不重新读（教务网的课表 core 自己还缓存 6 小时）；页面上点刷新不受限制。 */
@@ -39,6 +39,72 @@ const OWN_MAX = 500
 const text = value => typeof value === 'string' ? value.trim() : ''
 const message = error => error instanceof Error ? error.message : String(error)
 
+/** 16 周学期由两个 8 周小学期拼起来；scope 只用 ASCII，给手机日历的稳定 key 用。 */
+const HALVES = { 秋冬: ['秋', '冬'], 春夏: ['春', '夏'] }
+const HALF_SCOPE = { 秋冬: '1', 春夏: '2' }
+const hash = value => createHash('sha256').update(String(value)).digest('hex')
+
+/** 校历里所有凑得齐两个小学期的 16 周学期。 */
+function semesterRanges(calendar) {
+  const ranges = []
+  for (const year of [...new Set(calendar.terms.map(term => term.year))]) {
+    for (const half of Object.keys(HALVES)) {
+      const terms = HALVES[half].map(name => calendar.terms.find(term => term.year === year && term.term === name))
+      if (!terms.every(Boolean)) continue
+      const first = terms[0], last = terms[1]
+      ranges.push({ year, half, terms, from: first.start, to: addDays(last.start, last.weeks * 7 - 1) })
+    }
+  }
+  return ranges.sort((a, b) => a.from.localeCompare(b.from))
+}
+
+/** 今天所在的 16 周学期；假期里取最近的下一段，没有下一段就取最近结束的一段。 */
+function currentSemester(calendar, today) {
+  const ranges = semesterRanges(calendar)
+  const at = termAt(calendar, today), key = at ? semesterKey(at) : null
+  if (key) {
+    const [year, half] = key.split('|')
+    const found = ranges.find(range => range.year === year && range.half === half)
+    if (found) return found
+    const missing = HALVES[half].find(name => !calendar.terms.some(term => term.year === year && term.term === name))
+    throw new Error(`校历里缺 ${year} ${half}学期的${missing}学期，先把校历补全再写入日历。`)
+  }
+  const covering = ranges.find(range => range.from <= today && today <= range.to)
+  if (covering) return covering
+  const next = ranges.find(range => range.from > today && dayNumber(range.from) - dayNumber(today) <= 60)
+  if (next) return next
+  const past = ranges.filter(range => range.to < today).at(-1)
+  if (past) return past
+  throw new Error('校历里没有可写的 16 周学期，先把校历补全。')
+}
+
+const scopeOf = range => `zju:${range.year}-${HALF_SCOPE[range.half]}`
+const labelOf = range => `${range.year} ${range.half}`
+const courseHash = item => hash(`${item.courseId ?? ''}|${item.title ?? ''}|${item.teacher ?? ''}`).slice(0, 12)
+const periodKey = item => Array.isArray(item.periods) && item.periods.length ? `${item.periods[0]}-${item.periods.at(-1)}` : `t${String(item.time ?? '').replace(':', '')}`
+const sourceDateOf = (item, date) => isDate(item.sourceDate) ? item.sourceDate : date
+
+/** 把北京时间的一个时刻往前挪几分钟，跨过零点时把日期也退一天。 */
+function minutesBefore(date, time, minutes) {
+  const [hour, minute] = String(time ?? '').split(':').map(Number)
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return { date, time }
+  const total = hour * 60 + minute - minutes
+  if (total >= 0) return { date, time: `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}` }
+  const next = total + 1440
+  return { date: addDays(date, -1), time: `${String(Math.floor(next / 60)).padStart(2, '0')}:${String(next % 60).padStart(2, '0')}` }
+}
+
+/** 计划文件只留最近几份，别把插件目录越堆越大。 */
+function trimPlans(dir, keep = 5) {
+  try {
+    const files = fs.readdirSync(dir)
+      .filter(name => /^[a-f0-9]{8,32}\.json$/i.test(name))
+      .map(name => ({ name, at: fs.statSync(path.join(dir, name)).mtimeMs }))
+      .sort((a, b) => b.at - a.at)
+    for (const file of files.slice(keep)) fs.unlinkSync(path.join(dir, file.name))
+  } catch { /* 清理失败不影响这次写入 */ }
+}
+
 /** `zdbk timetable` 的结果：这个小学期每门课的上课安排，只留排日程用得到的。 */
 export function fromTimetable(data) {
   if (!Array.isArray(data?.courses) || !Array.isArray(data?.periodTimes)) throw new Error('教务网给的课表格式不对。')
@@ -47,7 +113,8 @@ export function fromTimetable(data) {
   return {
     year, term, periodTimes: data.periodTimes,
     courses: data.courses.map(course => ({
-      name: text(course.name), teacher: text(course.teacher), term: text(course.term),
+      id: text(course.xkkh) || text(course.kcdm), name: text(course.name), teacher: text(course.teacher), term: text(course.term),
+      confirmed: course.confirmed !== false,
       meetings: (Array.isArray(course.meetings) ? course.meetings : []).map(meeting => ({
         weekday: meeting.weekday, periods: meeting.periods, startTime: meeting.startTime, endTime: meeting.endTime,
         location: text(meeting.location), weeks: text(meeting.weeks), weekPattern: text(meeting.weekPattern),
@@ -98,8 +165,10 @@ export class Schedule {
    * memos() 给出备忘录（store.memos.list 的 notes）；
    * run 跑一条 ZJU Core 命令并返回结果里的 data；holidays 是国家的放假安排（默认缓存在 file 旁边的 holidays.json）。
    */
-  constructor({ file, calendarFile, eventsFile, account, plugins, tasks = () => [], refreshTasks = async () => {}, memos = () => [], run = runCore, now = () => Date.now(), holidays }) {
+  constructor({ file, calendarFile, eventsFile, account, plugins, tasks = () => [], refreshTasks = async () => {}, taskSources = () => [], memos = () => [], run = runCore, now = () => Date.now(), holidays, planDir }) {
     this.refreshTasks = refreshTasks
+    this.taskSources = taskSources
+    this.planDir = planDir ?? path.join(path.dirname(file), 'calendar-plans')
     this.holidays = holidays ?? new Holidays({ file: path.join(path.dirname(file), 'holidays.json'), now })
     this.file = file
     this.calendarFile = calendarFile
@@ -227,7 +296,7 @@ export class Schedule {
     let saved
     try { saved = JSON.parse(fs.readFileSync(this.file, 'utf8')) } catch { /* 没有缓存或读不了，都当作没有 */ }
     const part = value => value && typeof value === 'object' && !Array.isArray(value) ? value : undefined
-    this.cache = { timetables: part(saved?.timetables) ?? {}, current: part(saved?.current), exams: part(saved?.exams), graduate: part(saved?.graduate) ?? {} }
+    this.cache = { timetables: part(saved?.timetables) ?? {}, current: part(saved?.current), exams: part(saved?.exams), examTerms: part(saved?.examTerms) ?? {}, graduate: part(saved?.graduate) ?? {} }
     return this.cache
   }
 
@@ -268,6 +337,14 @@ export class Schedule {
     return terms
   }
 
+  /** 这个账号存下的考试，按小学期；旧缓存里只有一份时也认。 */
+  examEntries(status = this.status()) {
+    const cache = this.load(), entries = []
+    for (const [key, entry] of Object.entries(cache.examTerms)) if (this.mine(entry, status)) entries.push({ key, ...entry })
+    if (!entries.length && this.mine(cache.exams, status)) entries.push({ key: cache.exams.key ?? '', ...cache.exams })
+    return entries
+  }
+
   recent(entry, force) {
     return !force && !!entry && this.now() - Date.parse(entry.triedAt) < (entry.error ? RETRY_MS : FRESH_MS)
   }
@@ -284,7 +361,11 @@ export class Schedule {
    */
   snapshot() {
     const status = this.status(), cache = this.load(), graduateStatus = this.graduateStatus()
-    const current = this.mine(cache.current, status), exams = this.mine(cache.exams, status)
+    const current = this.mine(cache.current, status)
+    const examEntries = this.examEntries(status)
+    const examItems = examEntries.flatMap(entry => entry.items ?? [])
+    const examError = examEntries.find(entry => entry.error)?.error ?? null
+    const examFetchedAt = examEntries.map(entry => entry.fetchedAt).filter(Boolean).sort().at(-1) ?? null
     const timetables = {}, failed = {}
     for (const [key, entry] of Object.entries(cache.timetables)) {
       if (!this.mine(entry, status)) continue
@@ -303,12 +384,12 @@ export class Schedule {
       current: current?.key ?? null,
       timetables,
       failed,
-      events: [...(exams?.items ?? []), ...tasks, ...memos, ...ownEvents(own.items), ...Object.values(graduateTerms).flatMap(entry => entry.lessons ?? [])],
+      events: [...examItems, ...tasks, ...memos, ...ownEvents(own.items), ...Object.values(graduateTerms).flatMap(entry => entry.lessons ?? [])],
       own: own.items,
       ...(own.problem ? { ownProblem: own.problem } : {}),
       sources: [
         { id: 'timetable', name: PARTS.timetable.label, state: status.state, plugin: status.plugin, fetchedAt: timetable?.fetchedAt ?? current?.fetchedAt ?? null, error: current?.error ?? null },
-        { id: 'exams', name: PARTS.exams.label, state: status.state, plugin: status.plugin, fetchedAt: exams?.fetchedAt ?? null, error: exams?.error ?? null },
+        { id: 'exams', name: PARTS.exams.label, state: status.state, plugin: status.plugin, fetchedAt: examFetchedAt, error: examError },
       ],
       graduate: {
         state: graduateStatus.state, plugin: graduateStatus.plugin,
@@ -343,16 +424,16 @@ export class Schedule {
     // 作业是校园事务页在读，让它去各系统读一次（刚读过的它自己跳过）；读不到的原因在校园事务页上看。
     if (source === 'tasks') { try { await this.refreshTasks({ force }) } catch { /* 作业读不到不影响日程 */ } return this.snapshot() }
     if (source === 'graduate') return this.refreshGraduate(term, force)
-    if (term !== undefined && (source !== 'timetable' || !/^\d{4}-\d{4}\|.$/.test(term) || !TERM_NAMES.includes(term.slice(-1)))) throw new Error('学期要写成 2026-2027|秋 这样')
+    if (term !== undefined && (!/^\d{4}-\d{4}\|.$/.test(term) || !TERM_NAMES.includes(term.slice(-1)))) throw new Error('学期要写成 2026-2027|秋 这样')
     const status = this.status()
     if (status.state !== 'ready') return this.snapshot()
-    const key = term ? `timetable:${term}` : source
+    const key = term ? `${source}:${term}` : source
     let run = this.running.get(key)
     if (!run) {
       const cache = this.load()
-      const entry = source === 'exams' ? cache.exams : term ? cache.timetables[term] : cache.current
+      const entry = source === 'exams' ? (term ? cache.examTerms[term] : cache.exams) : term ? cache.timetables[term] : cache.current
       if (this.recent(this.mine(entry, status), force)) return this.snapshot()
-      run = (source === 'exams' ? this.fetchExams(status.owner) : this.fetchTimetable(status.owner, term)).finally(() => { this.running.delete(key) })
+      run = (source === 'exams' ? this.fetchExams(status.owner, term) : this.fetchTimetable(status.owner, term)).finally(() => { this.running.delete(key) })
       this.running.set(key, run)
     }
     await run
@@ -406,14 +487,22 @@ export class Schedule {
     this.write({ ...cache, graduate: { ...cache.graduate, [term]: entry } })
   }
 
-  async fetchExams(owner) {
-    const triedAt = new Date(this.now()).toISOString(), cache = this.load()
-    let exams
-    try { exams = { owner, items: fromExams(await this.run(['zdbk', 'exams'], { system: ZDBK.name, timeoutMs: 120_000 })), fetchedAt: triedAt, triedAt, error: null } } catch (error) {
-      const same = cache.exams?.owner === owner
-      exams = { owner, items: same ? cache.exams.items : [], fetchedAt: same ? cache.exams.fetchedAt : null, triedAt, error: message(error) }
-    }
-    this.write({ ...cache, exams })
+  async fetchExams(owner, term) {
+    const triedAt = new Date(this.now()).toISOString()
+    let raw, items, error = null
+    const args = term ? ['zdbk', 'exams', '--year', term.slice(0, 9), '--term', term.slice(-1)] : ['zdbk', 'exams']
+    try {
+      raw = await this.run(args, { system: ZDBK.name, timeoutMs: 120_000 })
+      items = fromExams(raw)
+    } catch (reason) { error = message(reason) }
+    const cache = this.load()
+    const key = term ?? (raw?.term ? termKey(raw.term.year, String(raw.term.term).split('|').pop()) : this.mine(cache.current, this.status())?.key)
+    const before = key ? cache.examTerms[key] : cache.exams, same = before?.owner === owner
+    const entry = items
+      ? { owner, items, fetchedAt: triedAt, triedAt, error: null }
+      : { owner, items: same ? before.items : [], fetchedAt: same ? before.fetchedAt : null, triedAt, error }
+    const examTerms = key ? { ...cache.examTerms, [key]: entry } : cache.examTerms
+    this.write({ ...cache, examTerms, exams: term ? cache.exams : entry })
   }
 
   // ── 给助手的 ──────────────────────────────────────────
@@ -473,6 +562,141 @@ export class Schedule {
       })),
       ...(notes.length ? { notes } : {}),
     }
+  }
+
+  /**
+   * 写手机日历用的当前 16 周计划：课程、已公布考试、未交截止。
+   * 只生成计划文件，不直接写系统日历；写由 dsh-go 的 mcp__calendar__sync 完成。
+   */
+  async semesterPlan({ force = true } = {}) {
+    const now = this.now(), calendar = this.calendar()
+    const semester = currentSemester(calendar, beijing(now).date)
+    const keys = semester.terms.map(term => termKey(term.year, term.term))
+    const status = this.status(), graduateStatus = this.graduateStatus()
+    if (status.state === 'off') throw new Error('「课程与学习」关着，课表和考试读不到，不能写入日历。')
+    if (status.state === 'account') throw new Error('浙大统一身份认证的账号还没填，课表和考试读不到，不能写入日历。')
+
+    await this.holidays.refresh(this.years())
+    if (status.state === 'ready') {
+      for (const key of keys) await this.refresh({ source: 'timetable', term: key, force })
+      for (const key of keys) await this.refresh({ source: 'exams', term: key, force })
+    }
+    if (graduateStatus.state === 'ready') await this.refresh({ source: 'graduate', term: `${semester.year}|${semester.half}`, force })
+    await this.refresh({ source: 'tasks', force })
+
+    const data = this.snapshot()
+    if (status.state === 'ready') {
+      const missing = keys.filter(key => !data.timetables[key])
+      if (missing.length) throw new Error(`${missing.map(key => key.replace('|', ' ')).join('、')}的课表没读到，不能生成完整学期日历。`)
+    }
+
+    const scope = scopeOf(semester), events = [], seen = new Set()
+    const add = (event) => { if (!seen.has(event.key)) { seen.add(event.key); events.push(event) } }
+    for (let number = dayNumber(semester.from); number <= dayNumber(semester.to); number++) {
+      const date = dateOf(number), day = planDay(data, date)
+      for (const item of day.items) {
+        if (item.from === 'mine') continue
+        if (item.kind === 'class') {
+          if (!item.time || !item.end) continue
+          const sourceDate = sourceDateOf(item, date)
+          const term = item.term ? `${item.term.year} ${item.term.term}学期第 ${item.term.week} 周` : ''
+          const moved = sourceDate !== date ? `调休：上 ${sourceDate}（${WEEKDAY_NAMES[weekdayOf(sourceDate) - 1]}）的课` : ''
+          add({
+            key: `${scope}:class:${courseHash(item)}:${sourceDate}:${periodKey(item)}`,
+            kind: 'class', source: item.from === 'yjsy' ? 'yjsy' : 'zdbk', title: item.title,
+            begin: `${date}T${item.time}`, end: `${date}T${item.end}`, all_day: false,
+            ...(item.sub ? { location: item.sub } : {}),
+            description: [
+              item.teacher && `教师：${item.teacher}`, term, item.periods?.length && `节次：${item.periods.join('、')}`, moved,
+              `来源：${item.from === 'yjsy' ? '研究生教务网' : '教务网'}`,
+            ].filter(Boolean).join('；'),
+            reminder_minutes: [10],
+          })
+        } else if (item.kind === 'exam') {
+          const label = /期中/.test(item.title) ? 'mid' : /期末/.test(item.title) ? 'final' : hash(item.title).slice(0, 8)
+          const title = item.title.replace(/\s*(期中|期末)考试.*$/, '')
+          const time = item.time, end = item.end ?? item.time
+          add({
+            key: `${scope}:exam:${hash(title).slice(0, 12)}:${label}`,
+            kind: 'exam', source: item.from ?? 'zdbk', title: item.title,
+            ...(time ? { begin: `${date}T${time}`, end: `${date}T${end}`, all_day: false } : { begin: date, end: addDays(date, 1), all_day: true }),
+            ...(item.sub ? { location: item.sub.split(' · ')[0] } : {}),
+            description: [item.sub && `考场：${item.sub}`, '来源：教务网'].filter(Boolean).join('；'),
+            reminder_minutes: [1440, 60],
+          })
+        } else if (item.kind === 'due') {
+          if (item.done) continue
+          const ref = item.ref ?? `${item.title}|${item.date ?? date}|${item.time ?? ''}`
+          const source = item.from === 'pta' ? 'PTA' : item.from === 'xuezai' ? '学在浙大' : '校园事务'
+          const description = [item.sub && `课程：${item.sub}`, `来源：${source}`, '状态：未提交'].filter(Boolean).join('；')
+          if (item.time) {
+            const start = minutesBefore(date, item.time, 15)
+            add({
+              key: `${scope}:due:${item.from ?? 'task'}:${hash(ref).slice(0, 12)}`,
+              kind: 'due', source: item.from ?? 'task', title: `截止｜${item.title}`,
+              begin: `${start.date}T${start.time}`, end: `${date}T${item.time}`, all_day: false, description,
+              reminder_minutes: [1440, 120],
+            })
+          } else {
+            add({
+              key: `${scope}:due:${item.from ?? 'task'}:${hash(ref).slice(0, 12)}`,
+              kind: 'due', source: item.from ?? 'task', title: `截止｜${item.title}`,
+              begin: date, end: addDays(date, 1), all_day: true, description,
+              reminder_minutes: [1440, 120],
+            })
+          }
+        }
+      }
+    }
+    events.sort((a, b) => a.begin.localeCompare(b.begin) || a.title.localeCompare(b.title, 'zh-CN'))
+
+    const warnings = []
+    if (status.state === 'graduate') warnings.push('研究生考试安排目前读不到，日历里只有研究生课。')
+    const graduateTerm = data.graduate.terms[`${semester.year}|${semester.half}`]
+    if (graduateStatus.state === 'ready' && graduateTerm?.error) warnings.push('研究生课表这次没读全，研究生课可能缺。')
+    const unconfirmed = [...new Set(Object.values(data.timetables).flatMap(table => table.courses ?? []).filter(course => course.confirmed === false).map(course => course.name))]
+    if (unconfirmed.length) warnings.push(`${unconfirmed.slice(0, 5).join('、')}${unconfirmed.length > 5 ? ` 等 ${unconfirmed.length} 门课` : ''}还没确认，重选课结束后再同步一次。`)
+    let taskItems = []
+    try { taskItems = this.tasks() } catch { /* 作业读不到时只影响截止 */ }
+    const noDeadline = taskItems.filter(item => !item.done && !item.deadline).length
+    if (noDeadline) warnings.push(`${noDeadline} 条未交事项没有截止时间，没有写入。`)
+    for (const source of data.sources) if (source.error) warnings.push(`${source.name}这次没读到（${source.error}），可能不完整。`)
+    if (data.calendar.problem) warnings.push(data.calendar.problem)
+    const unpublished = data.unpublished.filter(year => semester.from <= `${year}-12-31` && `${year}-01-01` <= semester.to)
+    if (unpublished.length) warnings.push(`${unpublished.join('、')} 年的放假安排还没公布或没取到，放假和调休可能没排上。`)
+
+    const preserve_kinds = this.taskSources().some(source => source.error || source.state !== 'ready') ? ['due'] : []
+    const counts = { class: 0, exam: 0, due: 0 }
+    for (const event of events) counts[event.kind] = (counts[event.kind] ?? 0) + 1
+
+    fs.mkdirSync(this.planDir, { recursive: true })
+    const planId = randomUUID().replace(/-/g, '').slice(0, 16)
+    const file = path.join(this.planDir, `${planId}.json`)
+    const plan = {
+      version: 1, scope, label: labelOf(semester), range: { from: semester.from, to: semester.to },
+      generatedAt: new Date(now).toISOString(), events, preserve_kinds, warnings, sources: data.sources,
+    }
+    writeFile(file, JSON.stringify(plan, null, 2) + '\n')
+    trimPlans(this.planDir)
+    return {
+      plan_id: planId, plan_path: file, scope, label: labelOf(semester), range: { from: semester.from, to: semester.to },
+      counts, total: events.length, preserve_kinds, warnings,
+    }
+  }
+
+  /** dsh-go 的 7 天截止区：只给未交、有截止时间、落在今天起 days 天内的。 */
+  async deadlines({ days = 7, force = false } = {}) {
+    if (force) { try { await this.refreshTasks({ force: true }) } catch { /* 读不到就用上一次的 */ } }
+    const today = beijing(this.now()).date
+    const span = Math.min(Math.max(Number(days) || 7, 1), 42), to = addDays(today, span - 1)
+    let items = []
+    try { items = this.tasks() } catch { /* 作业那边读不了就返回空 */ }
+    const result = items.filter(item => !item.done && item.deadline && Number.isFinite(Date.parse(item.deadline))).map((item) => {
+      const at = beijing(Date.parse(item.deadline))
+      return { id: item.id, source: item.source, title: item.title, course: item.course ?? '', kind: item.kind ?? '作业', date: at.date, time: at.time, deadline: item.deadline }
+    }).filter(item => item.date >= today && item.date <= to)
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '').localeCompare(b.time ?? '') || a.title.localeCompare(b.title, 'zh'))
+    return { today, to, days: span, items: result }
   }
 
   /** 对话开头告诉助手今天是哪个学期第几周、最近的放假和调休，用户问「第几周」「下周一上不上课」时不用猜。 */

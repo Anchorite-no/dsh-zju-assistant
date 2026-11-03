@@ -56,9 +56,13 @@ function fileEntry(id) {
   }
 }
 
+function androidHost() {
+  return Boolean(process.env.ANDROID_DATA || process.env.ANDROID_ROOT) || fs.existsSync('/system/build.prop')
+}
+
 function systemEntry(id) {
   const mode = process.env.CAMPUS_FILE_KEYRING
-  if (mode !== '0' && (mode === '1' || process.env.ANDROID_DATA || process.env.ANDROID_ROOT)) return fileEntry(id)
+  if (mode !== '0' && (mode === '1' || androidHost())) return fileEntry(id)
   const { Entry } = require('@napi-rs/keyring')
   // Linux requires persistent Secret Service storage; do not fall back to a session keyring.
   return new Entry(SERVICE, id, { linux: { store: 'secret-service' } })

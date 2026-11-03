@@ -41,7 +41,7 @@ export interface Timetable {
   year: string
   term: string
   periodTimes: { period: number, startTime: string, endTime: string }[]
-  courses: { name: string, teacher: string, term: string, meetings: Meeting[] }[]
+  courses: { id?: string, name: string, teacher: string, term: string, confirmed?: boolean, meetings: Meeting[] }[]
   fetchedAt?: string | null
   error?: string | null
 }
@@ -63,6 +63,14 @@ export interface PlanItem {
   periods?: number[]
   weeks?: string
   weekPattern?: string
+  /** 教务网课程标识（选课课号或课程代码），用来生成稳定 key。 */
+  courseId?: string
+  /** 教务网里这门课是否已经确认；重选课期间可能是 false。 */
+  confirmed?: boolean
+  /** 这门课原本那一周的日期；调休时 target 日期会变，这个不变。 */
+  sourceDate?: string
+  /** 这门课落在哪个小学期第几周。 */
+  term?: TermWeek
   /** 截止那天，事情（考试、截止、备忘）才有。 */
   date?: string
   /** 作业已经交了（学在浙大、PTA）。 */

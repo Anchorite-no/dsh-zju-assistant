@@ -1,6 +1,6 @@
 {
   "name": "dsh-zju-assistant-workspace",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "license": "GPL-3.0-only",
   "description": "ZJU All-in-One Assistant: DeepSeek Harness plugin for Windows and macOS",

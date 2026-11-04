@@ -2623,7 +2623,7 @@ button.campus-chat-open { border: 0; background: transparent; padding: 0; text-a
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 20px;
-  padding-top: 20px;
+  padding-top: 12px;
 }
 
 .campus-plan-head > .campus-actions {
@@ -2696,8 +2696,9 @@ button.campus-chat-open { border: 0; background: transparent; padding: 0; text-a
 表头一行，下面是 13 节，每节一样高；作业的截止也按时间钉在格子里。高度只看节数，和这周有多少事无关；
 块里放不下的字截掉，鼠标放上去看全。页面是纵向的弹性容器，裁边的子项默认会被压到放得下为止，格子不能被压。 */
 .campus-grid {
-  /* 每节的高度跟着窗口：减去第一行、表头和上下留白（约 162px），剩下的 13 节平分，最矮 34px、最高 56px。 */
-  --campus-row: clamp(34px, calc((100dvh - 162px) / var(--campus-periods)), 56px);
+  /* 每节的高度跟着窗口：减去第一行、表头、上下留白和桌面版顶上 40px 的菜单栏（100dvh 把它也算进去了），再多留 2px 给屏幕缩放的小数，
+     剩下的 13 节平分，最矮 34px、最高 56px。这些加起来要等于这里的 164px，不然默认大小的窗口里整页能滚一点点（2026-11-04）。 */
+  --campus-row: clamp(34px, calc((100dvh - 164px) / var(--campus-periods)), 56px);
   --campus-axis: 48px;
   --campus-gap: 3px;
   display: grid;

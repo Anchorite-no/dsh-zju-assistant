@@ -24,6 +24,7 @@ import { ProfileSettings } from './ProfileSettings.tsx'
 import { NoticeFilterSettings } from './NoticeFilterSettings.tsx'
 import { MailSettings } from './MailSettings.tsx'
 import { ChatSettings } from './ChatSettings.tsx'
+import { CourseSettings } from './CourseSettings.tsx'
 import { LearnSettings } from './LearnSettings.tsx'
 import { WechatSettings } from './WechatSettings.tsx'
 import { showFeedTab } from './Feed.tsx'
@@ -67,8 +68,9 @@ function ChatConfig({ platform }: { platform: 'wechat' | 'dingtalk' }) {
   return <ChatSettings key={platform} platform={platform} />
 }
 
-/** 各行配置页的内容（rows.mjs 的 key）；要填账号的几行是账号表单。 */
+/** 各行配置页的内容（rows.mjs 的 key）；要填账号的几行，账号表单排在最上面，这里的接在它下面。 */
 const CONFIG: Record<string, () => ReactNode> = {
+  courses: () => <CourseSettings />,
   notices: () => <NoticeFilterSettings />,
   mail: () => <MailSettings onStatus={() => {}} />,
   'wechat-chat': () => <ChatConfig platform="wechat" />,
@@ -159,7 +161,7 @@ export function apply(ctx: Context): void {
   for (const row of ROWS) {
     const accounts = row.accounts, page = CONFIG[row.key]
     if (!accounts && !page) continue
-    const body = accounts ? () => <AccountForm accounts={accounts} /> : page!
+    const body = () => <>{accounts && <AccountForm accounts={accounts} />}{page?.()}</>
     whileOn(ctx, 'plugins.row.config', row.key, () => register({ name: 'plugins.row.config', key: rowConfigKey(row) },
       ({ view }: { view: 'summary' | 'page' }) => view === 'summary' ? <>{row.settings}</> : <div className="campus-config">{body()}</div>))
   }

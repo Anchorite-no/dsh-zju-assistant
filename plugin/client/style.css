@@ -3167,7 +3167,8 @@ button.campus-pin:focus-visible {
 
 /* 一页里有好几节时（聊天的自动同步、数据位置、监控的聊天；公众号的来源和跟踪的号）节和节之间拉开，
 不然上一节最后的输入框和下一节的标题贴在一起（2026-11-04）。节末尾是一个表单项时，去掉它下面那截留白，各节间距才一样。 */
-.campus-config > .campus-section + .campus-section {
+.campus-config > .campus-section + .campus-section,
+.campus-config > .campus-form + .campus-section {
   margin-top: 28px;
 }
 

@@ -16,6 +16,9 @@ export const PASSPORT = "https://passport2.chaoxing.com";
 export const MOOC1 = "https://mooc1.chaoxing.com";
 export const MOOC2 = "https://mooc2-ans.chaoxing.com";
 export const API = "https://mooc1-api.chaoxing.com";
+export const MOBILELEARN = "https://mobilelearn.chaoxing.com";
+/** 任务引擎：课程「任务」栏里的学习任务。 */
+export const TASK = "https://task.chaoxing.com";
 export const requirements: ModuleRequirements = { name: "chaoxing", title: "超星学习通", hosts: ["chaoxing.com"], auth: "own", network: "public", writes: false, sessionProbe: `${API}/mycourse/backclazzdata?view=json&rss=1` };
 
 /** 登录页 login.js 里的 transferKey，既是密钥也是 IV（AES-128-CBC，PKCS7，Base64）。 */

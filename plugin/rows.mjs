@@ -17,7 +17,7 @@ export const BUNDLE = 'dsh-zju-assistant'
 
 export const ROWS = [
   { key: '', title: '校园账号', id: 'zju-account', on: true, modules: ['profile', 'zjuam', 'webvpn'], accounts: ['zju', 'webvpn'], settings: '统一身份认证、WebVPN 和校内网站的访问方式' },
-  { key: 'courses', title: '课程与学习', id: 'zju-courses', on: true, modules: ['zdbk', 'yjsy', 'xuezai', 'pta', 'lab', 'zhiyun', 'chaoxing', 'ebook', 'cnki'], accounts: ['pta', 'lab', 'chaoxing'], settings: 'PTA、大物实验课、超星学习通的账号' },
+  { key: 'courses', title: '课程与学习', id: 'zju-courses', on: true, modules: ['zdbk', 'yjsy', 'xuezai', 'pta', 'lab', 'zhiyun', 'chaoxing', 'ebook', 'cnki'], accounts: ['pta', 'lab', 'chaoxing'], settings: 'PTA、大物实验课、超星学习通的账号，学习通作业接不接校园事务' },
   { key: 'learn', title: '课程讲解', id: 'zju-learn', on: false, modules: [], settings: '排公式的 TeX、检查版面用的浏览器、动画库' },
   { key: 'activities', title: '活动与场馆', id: 'zju-activities', on: true, modules: ['sztz', 'tyys'], accounts: ['tyys', 'buddy'], settings: '校园卡查询密码、场馆同伴的账号' },
   { key: 'community', title: '校园社区', id: 'zju-community', on: true, modules: ['cc98', 'chalaoshi'], accounts: ['cc98'], settings: 'CC98 账号' },

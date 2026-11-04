@@ -38,6 +38,7 @@ description: 浙江大学校园任务工具，查询课表、成绩、作业、�
 | 下载课件 | `xuezai material download --course 课程名 --name 文件名`，多个用竖线分隔，某一章的全部用 `--chapter 章节名`，整门课全部用 `--all`（后两种不含视频，要视频再加 `--video`）；返回本地路径 |
 | 超星学习通的课件 | 一条命令直接下载：`chaoxing material download --course 课程名 --chapter 实验或章节名`，返回本地路径。章节名照用户的说法写，命令自己会对上（差一两个字也行），不要先 list 再找。只有用户问「有哪些」时才用 `chaoxing material list --course 课程名`（只看一章加 `--chapter`） |
 | 超星学习通的视频 | 同上，换成 `chaoxing video download` / `chaoxing video list`；课件和视频都要时两条各调一次。默认下原文件（几百 MB）；用户要快、要小或要把视频发过去时加 `--quality playback`（720p，十几 MB）。用户给了学习通课程页面链接时，链接原样写进 `--course` |
+| 超星学习通的作业、测试 | `chaoxing homework list`，只看一门课加 `--course 课程名`；老师放在学习任务里的也在内。`deadline` 是 `null` 的老师没设时间，常常其实交到别的平台，不要催 |
 | 提交明确的作业 | `xuezai homework submit --course 课程名 --name 作业名 --file 文件 --confirm` |
 | PTA 作业 | `pta homework list`；一份作业的小题 `pta homework view --set 作业名`，看某题 `pta problem view --set 作业名 --problem 7-1`；作业写名称里的一段，小题写题号。作答见 [PTA](references/pta.md) |
 | 找某课程教学班 | `zdbk selection sections --course 课程名`，可加 teacher/time 限定 |

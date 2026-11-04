@@ -164,3 +164,33 @@ export function parseDataList(html: string): { rows: DataRow[]; totalPages: numb
   const pages = first(doc, (e) => e.tagName === "input" && attr(e, "id") === "totalPages");
   return { rows, totalPages: Math.max(1, Number(pages ? attr(pages, "value") : 1) || 1) };
 }
+
+export interface WorkRow {
+  title: string;
+  /** 未提交、已完成、待批阅等，页面上写什么就是什么 */
+  status: string;
+  course: string;
+  /** 距离截止还有多少分钟；页面上没写时是 null */
+  leftMinutes: number | null;
+}
+
+/** 手机端作业列表（work/stu-work）：所有课的作业在一页里，每个 li 一份：标题在 p，后面的 span 依次是状态、《课程》和「剩余 N 小时 M 分钟」。 */
+export function parseStuWork(html: string): WorkRow[] {
+  const rows: WorkRow[] = [];
+  for (const li of elements(parse(html))) {
+    if (li.tagName !== "li") continue;
+    const title = first(li, (e) => e.tagName === "p");
+    if (!title) continue;
+    const spans = [...elements(li)].filter((e) => e.tagName === "span").map((e) => clean(textOf(e))).filter(Boolean);
+    const course = spans.find((s) => /^《.*》$/.test(s));
+    if (!course) continue;
+    const left = spans.find((s) => s.startsWith("剩余"));
+    const part = (pattern: RegExp) => Number(left?.match(pattern)?.[1] ?? 0);
+    rows.push({
+      title: clean(textOf(title)), course: course.slice(1, -1),
+      status: spans.find((s) => s !== course && s !== left) ?? "",
+      leftMinutes: left && /\d/.test(left) ? part(/(\d+)天/) * 1440 + part(/(\d+)小时/) * 60 + part(/(\d+)分钟/) : null,
+    });
+  }
+  return rows;
+}

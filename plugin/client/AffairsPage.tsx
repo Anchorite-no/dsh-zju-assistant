@@ -1,5 +1,5 @@
 /**
- * 校园事务：手上有什么事。左栏是要办的：各系统里快到期的作业（现在接了学在浙大和 PTA，默认只看两周内要交的），
+ * 校园事务：手上有什么事。左栏是要办的：各系统里快到期的作业（接了学在浙大和 PTA，学习通的要在配置页打开，默认只看两周内要交的），
  * 下面是自己记的备忘录（Memos.tsx）；右栏是外面发来的通知（Feed.tsx，分「校园通知」「个人消息」两个页签），右栏略宽一点，主区域窄的时候排到下面。
  * 打开时先照上一次读到的画出来，后台再去各系统重新读，哪个读完就先换上哪个的结果；
  * 多出来和没了的作业带进出的动画（Flow.tsx）。点一张卡片看这份作业的要求、下载附件，也可以把它交给助手（handoff.tsx）。
@@ -120,6 +120,7 @@ function TaskCard({ task, source, now, onOpen, onHand }: { task: Task, source: s
         <span className="campus-task-meta">
           {task.course && <span className="campus-task-course">{task.course}</span>}
           <Tag>{source}</Tag>
+          {task.kind && task.kind !== '作业' && <Tag>{task.kind}</Tag>}
           {task.note && <span>{task.note}</span>}
         </span>
       </div>

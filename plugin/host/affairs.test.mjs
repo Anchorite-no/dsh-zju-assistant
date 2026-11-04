@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { Affairs, deadlineOf, fromPta, fromXuezai, ptaDetail, xuezaiDetail } from './affairs.mjs'
+import { Affairs, deadlineOf, fromChaoxing, fromPta, fromXuezai, ptaDetail, xuezaiDetail } from './affairs.mjs'
 
 const XUEZAI = { todos: [
   { course: '数据结构基础', title: '实验三', type: '作业', deadline: '2026-10-12 23:59' },
@@ -14,13 +14,21 @@ const PTA = { homeworks: [
   { name: 'HW2', state: '已全部作答', deadline: '2026-10-11 23:59', total: 5, answered: 5, accepted: 5, wrong: 0, url: 'https://pintia.cn/problem-sets/2/exam' },
 ] }
 
+const CHAOXING = { homeworks: [
+  { course: '示例课程', task: '第八周学习任务', title: '第八周周测', type: '测试', deadline: '2026-10-15 23:59', done: false, closed: false, requirement: '必做', otherLeft: 5 },
+  { course: '示例课程', task: '第七周学习任务', title: '第七周报告', type: '作业', deadline: '2026-10-01 23:59', done: true, closed: true, requirement: '', otherLeft: 0 },
+  { course: '示例课程', task: '第六周学习任务', title: '错过的周测', type: '测试', deadline: '2026-09-20 23:59', done: false, closed: true, requirement: '', otherLeft: 0 },
+  { course: '放课件的课', task: '实验任务', title: '实验报告（请提交到别的平台）', type: '作业', deadline: null, done: false, closed: false, requirement: '', otherLeft: 2 },
+] }
+
 /** 一套假的账号、开关和 core，记下 core 被叫了几次。results 的键是命令的开头几个词，列表命令只写系统名。 */
 function setup(t, { accounts = { zju_username: '3240100001', zju_password: 'x', pta_username: 'a@b.c', pta_password: 'y' } } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'campus-affairs-'))
   t.after(() => { fs.rmSync(root, { recursive: true, force: true }) })
-  const world = { accounts, disabled: [], calls: [], revealed: [], now: Date.parse('2026-10-08T00:00:00Z'), results: { xuezai: XUEZAI, pta: PTA }, file: path.join(root, 'cache', 'affairs.json'), downloads: path.join(root, 'downloads') }
+  const world = { accounts, disabled: [], calls: [], revealed: [], now: Date.parse('2026-10-08T00:00:00Z'), results: { xuezai: XUEZAI, pta: PTA, chaoxing: CHAOXING }, file: path.join(root, 'cache', 'affairs.json'), settingsFile: path.join(root, 'profile', 'affairs.json'), downloads: path.join(root, 'downloads') }
   world.create = () => new Affairs({
     file: world.file,
+    settingsFile: world.settingsFile,
     account: { read: () => ({ data: world.accounts }) },
     plugins: { disabled: () => world.disabled },
     downloads: { root: async () => world.downloads, reveal: target => world.revealed.push(target) },
@@ -263,4 +271,87 @@ test('handed-in homework stays in the cache for the schedule but not on the affa
   assert.deepEqual(affairs.snapshot().items.map(item => item.title), ['HW3', '实验三'])
   assert.deepEqual(affairs.tasks().filter(item => item.done).map(item => item.title), ['实验一', 'HW2'])
   assert.deepEqual(affairs.tasks().filter(item => !item.done).map(item => item.title).sort(), ['HW3', '实验三'])
+})
+
+test('Chaoxing homework: dated work only; undated reports, missed and done work are told apart', () => {
+  const items = fromChaoxing(CHAOXING)
+  assert.deepEqual(items.map(item => [item.title, item.kind, item.facts.map(fact => fact.value), item.done === true]), [
+    ['第八周周测', '测试', ['第八周学习任务', '这个任务里还有 5 项内容'], false],
+    ['第七周报告', '作业', ['第七周学习任务'], true],
+  ])
+  assert.equal(items[0].deadline, '2026-10-15T15:59:00.000Z')
+  assert.equal(items[0].requirement, '必做')
+  assert.throws(() => fromChaoxing({}), /格式不对/)
+  // 有课没读到时整次算没读到，上一次的结果留着。
+  assert.throws(() => fromChaoxing({ ...CHAOXING, failed: [{ course: '示例课程', reason: '超星没回应' }] }), /示例课程：超星没回应/)
+})
+
+test('Chaoxing is off by default: nothing is read and nothing shows until the switch is on', async (t) => {
+  const accounts = { zju_username: '3240100001', zju_password: 'x', pta_username: 'a@b.c', pta_password: 'y', chaoxing_username: '13800000000', chaoxing_password: 'z' }
+  const world = setup(t, { accounts })
+  const affairs = world.create()
+  assert.deepEqual(affairs.settings(), { chaoxingHomework: false })
+  assert.equal(fs.existsSync(world.settingsFile), false)
+  assert.equal(affairs.snapshot().sources.some(source => source.id === 'chaoxing'), false)
+  await affairs.refreshAll()
+  assert.ok(!world.calls.includes('chaoxing'))
+  assert.ok(affairs.snapshot().items.every(item => item.source !== 'chaoxing'))
+
+  // 打开以后读得到，点开是老师写的要求，不用再去系统读；日程表也拿得到做完的。
+  assert.deepEqual(affairs.saveSettings({ chaoxingHomework: true }), { chaoxingHomework: true })
+  await affairs.refresh({ source: 'chaoxing' })
+  const shown = affairs.snapshot().items.filter(item => item.source === 'chaoxing')
+  assert.deepEqual(shown.map(item => item.title), ['第八周周测'])
+  assert.equal('requirement' in shown[0] || 'facts' in shown[0], false)
+  const opened = affairs.detail({ id: shown[0].id })
+  assert.equal(opened.more, false)
+  assert.equal(opened.detail.body, '必做')
+  assert.deepEqual(opened.detail.facts.map(fact => fact.label), ['学习任务', '还没学完'])
+  assert.equal((await affairs.refreshDetail({ id: shown[0].id })).detail.body, '必做')
+  assert.ok(affairs.tasks().some(item => item.title === '第七周报告' && item.done))
+
+  // 重开应用还记得；关掉以后这些都不见了，也不再读。
+  const reopened = world.create()
+  assert.deepEqual(reopened.settings(), { chaoxingHomework: true })
+  reopened.saveSettings({ chaoxingHomework: false })
+  assert.ok(reopened.snapshot().items.every(item => item.source !== 'chaoxing'))
+  assert.ok(reopened.tasks().every(item => item.source !== 'chaoxing'))
+  assert.throws(() => reopened.detail({ id: shown[0].id }), /不在列表里/)
+  const before = world.calls.length
+  await reopened.refresh({ source: 'chaoxing', force: true })
+  assert.equal(world.calls.length, before)
+})
+
+test('Chaoxing asks for the account only once the switch is on, reads less often, and refresh reads everything again', async (t) => {
+  const world = setup(t)
+  const affairs = world.create()
+  assert.equal(affairs.snapshot().sources.some(source => source.id === 'chaoxing'), false)
+  affairs.saveSettings({ chaoxingHomework: true })
+  assert.equal(affairs.snapshot().sources.find(source => source.id === 'chaoxing').state, 'account')
+
+  world.accounts = { ...world.accounts, chaoxing_username: '13800000000', chaoxing_password: 'z' }
+  const seen = []
+  world.results.chaoxing = (args) => { seen.push(args.join(' ')); return CHAOXING }
+  await affairs.refresh({ source: 'chaoxing' })
+  // 隔十分钟以内进页面不重新读；学在浙大那边是一分钟。
+  world.now += 5 * 60_000
+  await affairs.refresh({ source: 'chaoxing' })
+  assert.deepEqual(seen, ['chaoxing homework list'])
+  await affairs.refresh({ source: 'chaoxing', force: true })
+  assert.deepEqual(seen, ['chaoxing homework list', 'chaoxing homework list --fresh'])
+  world.now += 11 * 60_000
+  await affairs.refresh({ source: 'chaoxing' })
+  assert.equal(seen.length, 3)
+})
+
+test('when Chaoxing cannot be read the last list stays and the reason is shown', async (t) => {
+  const world = setup(t, { accounts: { chaoxing_username: '13800000000', chaoxing_password: 'z' } })
+  const affairs = world.create()
+  affairs.saveSettings({ chaoxingHomework: true })
+  await affairs.refresh({ source: 'chaoxing' })
+  world.results.chaoxing = { ...CHAOXING, failed: [{ course: '示例课程', reason: '超星没回应' }], homeworks: [] }
+  await affairs.refresh({ source: 'chaoxing', force: true })
+  const snapshot = affairs.snapshot()
+  assert.deepEqual(snapshot.items.map(item => item.title), ['第八周周测'])
+  assert.match(snapshot.sources.find(source => source.id === 'chaoxing').error, /超星没回应/)
 })

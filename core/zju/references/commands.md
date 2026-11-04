@@ -1,6 +1,6 @@
 # 当前命令总表
 
-生成日期：2026-11-02。共 164 条公开命令路径、18 个模块。
+生成日期：2026-11-04。共 165 条公开命令路径、18 个模块。
 
 入口为 `node scripts/zju.ts <module> <command> [参数]`。默认帮助逐级展示；`--help --all` 展开当前范围全部公开命令。参数类型与帮助来自实际注册定义，本生成器不执行登录或业务。
 
@@ -20,7 +20,7 @@
 | [xuezai](#xuezai) | 19 | 课程资料、作业、待办与点名 |
 | [tyys](#tyys) | 9 | 体育课考勤记录与体育场馆预约 |
 | [pta](#pta) | 14 | PTA 独立登录、作业进度、小题保存与提交 |
-| [chaoxing](#chaoxing) | 9 | 超星学习通的课程、课件与视频下载 |
+| [chaoxing](#chaoxing) | 10 | 超星学习通的课程、课件与视频下载 |
 | [zhiyun](#zhiyun) | 16 | 课堂资源查询、下载、实时字幕与本地转写 |
 | [cc98](#cc98) | 32 | 论坛查询、个人中心与互动发布 |
 | [chalaoshi](#chalaoshi) | 3 | 教师评价与课程绩点 |
@@ -886,6 +886,14 @@ zju chaoxing video download --course VALUE [--name VALUE] [--chapter VALUE] [--a
 ```
 
 `--course`：文本/路径，必填；`--name`：文本/路径；`--chapter`：文本/路径；`--all`：开关；`--quality`：original / playback，默认 original；`--out-dir`：文本/路径。
+
+### chaoxing homework list
+
+```text
+zju chaoxing homework list [--course VALUE] [--fresh] 本人要交的作业和测试：课程、所在的学习任务、截止时间、老师写的要求和做完没有。只读
+```
+
+`--course`：文本/路径；`--fresh`：开关。
 
 ### chaoxing session login
 

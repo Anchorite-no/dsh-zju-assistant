@@ -99,7 +99,7 @@ export default class ZjuCampus extends Service {
 
     this.fill = new IdentityFill(this.store, this.account)
     this.documents = new Documents()
-    this.affairs = new Affairs({ file: cache('affairs.json'), account: this.account, plugins: this.plugins, downloads: new Downloads() })
+    this.affairs = new Affairs({ file: cache('affairs.json'), settingsFile: this.store.file('affairs.json'), account: this.account, plugins: this.plugins, downloads: new Downloads() })
     // 日程表：教务网的课表和考试，档案里的校历，再把作业截止和备忘录里写了时间的事排进去。
     this.schedule = new Schedule({
       file: cache('schedule.json'), calendarFile: this.store.file('calendar.json'), account: this.account, plugins: this.plugins,
@@ -252,6 +252,8 @@ export default class ZjuCampus extends Service {
       case 'affairs-detail-refresh': return this.affairs.refreshDetail(input)
       case 'affairs-file-download': return this.affairs.download(input)
       case 'affairs-file-reveal': return this.affairs.reveal(input)
+      case 'affairs-settings-read': return this.affairs.settings()
+      case 'affairs-settings-save': return this.affairs.saveSettings(input)
       case 'schedule-read': return this.schedule.snapshot()
       case 'schedule-refresh': return this.schedule.refresh(input)
       case 'calendar-save': return this.schedule.saveCalendar(input)

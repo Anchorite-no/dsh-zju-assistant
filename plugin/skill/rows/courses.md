@@ -24,6 +24,7 @@
 | 上课实时转写、刚才老师说了什么 | `zhiyun live start`；`zhiyun live text` |
 | 转写本地录音 | `zhiyun trans audio --file 文件` |
 | 学习通课件、视频 | `chaoxing material download --course 课程名 --chapter 章节名`，视频换成 `chaoxing video download`（要小加 `--quality playback`）；问「有哪些」才用 `… list` |
+| 学习通的作业、测试 | `chaoxing homework list`（只看一门课加 `--course 课程名`）；学习任务里的也在内。`deadline` 是 `null` 的老师没设时间，常常其实交到别的平台，不要催 |
 | 某本书的电子版 | `ebook search --title 书名` 或 `--isbn` |
 | 知网论文 | 检索 `cnki search --keyword "词一 词二"`；下载 `cnki download --title 完整篇名`，多篇用竖线分隔一次给完 |
 | 读 PDF、Word、PPT、Excel 的文字 | `doc text --file 本地文件` 或 `--url 链接`；照片和 Word 转 PDF `doc pdf --file "a.jpg|b.jpg" --out 名字.pdf`；找页和切页 `doc find`、`doc pages` |

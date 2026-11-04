@@ -7,6 +7,7 @@ import { openChaoxing, sessionStore, type Chaoxing } from "./client.ts";
 import { courseRow, findCourse, inventory, listChapters, listCourses, seenIn, type Course, type CourseFile, type Inventory } from "./courses.ts";
 import type { Chapter } from "./parse.ts";
 import { saveFiles } from "./download.ts";
+import { listHomework } from "./homework.ts";
 
 const COURSE: Option = { description: "课程名称，可用常见简称；也可以直接给课程页面的链接", required: true };
 const CHAPTER: Option = { description: "只要这一章或这一节的：写章节标题里的一段（光学实验、等厚干涉、5.2），或清单里的 location 原样；资料栏的文件夹也写在这里" };
@@ -234,6 +235,16 @@ export function createChaoxingCommands(open: typeof openChaoxing = openChaoxing)
     }),
     material: group("课件等文件（章节里的文档和「资料」栏）：清单与下载", fileCommands("material")),
     video: group("章节视频：清单与下载", fileCommands("video")),
+    homework: group("要交的作业和测试（含学习任务里的）", {
+      list: read("本人要交的作业和测试：课程、所在的学习任务、截止时间、老师写的要求和做完没有。只读", {
+        course: { description: "只看这门课；不写时是全部课程" },
+        fresh: { description: "不用上次读到的学习任务明细，全部重读；用户说老师刚发了作业、要刷新时用", type: "boolean" },
+      }, async (c, f) => {
+        const course = text(f, "course");
+        const { homeworks, failed } = await listHomework(c, { ...(course ? { course: await findCourse(c, course) } : {}), fresh: bool(f, "fresh") });
+        return { count: homeworks.length, homeworks, ...(failed.length ? { failed } : {}) };
+      }),
+    }),
     login: command("建立或复用超星会话，返回当前账号", { fresh: { description: "强制重新登录", type: "boolean" } }, (f) => withClient((c) => c.me(), bool(f, "fresh"))),
     status: command("本地会话状态（不联网）", {}, async () => { const s = sessionStore(); return { file: s.file, ...s.status() }; }, "local"),
     logout: command("清除本地超星会话", {}, async () => ({ cleared: sessionStore().clear() }), "local"),

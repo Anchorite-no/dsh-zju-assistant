@@ -86,7 +86,7 @@ async function visit(force = false): Promise<void> {
   try { snapshot = await campusApi<Snapshot>('schedule-read') } catch (error) { update({ error: errorText(error) }); return }
   asked.clear()
   update({ snapshot, error: '' })
-  // 作业交没交，让校园事务页去学在浙大和 PTA 读一次，交过的这里标成已完成。
+  // 作业交没交，让校园事务页去各系统读一次，交过的这里标成已完成。
   const reads = [load('tasks', { source: 'tasks', force }), ...(snapshot.unpublished.length ? [load('holidays', { source: 'holidays' })] : [])]
   if (snapshot.sources[0]?.state === 'ready') reads.push(load('timetable', { source: 'timetable', force }), load('exams', { source: 'exams', force }))
   // 研究生课：本科生选了的、研究生自己的，都在研究生教务网。
@@ -101,7 +101,7 @@ const shortDate = (date: string) => `${+date.slice(5, 7)}/${+date.slice(8, 10)}`
 const termName = (key: string) => `${key.slice(0, 9)} ${key.slice(10)}学期`
 
 const KIND_LABEL: Record<PlanItem['kind'], string> = { class: '', exam: '考试', due: '截止', event: '' }
-const FROM_NAME: Record<string, string> = { memo: '备忘录', xuezai: '学在浙大', pta: 'PTA', zdbk: '教务网', yjsy: '研究生教务网' }
+const FROM_NAME: Record<string, string> = { memo: '备忘录', xuezai: '学在浙大', pta: 'PTA', chaoxing: '学习通', zdbk: '教务网', yjsy: '研究生教务网' }
 /** 提示里最后一行：从哪来的；自己加的写「自己加的」。 */
 const fromLine = (item: PlanItem) => item.from === 'mine' ? '自己加的' : item.from && FROM_NAME[item.from] ? `来自${FROM_NAME[item.from]}` : ''
 

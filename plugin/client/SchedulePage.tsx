@@ -383,9 +383,12 @@ function knownDays(calendar: Calendar, today: string): CalendarDay[] {
 }
 
 function CalendarEditor({ snapshot, today, onBack, onSaved }: { snapshot: Snapshot | null, today: string, onBack: () => void, onSaved: () => void }) {
-  const [draft, setDraft] = useState(() => draftOf(snapshot?.custom ?? { terms: [], days: [] }))
+  const [initial] = useState(() => draftOf(snapshot?.custom ?? { terms: [], days: [] }))
+  const [draft, setDraft] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [leaving, setLeaving] = useState(false)
+  const leave = () => { if (JSON.stringify(draft) !== JSON.stringify(initial)) setLeaving(true); else onBack() }
   const setTerm = (index: number, patch: Partial<TermDraft>) => { setDraft(old => ({ ...old, terms: old.terms.map((item, i) => i === index ? { ...item, ...patch } : item) })) }
   const setDay = (index: number, patch: Partial<DayDraft>) => { setDraft(old => ({ ...old, days: old.days.map((item, i) => i === index ? { ...item, ...patch } : item) })) }
   const calendar = snapshot?.calendar ?? { terms: [], days: [] }
@@ -409,7 +412,7 @@ function CalendarEditor({ snapshot, today, onBack, onSaved }: { snapshot: Snapsh
   return (
     <div className="campus-page">
       <div className="campus-detail campus-calendar">
-        <Crumb text="日程" onBack={onBack} />
+        <Crumb text="日程" onBack={leave} />
         <div className="campus-detail-main">
           <h1 className="campus-page-title">校历</h1>
         </div>
@@ -491,11 +494,18 @@ function CalendarEditor({ snapshot, today, onBack, onSaved }: { snapshot: Snapsh
         </section>
         <div className="campus-form-foot">
           <button type="button" className="campus-save" disabled={busy} onClick={() => { void save() }}>保存</button>
-          <button type="button" className="campus-cancel" disabled={busy} onClick={onBack}>取消</button>
+          <button type="button" className="campus-cancel" disabled={busy} onClick={leave}>取消</button>
           <span className="campus-plan-foot-gap" />
           <Button size="sm" variant="outline" disabled={busy} onClick={() => { handCalendar(snapshot).catch((reason: unknown) => { setError(errorText(reason)) }) }}>让助手查学校通知</Button>
         </div>
       </div>
+      <Modal open={leaving} title="放弃这次修改？" description="还没有保存的内容会丢掉。" closeLabel="关闭" onClose={() => { setLeaving(false) }}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => { setLeaving(false) }}>继续编辑</Button>
+            <Button className="campus-danger" onClick={onBack}>放弃修改</Button>
+          </>
+        )} />
     </div>
   )
 }

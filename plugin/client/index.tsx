@@ -29,6 +29,7 @@ import { LearnSettings } from './LearnSettings.tsx'
 import { WechatSettings } from './WechatSettings.tsx'
 import { showFeedTab } from './Feed.tsx'
 import { PANELS, bind, handToAssistant, rowOn, subscribeStatus, useStatus, useUnread, watchServices } from './campus.ts'
+import { installBack } from './back.ts'
 import css from './style.css'
 
 export const inject = ['slots']
@@ -150,6 +151,8 @@ export function apply(ctx: Context): void {
   // 哪些行开着、页面上的提醒：交给 campus.ts，页面组件从那里取。
   watchServices(ctx)
   ctx.effect(() => bind(showFeedTab), 'zju-campus: row status and alerts')
+  // 详情页的返回也认鼠标侧键、Alt+← 和后退键；插件停用时跟着撤掉。
+  ctx.effect(() => installBack(), 'zju-campus: back inputs')
 
   const register = (ctx.slots.register as (options: object, component: unknown) => () => void).bind(ctx.slots)
   for (const panel of PANEL_LIST) {

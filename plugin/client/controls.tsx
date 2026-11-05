@@ -1,12 +1,14 @@
 /** 插件页、校园事务页和设置里的个人档案共用的几个小控件，尺寸和样子照引擎插件设置页的表单。 */
-import { useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { IconChevronDownOutlineRegular, IconChevronLeftOutlineRegular, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
-import { useBack } from './back.ts'
+import { addBack } from './back.ts'
 
 /** 详情页顶上那一行，点了回到上一层。它在场时，鼠标侧键的后退和键盘上的 Alt+← 也算点了它（back.ts）。 */
 export function Crumb({ text, onBack }: { text: string, onBack: () => void }) {
   const button = useRef<HTMLButtonElement>(null)
-  useBack(onBack, button)
+  const latest = useRef(onBack)
+  latest.current = onBack
+  useEffect(() => addBack({ run: () => { latest.current() }, element: () => button.current }), [])
   return (
     <button ref={button} type="button" className="campus-crumb" aria-label={`返回${text}`} onClick={onBack}>
       <IconChevronLeftOutlineRegular size={14} />

@@ -1,11 +1,8 @@
 /**
  * 「返回」认哪些输入。页面顶上那一行返回（controls.tsx 的 Crumb）在场时，鼠标侧键的后退、键盘上的 Alt+←
- * 和后退键也算点了它。引擎不用浏览器的历史记录，壳也不替页面后退，所以在这里直接认这几种输入。
- * 鼠标侧键有两条路进来：页面自己收到的鼠标事件（button 是 3），和壳转来的系统「浏览器后退」命令
- * （desktop/main.cjs 的 app-command，经 preload.cjs 变成窗口上的 campus:back 事件）。
- * 同一下按键两条路可能都到，所以很短时间内的第二次不算。
+ * 和后退键也算点了它。引擎不用浏览器的历史记录，DeepSeek Harness 也不替页面后退，所以在这里直接认这几种输入。
+ * 按住不放时键盘会连发，所以很短时间内的第二次不算。
  */
-import { useEffect, useRef, type RefObject } from 'react'
 
 interface Entry { run: () => void, element: () => HTMLElement | null }
 
@@ -27,31 +24,29 @@ function goBack(): boolean {
   return true
 }
 
-/** 一个返回在场期间，把它登记成「后退」要执行的事。element 是画出来的那个返回，用来判断它是不是被确认框盖住了。 */
-export function useBack(run: () => void, element: RefObject<HTMLElement | null>): void {
-  const latest = useRef(run)
-  latest.current = run
-  useEffect(() => {
-    const entry: Entry = { run: () => { latest.current() }, element: () => element.current }
-    entries.push(entry)
-    return () => { const at = entries.indexOf(entry); if (at >= 0) entries.splice(at, 1) }
-  }, [element])
+/** 把一个返回登记成「后退」要执行的事；返回的函数用来撤掉。element 是画出来的那个返回，用来判断它是不是被确认框盖住了。 */
+export function addBack(entry: Entry): () => void {
+  entries.push(entry)
+  return () => { const at = entries.indexOf(entry); if (at >= 0) entries.splice(at, 1) }
+}
+
+/** 焦点在能打字的地方时，Alt+← 归它自己：macOS 上 Option+← 是往前跳一个词，详情页的编辑框里也不能被当成返回。 */
+function typing(target: EventTarget | null): boolean {
+  const element = target as Partial<HTMLElement> | null
+  return !!element && (element.isContentEditable === true || element.matches?.('input, textarea') === true)
 }
 
 /** 开始听后退的几种输入；返回的函数用来停止。 */
 export function installBack(): () => void {
   const mouse = (event: MouseEvent) => { if (event.button === 3 && goBack()) event.preventDefault() }
   const key = (event: KeyboardEvent) => {
-    const back = event.key === 'BrowserBack' || (event.key === 'ArrowLeft' && event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey)
-    if (back && goBack()) event.preventDefault()
+    const altLeft = event.key === 'ArrowLeft' && event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !typing(event.target)
+    if ((event.key === 'BrowserBack' || altLeft) && goBack()) event.preventDefault()
   }
-  const shell = () => { goBack() }
   window.addEventListener('mouseup', mouse, true)
   window.addEventListener('keydown', key, true)
-  window.addEventListener('campus:back', shell)
   return () => {
     window.removeEventListener('mouseup', mouse, true)
     window.removeEventListener('keydown', key, true)
-    window.removeEventListener('campus:back', shell)
   }
 }

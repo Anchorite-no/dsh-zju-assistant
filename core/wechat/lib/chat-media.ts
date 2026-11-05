@@ -7,7 +7,12 @@ import { fileURLToPath } from 'node:url'
 import { decode } from 'silk-wasm'
 import { createRequire } from 'node:module'
 import { SkillError } from '../../chat/common.mjs'
-const ffmpeg = createRequire(import.meta.url)('ffmpeg-static') as string | null
+
+/** WXGF 预览要的 FFmpeg：用户在 FFMPEG_PATH 里指定的，或者开发时装的 ffmpeg-static。插件不带它，找不到时只有这一种图转不了，别的媒体照常存。 */
+function findFfmpeg(): string | null {
+  if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH
+  try { return createRequire(import.meta.url)('ffmpeg-static') as string | null } catch { return null }
+}
 
 interface Resource { kind: string; name?: string; size?: number; path?: string; data?: string; variant?: string; status?: string }
 interface ResolvedMedia { messageId: string; profilePath: string; resources: Resource[] }
@@ -47,7 +52,8 @@ async function image(source: string, profile: string, destination: string) {
 
 /** Keep the complete WXGF source and provide a viewable first frame. */
 export async function wxgfPreview(file: string) {
-  if (!ffmpeg || !fs.existsSync(ffmpeg)) throw new SkillError('media_conversion_failed', '缺少 Skill 自带的 FFmpeg，请重新 npm install。')
+  const ffmpeg = findFfmpeg()
+  if (!ffmpeg || !fs.existsSync(ffmpeg)) throw new SkillError('media_conversion_failed', '这张图是 WXGF 格式，转成能看的图要 FFmpeg：请安装后把它的位置写进环境变量 FFMPEG_PATH。')
   const bytes = fs.readFileSync(file)
   const offset = bytes.indexOf(Buffer.from([0, 0, 0, 1, 0x40, 1]))
   if (offset < 0) throw new SkillError('media_conversion_failed', explanations.media_conversion_failed)

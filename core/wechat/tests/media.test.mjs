@@ -81,10 +81,31 @@ test(
   }
 )
 
-test('bundled FFmpeg produces a PNG preview while preserving the complete WXGF source', async (t) => {
+const ffmpeg = (() => {
+  try {
+    return createRequire(import.meta.url)('ffmpeg-static')
+  } catch {
+    return null
+  }
+})()
+
+test('without FFmpeg a WXGF preview fails with its own reason instead of breaking the module', async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'weread-wxgf-'))
+  const saved = process.env.FFMPEG_PATH
+  t.after(() => {
+    fs.rmSync(directory, { recursive: true, force: true })
+    if (saved === undefined) delete process.env.FFMPEG_PATH
+    else process.env.FFMPEG_PATH = saved
+  })
+  process.env.FFMPEG_PATH = path.join(directory, 'no-such-ffmpeg.exe')
+  const file = path.join(directory, 'test.wxgf')
+  fs.writeFileSync(file, 'wxgf')
+  await assert.rejects(wxgfPreview(file), { status: 'media_conversion_failed' })
+})
+
+test('FFmpeg produces a PNG preview while preserving the complete WXGF source', { skip: ffmpeg ? false : 'ffmpeg-static is not installed' }, async (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'weread-wxgf-'))
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-  const ffmpeg = createRequire(import.meta.url)('ffmpeg-static')
   const stream = execFileSync(
     ffmpeg,
     [

@@ -3,13 +3,14 @@
  * 由宿主起子进程，不经 dsh 的命令行工具，也就不受它的沙箱影响。
  *
  * 写操作：命令带 --confirm 的（选课、预约和取消、二课报名、交作业、签到、发帖和私信）先经 dsh 的审批（ctx.approval）请用户点头，
- * 点了才给这一次开 ZJU_ALLOW_WRITE=1；没有审批渠道、用户拒绝或者取消，命令都不执行。core 自己的写闸（--confirm 加 ZJU_ALLOW_WRITE）照旧在。
+ * 点了才给这一次开 ZJU_ALLOW_WRITE=1；没有审批渠道、权限模式不弹批准、用户拒绝或者取消，命令都不执行（approval.mjs）。core 自己的写闸（--confirm 加 ZJU_ALLOW_WRITE）照旧在。
  * 关着的行管的模块不执行（core 认 ZJU_DISABLED_MODULES），这里先拦下，说清是插件页上哪一行关着。
  * 缺 FFmpeg 时下载一份（ffmpeg.mjs），再把这条命令跑一遍。
  */
 import os from 'node:os'
 import { spawn } from 'node:child_process'
 import { defineTool } from '@deepseek-ai/dsh-tools'
+import { askToWrite } from './approval.mjs'
 import { ZJU_SCRIPT, coreEnv, spawnNode } from './core.mjs'
 import { ensureFfmpeg, missingFfmpeg } from './ffmpeg.mjs'
 
@@ -60,7 +61,7 @@ export function zjuTool(ctx, campus) {
     description: [
       '执行一条浙大校园命令（ZJU Core）：课表、考试、成绩、作业、课件和录播，学校与学院通知，二课活动，体育场馆，CC98，电子书和知网，读 PDF/Word/PPT 等文档。',
       '先加载 zju-campus 技能，照它和它链到的命令说明写参数。args 是命令行上 zju 后面那一串，一项一个，例如 ["notice","search","--keyword","奖学金"]；不确定参数时先用 ["<模块>","--help"]。',
-      '带 --confirm 的是写操作（选课、预约、报名、交作业、签到、发帖），会先请用户批准；不用设 ZJU_ALLOW_WRITE。结果是命令输出的 JSON，ok 为 false 时照 error 里的原因和提示处理。',
+      '带 --confirm 的是写操作（选课、预约、报名、交作业、签到、发帖），会先请用户批准，不用设 ZJU_ALLOW_WRITE；权限模式不弹批准时 dsh 会直接拒绝，照报错说的告诉用户，不要改用命令行。结果是命令输出的 JSON，ok 为 false 时照 error 里的原因和提示处理。',
       '结果里有 webvpnLinks（原地址 → WebVPN 地址）时，给用户的这些链接写成 Markdown [原地址或标题](对应的 WebVPN 地址)，显示原来的地址，点开在校外也能上；没有 webvpnLinks 就直接写原地址。',
     ].join(''),
     parameters: {
@@ -76,14 +77,11 @@ export function zjuTool(ctx, campus) {
       if (off) throw new Error(`「${off}」在插件页「ZJU All-in-One Assistant」里关着，这类命令不执行；用户需要时请他到插件页打开这一行。`)
       const write = isWrite(args)
       if (write) {
-        const approval = ctx.get('approval')
-        if (!approval || !exec.agent) throw new Error('这里没有能请用户批准的地方，写操作不执行。')
         const what = args.filter(arg => !arg.startsWith('--confirm')).join(' ')
-        const outcome = await approval.request({
-          agent: exec.agent, toolName: 'zju', callId: exec.callId, signal: exec.signal,
+        await askToWrite(ctx, exec, {
+          toolName: 'zju',
           reason: `campus write: zju ${what}`, displayReason: { en: `Run a campus write command: zju ${what}`, zh: `执行校园写操作：zju ${what}` },
-        })
-        if (outcome !== 'allowed-once') throw new Error(outcome === 'rejected' ? '用户没有批准这次写操作，没有执行。' : '这次写操作没有得到批准，没有执行。')
+        }, '命令没有执行')
       }
       const session = exec.agent?.session
       let cwd = os.homedir()

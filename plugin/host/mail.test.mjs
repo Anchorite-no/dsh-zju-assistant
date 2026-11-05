@@ -152,7 +152,8 @@ test('conversation tools support draft, edit, approved send and record lookup wi
   const tools = new Map(), asked = []
   // 发信要经 dsh 的审批：这里的假审批按 answers 依次回答。
   const answers = []
-  const approval = { request: async (request) => { asked.push(request); return answers.shift() ?? 'allowed-once' } }
+  let policy
+  const approval = { request: async (request) => { asked.push(request); return answers.shift() ?? 'allowed-once' }, overrideOf: () => policy }
   installMailTools({ tools: { register: tool => tools.set(tool.name, tool) }, get: name => name === 'approval' ? approval : undefined }, mail)
   const ACTIONS = { campus_mail_draft: 'draft', campus_mail_drafts: 'drafts', campus_mail_remove_draft: 'remove' }
   const call = (name, args = {}) => ACTIONS[name] ? tools.get('campus_mail').execute({ action: ACTIONS[name], ...args }, {}) : tools.get(name).execute(args, { agent: {}, callId: 'call-1' })
@@ -173,6 +174,10 @@ test('conversation tools support draft, edit, approved send and record lookup wi
   answers.push('rejected')
   await assert.rejects(call('campus_mail_send', { id: edited.id, revision: edited.revision }), /没有批准/)
   assert.equal(asked.length, 1); assert.match(asked[0].displayReason.zh, /receiver@example.com/)
+  // 权限模式不弹批准时 dsh 没问用户就拒绝，不能说成用户没批准。
+  policy = 'never'; answers.push('rejected')
+  await assert.rejects(call('campus_mail_send', { id: edited.id, revision: edited.revision }), /用户没有被问过，邮件没有发送。[^]*\/permission workspace-write/)
+  policy = undefined
   await assert.rejects(call('campus_mail_send', { id: found.id, revision: found.revision }), /已改变/)
   assert.equal(state.send.length, 0)
   const sent = (await call('campus_mail_send', { id: edited.id, revision: edited.revision })).draft

@@ -4,6 +4,7 @@
  * 发信要经 dsh 的审批请用户点头，不靠模型自己读没读到授权。
  */
 import { defineTool } from '@deepseek-ai/dsh-tools'
+import { askToWrite } from '../approval.mjs'
 import { actionTool, need, output } from '../tools.mjs'
 import { row } from '../row.mjs'
 
@@ -68,7 +69,7 @@ export function installMailTools(ctx, mail) {
   }))
   ctx.tools.register(defineTool({
     name: 'campus_mail_send',
-    description: '发送一封已经起草好的邮件（campus_mail 的 draft 返回的 id 和 revision）。先把完整的收件人、抄送、主题、正文和附件给用户看；调用时 dsh 会再请用户批准一次，用户不点头就不发。不能边改边发；结果不确定时不要重试，先用 campus_mail 的 drafts 核实。',
+    description: '发送一封已经起草好的邮件（campus_mail 的 draft 返回的 id 和 revision）。先把完整的收件人、抄送、主题、正文和附件给用户看；调用时 dsh 会再请用户批准一次，用户不点头就不发；权限模式不弹批准时 dsh 会直接拒绝，照报错说的告诉用户。不能边改边发；结果不确定时不要重试，先用 campus_mail 的 drafts 核实。',
     parameters: {
       id: { type: 'string', required: true, description: '要发的草稿 id' },
       revision: { type: 'string', required: true, description: '这一版的 revision' },
@@ -79,14 +80,11 @@ export function installMailTools(ctx, mail) {
       await mail.idle()
       const draft = mail.drafts().drafts.find(item => item.id === args.id)
       if (!draft) throw new Error('没有找到这封草稿，请重新查看。')
-      const approval = ctx.get('approval')
-      if (!approval || !exec.agent) throw new Error('这里没有能请用户批准的地方，邮件没有发送。')
       const to = [...(draft.to ?? []), ...(draft.cc ?? [])].join('、')
-      const outcome = await approval.request({
-        agent: exec.agent, toolName: 'campus_mail_send', callId: exec.callId, signal: exec.signal,
+      await askToWrite(ctx, exec, {
+        toolName: 'campus_mail_send',
         reason: `send mail to ${to}: ${draft.subject}`, displayReason: { en: `Send the email "${draft.subject}" to ${to}`, zh: `发送邮件「${draft.subject}」给 ${to}` },
-      })
-      if (outcome !== 'allowed-once') throw new Error(outcome === 'rejected' ? '用户没有批准，邮件没有发送。' : '没有得到批准，邮件没有发送。')
+      }, '邮件没有发送')
       return mail.send({ ...args, confirm: true })
     },
   }))

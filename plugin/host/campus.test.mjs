@@ -104,6 +104,29 @@ test('zju 工具：带 --confirm 的先请用户批准，不批准就不执行�
   assert.equal(asked.length, 2)
 })
 
+test('zju 工具：dsh 没问用户就拒绝时照实说，和用户点了拒绝分开；照旧发出请求留审计', async () => {
+  const campus = { disabledRow: () => '', dataDir: () => os.tmpdir() }
+  const exec = { agent: { session: {} }, callId: 'call-1', signal: new AbortController().signal }
+  const args = ['tyys', 'venue', 'book', '--venue', '风雨操场', '--confirm']
+  const run = (approval, services = {}) => zjuTool({ get: name => name === 'approval' ? approval : services[name] }, campus).execute({ args }, exec)
+  const asked = []
+  const answering = (answer, rest = {}) => ({ request: async (request) => { asked.push(request); return answer }, ...rest })
+  const notAsked = /用户没有被问过，命令没有执行。[^]*\/permission workspace-write[^]*不要改用命令行/
+
+  // 这个对话的权限模式不弹批准，或者部署的默认策略就是 never。
+  await assert.rejects(run(answering('rejected', { overrideOf: () => 'never' })), notAsked)
+  await assert.rejects(run(answering('rejected', { overrideOf: () => undefined, config: { policy: 'never' } })), notAsked)
+  assert.equal(asked.length, 2)
+  // 询问的模式下是用户自己点了拒绝，不能说成没问过。
+  await assert.rejects(run(answering('rejected', { overrideOf: () => 'ask', config: { policy: 'never' } })), /^Error: 用户没有批准，命令没有执行。$/)
+  // 取消和没有回答者不是模式的事。
+  await assert.rejects(run(answering('cancelled', { overrideOf: () => 'never' })), /^Error: 没有得到批准，命令没有执行。$/)
+  // 子任务的策略固定是 never，切模式没用，要交回主对话。
+  await assert.rejects(run(answering('rejected', { overrideOf: () => 'never' }), { agents: { roots: () => [] } }), /^Error: 子任务不能请用户批准，命令没有执行。[^]*交回主对话/)
+  // 主对话照模式说。
+  await assert.rejects(run(answering('rejected', { overrideOf: () => 'never' }), { agents: { roots: () => [exec.agent] } }), notAsked)
+})
+
 test('zju 工具由宿主起子进程跑 core：--help 的说明从 stderr 带回来，环境照根行给的', async (t) => {
   const off = provideCoreEnv(() => ({ ZJU_DISABLED_MODULES: 'notice', CAMPUS_PROFILE_DIR: temp(t, 'profile') }))
   t.after(off)

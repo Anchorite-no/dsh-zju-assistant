@@ -3184,12 +3184,14 @@ button.campus-pin:focus-visible {
 /* 设置导航里「个人档案」的图标（2026-11-04）：引擎按分区 id 选图标，插件的分区都是齿轮，和「通用设置」一样；
 index.tsx 给这一项按钮加上 data-campus-nav="profile"，这里藏起齿轮，画引擎图标库（dsh-client-ui-primitives，MIT）里的
 IconUserOutline 一个人像，和导航里别的图标一样用 1.3px 的描边（Medium）。原来的 IconListPenOutline 纸页外框只有 1px，摆在一起浅一层。
-用遮罩画，颜色跟着按钮的文字走。 */
+用遮罩画，颜色跟着按钮的文字走。
+只在 DSH 0.2.1 的结构上生效（图标 svg 直接是按钮的第一个孩子）。0.2.2 起图标包了一层 span，改用 settings.section.icon 插槽（index.tsx），
+这里不限定结构的话，齿轮藏不掉，人像又多画一个。 */
 button[data-campus-nav='profile'] > svg:first-child {
   display: none;
 }
 
-button[data-campus-nav='profile']::before {
+button[data-campus-nav='profile']:has(> svg:first-child)::before {
   content: '';
   flex: none;
   width: 16px;

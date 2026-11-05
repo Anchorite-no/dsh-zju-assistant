@@ -26,7 +26,7 @@
     "security": "node scripts/check-security.mjs"
   },
   "dependencies": {
-    "@deepseek-ai/dsh": "0.2.1-rc.5",
+    "@deepseek-ai/dsh": "0.2.2-rc.1",
     "@napi-rs/keyring": "2.1.2",
     "imapflow": "^2.5.2",
     "js-yaml": "^4.3.2",
@@ -34,8 +34,8 @@
     "nodemailer": "^10.1.2"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.1",
     "@types/react": "18.3",
     "electron": "44.10.1",
     "esbuild": "^0.28.2",

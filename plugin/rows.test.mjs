@@ -35,6 +35,17 @@ test('两个包都有图标和中英文的标题、描述', () => {
   }
 })
 
+test('组合包页的详情是单独的短文档，不用整篇 README：每种语言都指向一份进了 npm 包的文件', () => {
+  for (const language of ['en', 'zh']) {
+    const { meta } = JSON.parse(fs.readFileSync(at(`bundle/locale/${language}.json`), 'utf8'))
+    assert.match(meta.detail ?? '', /^[\w.-]+\.md$/, `${language}.json 的 meta.detail`)
+    assert.ok(bundle.files.includes(meta.detail), `${meta.detail} 在组合包的 files 里`)
+    const text = fs.readFileSync(at(`bundle/${meta.detail}`), 'utf8')
+    assert.ok(text.trim(), `${meta.detail} 有内容`)
+    assert.doesNotMatch(text, /^# /m, `${meta.detail} 不重复页面上已有的标题`)
+  }
+})
+
 test('bundle/cordis.patch.yml 的行和 rows.mjs 一一对得上，顺序和默认开关也一样', () => {
   const patch = load(fs.readFileSync(at('bundle/cordis.patch.yml'), 'utf8'), { schema: JSON_SCHEMA })
   assert.equal(patch.length, 1)

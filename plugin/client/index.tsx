@@ -14,7 +14,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type { PluginActivationOwnerProps } from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconUserOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import { BUNDLE, ROWS, rowConfigKey } from '../rows.mjs'
 import { AccountForm } from './AccountForm.tsx'
 import { AffairsPage } from './AffairsPage.tsx'
@@ -60,6 +60,12 @@ const PANEL_LIST: readonly { id: string, row: string, order: number, label: stri
   { id: PANELS.affairs, row: '', order: 31, label: '校园事务', Icon: AffairsIcon, Page: AffairsPage },
   { id: PANELS.learning, row: 'courses', order: 32, label: '学习', Icon: LearningIcon, Page: LearningPage },
 ]
+
+const PROFILE_SECTION = 'zju-campus-profile'
+
+function ProfileIcon({ size }: { size: number }) {
+  return <IconUserOutlineMedium size={size} />
+}
 
 /** 两个聊天只能在 Windows 和 macOS 上用：读的是本机客户端的数据。 */
 function ChatConfig({ platform }: { platform: 'wechat' | 'dingtalk' }) {
@@ -153,9 +159,12 @@ export function apply(ctx: Context): void {
 
   // 设置里的「个人档案」：基础信息和记忆，排在通用设置后面。
   ctx.slots.inject('settings.section', () =>
-    ctx.slots.register({ name: 'settings.section', id: 'zju-campus-profile', order: 5, label: '个人档案' }, ProfileSettings))
-  // 设置的导航按分区 id 选图标，插件的分区一律是齿轮，和「通用设置」撞了，又传不了自己的图标（2026-11-04）。
-  // 给「个人档案」那一项的按钮加个标记，style.css 照它换一个图标。
+    ctx.slots.register({ name: 'settings.section', id: PROFILE_SECTION, order: 5, label: '个人档案' }, ProfileSettings))
+  // DSH 0.2.2 起插件可以给自己的分区配导航图标，id 和分区相同；0.2.1 没有这个插槽，这里等不到，不会登记。
+  ctx.slots.inject('settings.section.icon', () =>
+    ctx.slots.register({ name: 'settings.section.icon', id: PROFILE_SECTION, label: '个人档案' }, ProfileIcon))
+  // 0.2.1 的导航按分区 id 选图标，插件的分区一律是齿轮，和「通用设置」撞了，又传不了自己的图标（2026-11-04）。
+  // 给「个人档案」那一项的按钮加个标记，style.css 只在 0.2.1 的结构上照它换图标。npm 的 latest 还是 0.2.1，先留着。
   ctx.effect(() => markSettingsNav('个人档案', 'profile'), 'zju-campus: profile icon in settings nav')
 
   for (const row of ROWS) {

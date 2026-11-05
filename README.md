@@ -10,7 +10,7 @@
 
 | 形态 | 给谁用 | 状态 |
 |---|---|---|
-| DeepSeek Harness 插件（`dsh-zju-assistant`） | 装了 DeepSeek Harness 的同学，有界面 | 桌面版的功能已经搬过来，在 DeepSeek Harness 0.2.1-rc.5 上测过；已发到 npm（[dsh-zju-assistant](https://www.npmjs.com/package/dsh-zju-assistant)），在插件页填包名就能装 |
+| DeepSeek Harness 插件（`dsh-zju-assistant`） | 装了 DeepSeek Harness 的同学，有界面 | 桌面版的功能已经搬过来，在 DeepSeek Harness 0.2.2-rc.1 上测过；已发到 npm（[dsh-zju-assistant](https://www.npmjs.com/package/dsh-zju-assistant)），在插件页填包名就能装 |
 | [ZJU Skill](https://github.com/Anchorite-no/zju-skill-public) | 用 Codex、Claude Code 这类命令行助手的同学 | 照常维护，另一个仓库 |
 
 插件和 Skill 底下是同一套校园命令，区别在有没有界面。

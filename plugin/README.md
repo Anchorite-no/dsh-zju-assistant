@@ -177,3 +177,20 @@ GitHub Release 挂两个压缩包：
 要注意版本号撞车：这里发布的 0.1.2 包含 Android 凭据回退和手机日历适配，npm 上同为 0.1.2
 的包没有这些改动。以后如果真的要发 npm，先升版本号（比如 0.1.3），别让两个内容不同的包
 共用一个版本号。
+
+## 待办（2026-11-03）
+
+- **Release 正文没同步。** `plugin-v0.1.2-dshgo` 的描述还是旧的，没写「dsh-go 要带网页
+  polyfill 构建」和「官方 APK 装完进不去设置页」。改正文就行，附件不动。
+- **dsh-go 的 polyfill 改动还没提交。** 涉及 `app/assets/web/dsh_web_compat.js`、
+  `app/lib/ui/web/web_view_page.dart`、`web_view_guard.dart`、
+  `app/lib/ui/plugins/islands/island_platform.dart`、
+  `app/android/.../islands/IslandsPlugin.kt` 和 `docs/changelog.md` 的 Unreleased 条目。
+  这份工作副本目前没有 git 仓库，改动只在文件系统里。不把它发布出去，别人拿官方 APK
+  装这个插件就是「组件和开关都在，设置页点不进去」。
+- **重打的两个包还没复验。** 155 条全链路是上一版包跑的；新包多了凭据回退，接上 USB 后
+  重点验「校园账号」保存这一步，确认不再报「无法使用系统凭据库」。
+- **npm 先不动。** `dsh-zju-assistant` / `dsh-zju-campus` 两个名字被上游占用。真要发，
+  换 scope 要改 `plugin/rows.mjs` 里的 `PACKAGE` 和 `BUNDLE`（配置页的插槽键是
+  `BUNDLE#<行 id>`），重新跑页面构建，再真机复测一遍设置页；版本号发 0.1.3，
+  不要和 npm 上内容不同的 0.1.2 撞车。

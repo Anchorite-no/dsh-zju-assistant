@@ -1,53 +1,21 @@
-# ZJU All-in-One Assistant
+# dsh-zju-assistant
 
-浙大学生的一站式校园 AI 助手，以 [DeepSeek Harness](https://www.deepseek.com/harness/) 插件形式提供，支持 Windows 和 macOS。
+浙大校园助手，作为 dsh-go（DeepSeek Harness 手机版）插件使用。仓库只保留插件源码：十个子插件、侧栏页面、`zju` 工具和 `zju-campus` 技能。
 
-把散在各处的校园信息串成你自己的日常。教务网、学在浙大、智云课堂、学习通、PTA、学校和学院的通知、公众号，再加上你选定的钉钉群和微信群，接到一起，按课程整理成一份个人档案。问一句话，它去各个网站查、比对，把结果交给你。
+> 学生个人项目，不是浙江大学的官方产品，和学校各系统的运营方没有关系。
 
-> 这是学生个人项目，不是浙江大学的官方产品，和学校各系统的运营方没有关系。
+## 仓库范围
 
-## 现在的状况（2026 年 11 月）
+仓库只放能构建、打包和安装到 dsh-go 的插件代码：
 
-| 形态 | 给谁用 | 状态 |
-|---|---|---|
-| DeepSeek Harness 插件（`dsh-zju-assistant`） | 装了 DeepSeek Harness 的同学，有界面 | 桌面版的功能已经搬过来，在 DeepSeek Harness 0.2.1-rc.5 上测过；已发到 npm（[dsh-zju-assistant](https://www.npmjs.com/package/dsh-zju-assistant)），在插件页填包名就能装 |
-| [ZJU Skill](https://github.com/Anchorite-no/zju-skill-public) | 用 Codex、Claude Code 这类命令行助手的同学 | 照常维护，另一个仓库 |
+- `plugin/`：实现包 `dsh-zju-campus`，以及插件页组合包 `dsh-zju-assistant`。
+- `core/`：插件调用的校园命令、课程讲解、公众号和聊天读取器。
+- `scripts/`：构建、本地打包、发布检查和凭据检查。
+- 根目录的 `package.json`、`package-lock.json`、`LICENSE`、`SECURITY.md`、`THIRD_PARTY_NOTICES.md`。
 
-插件和 Skill 底下是同一套校园命令，区别在有没有界面。
+`node_modules/`、`.tgz` 安装包、页面构建产物和旧桌面版外壳不放在仓库里。需要时按下面的步骤重新生成。
 
-## 为什么改成插件
-
-最想要的是用起来没感觉。平时用 AI 是什么流程，查课表、交作业也是那个流程，不用为了校园这点事再单独装一个桌面应用。插件装在 DeepSeek Harness 里，和你平时写东西、问问题用的是同一个助手、同一套设置。
-
-另一个原因是维护。桌面版本来就是 DeepSeek Harness 的二开。引擎、对话、设置都是 dsh 的，我们自己写的是一层 Electron 壳加一个界面包。官方现在有自己的桌面版和插件页，这层壳就成了重复的东西：窗口、托盘、自动更新、安装程序、Mac 的玻璃效果都得自己维护，引擎每升一次还要跟着改壳（0.2.1 就把好几个界面包从依赖里拿掉了）。
-
-多端也维护不过来。Windows 一个 exe，Mac 按芯片两个 dmg，都没有代码签名，Windows 要过 SmartScreen，Mac 第一次打开要去系统设置里放行。手头没有 Mac，0.1.7 的 Mac 版发出去以后才知道一打开就插件加载失败，是 PR #5 的作者先发现的。
-
-改成插件以后，Windows、macOS 的桌面版和网页版都由官方维护，安装和升级走 dsh 自己的插件页，这个仓库只管校园功能。比赛时为了展示加的东西这次没有搬，包括品牌、窗口玻璃效果、托盘、ChatGPT 登录、执行过程右栏、对话后自动整理记忆，界面上讲功能怎么用的灰色说明小字也删了。
-
-## 能做什么
-
-| 方面 | 内容 |
-|---|---|
-| 课程和作业 | 课表、成绩、课程信息；学在浙大和 PTA 的作业、截止时间；学在浙大、学习通的课件下载，智云课堂回放的转写 |
-| 通知 | 教务网、学工部、研工部、团委、综合服务网和本人学院官网的通知公告；二课、三课的活动和本人记点 |
-| 校园生活 | 体艺场馆的空场、预约须知和放号时间；CC98 帖子；图书馆电子书在哪个平台有全文；知网检索和下载 |
-| 消息 | 浙大邮箱收信和写信；微信公众号文章；你选定的微信群和钉钉群（只读本机已有的聊天记录） |
-| 学习 | 个人档案记下你学到哪、喜欢怎么听讲；把资料讲成带画面的讲解 |
-| 文档 | PDF、Word、PPT、Excel 取文字，PDF 找页、切页、取图，照片和 Word 转 PDF |
-
-会改动你账号状态的操作，比如场馆预约、选课、交作业、二课报名、发邮件，只在你明确要它做时才执行，插件里执行前还要过一道 dsh 的批准（弹不弹窗问你，看你在 dsh 里设的权限模式）。发邮件之前会先给你看完整的草稿。
-
-研究生课在研究生院的教务系统（研究生教务网）里，本科教务网查不到。日程表两边都读：研究生的课从研究生教务网来，选了研究生课的本科生两边的课排在同一张表上。研究生的考试安排还读不到。
-
-## 插件版
-
-### 装好以后有什么
-
-- 侧栏多三页。「日程表」把一周的课（本科和研究生教务网的）、考试、作业截止、带时间的备忘和自己加的日程排在一张表上，右上角的「+」加日程，加过的点一下就能改；「校园事务」是作业、备忘录、校园通知和个人消息；「学习」是智云、学在浙大和超星。
-- 设置里多一页「个人档案」，放基础信息和记忆。
-- 插件页「ZJU All-in-One Assistant」下面有十个子插件，每个都能单独开关，关掉的那一项页面和命令一起停。
-- 这几页上的链接都用系统的默认浏览器打开，登录状态留在你自己的浏览器里，关掉 dsh 也还在。在校外时，校内网站的链接会换成 WebVPN 地址，第一次打开要在浏览器里登一次 WebVPN 或统一身份认证。
+## 功能
 
 | 子插件 | 管的系统 | 默认 |
 |---|---|---|
@@ -58,139 +26,122 @@
 | 校园社区 | CC98、查老师 | 开 |
 | 校园通知 | 学校部门和学院官网的通知 | 开 |
 | 浙大邮箱 | 浙大邮箱 | 开 |
-| 微信聊天 | 本机微信的聊天记录，Windows 和 macOS（Mac 上的条件见下面）；数据挪出了默认位置时在配置里选文件夹 | 关 |
-| 钉钉聊天 | 本机钉钉的聊天记录（v2、v3 账号库都认），Windows 和 macOS；数据不在默认位置时在配置里选文件夹 | 关 |
+| 微信聊天 | 本机微信的聊天记录 | 关 |
+| 钉钉聊天 | 本机钉钉的聊天记录 | 关 |
 | 微信公众号 | 微信读书里加了书架的公众号 | 关 |
 
-助手那边只多一个 `zju-campus` 技能，不进输入框的 `/` 菜单，也不改 dsh 原来的系统提示。用 dsh 写代码时它不会跑出来。
+微信聊天和钉钉聊天读取的是 Windows、macOS 上的客户端数据。dsh-go 在 Android 上运行，这两项即使打开也用不了。
 
-### 安装
+会改动账号状态的操作，比如选课、预约场馆、交作业、报名活动和发邮件，只在你明确要求时执行，执行前还要过一道 dsh 的批准。发邮件前会先显示完整草稿。
 
-1. 到 [DeepSeek Harness 官网](https://www.deepseek.com/harness/) 下载安装官方桌面版，0.2.1-rc.3 或更新的版本；也可以不装桌面版，用 `npx @deepseek-ai/dsh web` 在浏览器里开。
-2. 打开侧栏「插件」，点「添加插件」，填 `dsh-zju-assistant`，装好后点「立即启用」。
-3. 在插件页「ZJU All-in-One Assistant」的「校园账号」里填统一身份认证的学号和密码、WebVPN 的校园网账号；PTA、实验课、学习通、校园卡查询密码、CC98 在各自子插件的配置里填。
-4. 模型在 dsh 的设置里配，登录 DeepSeek 账号或者填 API Key。
-5. 要用微信公众号，或者 PTA 登录时要过验证码，再在插件页装一个 `dsh-builtin-browser`：扫码登录微信读书、过微信读书和 PTA 的验证码，都在它开的窗口里做。别的地方用不到它，页面上的链接不经过它。
-6. 聊天里助手给的链接（比如 CC98 的帖子）开在哪里由 dsh 决定，默认开在 dsh 右侧栏的浏览器里，这个浏览器关掉 dsh 就忘了登录。想用默认浏览器打开，在 dsh 的「设置 → 通用设置 → 网页链接默认打开方式」里选「默认浏览器」；不改设置时，按住 Ctrl 或 Shift（Mac 上也可以按 Cmd）点链接也会用默认浏览器打开。
+## 安装前提
 
-### 在 macOS 上
+- dsh-go 已经能正常打开网页界面。系统 WebView 低于 Chrome 116 时，DSH 网页界面缺 `Promise.withResolvers` 和 `AbortSignal.any`，需要带 `app/assets/web/dsh_web_compat.js` 补丁的 dsh-go 构建。官方 APK 没有这个补丁时，插件页能显示组件和开关，但进不了需要填账号的网页设置页。
+- 电脑上构建源码需要 Node.js 24.18 以上的 24.x 和 npm 11。
+- 微信公众号和 PTA 验证码需要 `dsh-builtin-browser`；其他功能不需要。
 
-插件装在 macOS 版的 DeepSeek Harness 里也能用，校园命令、页面和技能两边是同一套。有几处不一样：
-
-- 微信聊天要微信一直开着、登录着（Windows 上能离线查，Mac 上不能）。第一次用时会用系统的 clang 编一个只读的小程序去读微信进程，要先装 Xcode 命令行工具（终端里运行 `xcode-select --install`），系统可能弹出开发者工具授权。**系统完整性保护（SIP）开着时，系统多半不让读官方微信的进程**，这时会报「macOS 不让读取微信进程」；插件不会去改 SIP 或微信。Mac 后端来自 weread-skill，原作者是在关了 SIP 的 Mac 上测的。
-- 钉钉聊天读 `~/Library/Application Support/DingTalkMac`（App Store 版在 `~/Library/Containers` 下的沙盒里），不用装别的。原作者在 Apple 芯片、钉钉 9.0.2 上测过，Intel Mac 和别的版本没测过。
-- 课程讲解要的 TeX 不能自动装，要自己装 MacTeX，或者小一些的 BasicTeX 再用 `tlmgr` 装上 `dvisvgm`；检查版面用「应用程序」文件夹里的 Chrome 或 Edge。
-
-两个聊天的 Mac 支持是 2026-11-02 从 weread-skill、dingtalk-skill 迁过来的，我们手上没有 Mac，迁过来以后只用合成数据测过。
-
-### 在 dsh-go（手机版）上
-
-2026-11-03 在 HUAWEI Mate 70（CLS-AL00，Android 12）上装过一遍。手机版不走插件页填包名，
-是从本地压缩包装，而且先要有一个带网页补丁的 dsh-go。
-
-**前提：dsh-go 要带网页 polyfill 的构建。** 系统 WebView 低于 Chrome 116 时，DSH 网页界面缺
-`Promise.withResolvers` 和 `AbortSignal.any`，连接建不起来，页面一直停在「重新连接中…」。
-「校园账号」这类设置页只存在于网页界面里，连不上就等于没地方填学号和密码。补丁
-（`app/assets/web/dsh_web_compat.js`）目前只在本地 dsh-go 工作副本里，没有提交，也没进任何
-release。官方的 dsh-go APK 装这个插件，组件和开关能用，但进不去设置页。
-
-**两个包都要，装组合包。** 从 [Release](https://github.com/nothing793/dsh-zju-assistant/releases) 下载：
-
-| 文件 | 作用 |
-|---|---|
-| `dsh-zju-campus-0.1.2.tgz` | 实现包：十个子插件、页面、`zju` 工具、`zju-campus` 技能 |
-| `dsh-zju-assistant-0.1.2-local.tgz` | 组合包：插件页那张卡片和十行 patch |
-
-组合包的依赖写的是 `file:/root/workspace/dsh-zju-campus-0.1.2.tgz`，两个文件都要放进 guest 的
-`/root/workspace/`（`/sdcard` 在 proot 里挂不上）。要换目录，用
-`node scripts/pack-local.mjs --target <目录>` 重新出包。
+## 从源码构建
 
 ```bash
+npm ci
+npm run verify
+npm run build
+```
+
+`npm ci` 会安装根目录和各 Core 的锁定依赖。`npm run verify` 检查类型并运行测试。`npm run build` 把 `plugin/client/` 打成 dsh 能加载的 `plugin/lib/client.js`。
+
+## 打包到 dsh-go
+
+本地安装要出两个包：实现包 `dsh-zju-campus` 和组合包 `dsh-zju-assistant`。组合包的依赖会写成 dsh-go 里的本机路径，所以两个 `.tgz` 要放在同一个目录。
+
+```bash
+node scripts/pack-local.mjs --target /root/workspace
+```
+
+默认在当前目录生成：
+
+```text
+dsh-zju-campus-0.1.2.tgz
+dsh-zju-assistant-0.1.2-local.tgz
+```
+
+把两个文件拷进 dsh-go 的 guest 目录（例如 `/root/workspace/`），然后安装组合包：
+
+```bash
+mkdir -p /root/workspace
+cp dsh-zju-campus-0.1.2.tgz dsh-zju-assistant-0.1.2-local.tgz /root/workspace/
 dsh plugin --profile web add /root/workspace/dsh-zju-assistant-0.1.2-local.tgz
 ```
 
-装完重启 dsh-go。声明了 `dsh.bundle.patch` 的新依赖会被安装器自动加进
-`dsh.profile.bundles`，不用手改 profile 的 `package.json`。
+装完重启 dsh-go。`--target` 要和实际存放目录一致；组合包里记录的是 `file:/root/workspace/dsh-zju-campus-0.1.2.tgz`，换目录后要重新出包。
 
-装的时候容易撞上的问题：
+命令行安装的包不会出现在插件市场的「已安装」列表里，也没有卸载按钮。卸载用：
 
-| 现象 | 原因和处理 |
-|---|---|
-| 网页界面一直「重新连接中…」 | WebView 缺上面两个 API，换带 polyfill 的 dsh-go 构建 |
-| 插件页能看到组件，点不进设置 | 只装了实现包，或者组合包名不是 `dsh-zju-assistant` |
-| 组件行上没有「配置」 | 同上。配置页挂在 `dsh-zju-assistant#<行 id>` 上，包名对不上就找不到 |
-| 保存账号报「无法使用系统凭据库」 | 用本页这两个包。npm 上的同版本号没有这处修改 |
-| pnpm 报 ENOENT，或 proot 建不了临时目录 | 包先拷进 guest，`PROOT_TMP_DIR` 指一个可写目录 |
-| 插件市场里找不到，也没有卸载按钮 | 命令行装的包不进市场列表；卸载跑 `dsh plugin --profile web remove dsh-zju-assistant` |
-| 删掉 tgz 之后再跑 pnpm 就报错 | `file:` 依赖指着那个文件，删了就装不回去 |
+```bash
+dsh plugin --profile web remove dsh-zju-assistant
+```
 
-排查过程按出现顺序记在 [plugin/README.md](plugin/README.md)。
+## 安装后的设置
 
-**为什么发压缩包不发 npm。** npm 上的 `dsh-zju-assistant` 和 `dsh-zju-campus` 0.1.2 是上游
-维护者发布的，我没有发布权限，也不想占同名包。代价是升级麻烦：要重新下载、拷进 guest、
-再 `dsh plugin add` 一次。能用 npm 的话升级只要一条 `dsh plugin add <包名>@<版本>`。
+1. 打开 dsh 网页界面的插件页，在「校园账号」里填统一身份认证的学号和密码、WebVPN 的校园网账号。
+2. PTA、大物实验课、学习通、校园卡查询密码和 CC98 在各自子插件的配置里填。
+3. 模型在 dsh 的设置里配置，登录 DeepSeek 账号或填 API Key。
+4. 要用微信公众号或 PTA 验证码时，再安装 `dsh-builtin-browser`，扫码和验证码都在它打开的窗口里完成。
 
-### 运行方式
+dsh-go 原生的插件详情页只有组件列表和开关，没有「配置」入口。填账号必须进网页界面。
 
-- 插件数据放在 `~/.dsh/zju-campus`；指定了 `DSH_HOME` 时跟随该目录。账号在 DSH 插件页填写。
-- 没有托盘。dsh 开着时才会在后台检查通知、邮件和聊天，新消息在侧栏「校园事务」上出一个圆点，允许过的话也弹浏览器通知。
-- 课程讲解暂时没有配音。
-- 讲解在新标签页里播放，讲解里的脚本放在沙箱里跑，碰不到 dsh 的接口。
-- FFmpeg 第一次用到时才下载，下完核对校验值。
+## 目录
+
+```text
+plugin/
+  host/       引擎侧：账号、档案、zju 工具、各子插件和后台检查
+  client/     网页界面：日程表、校园事务、学习页和设置页
+  rows/       十个子插件的元数据和图标
+  skill/      zju-campus 技能
+  bundle/     插件页上的组合包和 cordis.patch.yml
+core/
+  zju/        校园系统的命令和参考文档
+  learn/      课程讲解引擎
+  weread/     微信公众号
+  chat/       微信、钉钉共用的聊天读取
+  wechat/     本机微信聊天记录
+  dingtalk/   本机钉钉聊天记录
+  initialize/ 初始化工作流
+  skills/     选课、复习、课程学习等技能
+scripts/      构建、打包和检查脚本
+```
+
+更细的安装问题和排查记录在 [plugin/README.md](plugin/README.md)。
 
 ## 数据和隐私
 
-这个项目没有自己的服务器，数据都在你的设备上。
+项目没有自己的服务器，数据留在设备上。
 
-- 校园账号和密码加密保存在 `$DSH_HOME/zju-campus/profile/accounts.json`（桌面版通常是 `~/.dsh/zju-campus/profile/accounts.json`），密钥由 Windows 凭据管理器、macOS 钥匙串或 Linux Secret Service 保管。Android/PRoot 当前暂用同目录下权限 `0600` 的 `keyring.json`，这是测试用回退，正式版应改用 Android Keystore。旧明文在更新后的插件首次读取时自动迁移；个人资料、记忆、备忘录也在这个文件夹里，是一条一个的 Markdown 文件。
-- 各系统的登录状态和缓存在 `~/.dsh/zju-campus/zju` 和 `cache`。
-- 浙大邮箱的客户端专用密码先经同样的系统凭据库保护，再将密文存入 dsh 的凭据服务。dsh 自己的模型 API Key 仍由宿主管理。详见 [凭据与本地数据](SECURITY.md)。
-- 下载的课件、转写和讲解在「文档」文件夹的 `CampusAgent` 下（macOS 上是 `~/Documents/CampusAgent`），在页面上点「下载」存的文件在「下载」文件夹的 `CampusAgent` 下。
+- 校园账号和密码保存在 `$DSH_HOME/zju-campus/profile/accounts.json`，密码用 AES-256-GCM 加密。
+- 桌面系统用系统凭据库保存密钥；Android/PRoot 当前回退到同目录下权限为 `0600` 的 `keyring.json`，这是测试用方案，正式版应改用 Android Keystore。
+- 各系统的登录状态和缓存在 `$DSH_HOME/zju-campus/zju` 和 `cache`。
+- 下载的课件、转写和讲解在「文档」文件夹的 `CampusAgent` 下。
 
-对话内容会发给你在 dsh 里选的模型服务，助手查到的校园数据也会随对话一起发过去。
+对话内容会发给你在 dsh 里选择的模型服务，助手查到的校园数据也会随对话一起发送。详见 [SECURITY.md](SECURITY.md)。
 
-## 从源码运行
+## 已知限制
 
-需要 Node.js 24.x（24.18 以上）和 npm 11。
+- 官方 dsh-go APK 如果没有网页 polyfill，装完插件也进不了设置页。
+- dsh-go 上不能用微信聊天和钉钉聊天。
+- 课程讲解要排公式时需要 TeX，检查版面需要 Chrome 或 Edge；这些不会自动安装。
+- 本地 `.tgz` 是开发安装方式，不是 npm 发布包。两个包名在 npm 上已被上游占用，升级时要重新下载、拷贝并安装。
+- 插件页里关掉「校园账号」后，其余子插件都会停止工作。
 
-```powershell
-npm ci
+## 开发
+
+```bash
+npm run verify   # 类型检查和各模块测试
+npm run build    # 构建 plugin/lib/client.js
+npm run security # 检查凭据和发布文件范围，需要 Gitleaks
 ```
 
-```powershell
-npm run verify
-```
-
-`npm run verify` 检查 DSH 插件及共用核心的类型和测试。`npm run build` 构建插件页面，`npm run security` 检查凭据与发布范围。
-
-插件在 `plugin/`（实现包 `dsh-zju-campus`）和 `plugin/bundle/`（插件页上那张「ZJU All-in-One Assistant」卡片，组合包 `dsh-zju-assistant`）。开发时装进本机的 dsh 用链接安装，改了代码不用重装：
-
-1. `node plugin/build.mjs` 打包页面那一半；
-2. 在 `plugin/bundle` 里跑一次 `pnpm install`，建出指向实现包的链接；
-3. `dsh plugin --profile <名字> add <仓库的绝对路径>\plugin\bundle`。装进官方桌面版时先完全退出桌面版，用它自带的 `resources\runtime\cli\bin\dsh.cmd`，profile 名是 `desktop`。
-
-改了引擎侧的代码重开 dsh 生效，改了页面先重新跑第 1 步。
-
-## 项目结构
-
-| 位置 | 内容 |
-|---|---|
-| `plugin/` | 插件的实现：`host/` 是引擎侧（档案、账号、`zju` 工具、各子插件），`client/` 是页面，`skill/` 是 `zju-campus` 技能，`rows.mjs` 是十个子插件的清单 |
-| `plugin/bundle/` | 组合包：插件页上的卡片「ZJU All-in-One Assistant」和十行的 patch |
-| `core/zju/` | ZJU Core：校园系统的命令和参考文档，插件和 ZJU Skill 用的是同一套命令 |
-| `core/learn/` | Learning Core：把资料讲成带画面的讲解 |
-| `core/weread/` | WeRead Core：从微信读书找公众号文章，读正文、存成 Markdown |
-| `core/chat/`、`core/wechat/`、`core/dingtalk/` | 本机微信、钉钉聊天记录的只读查询，Windows 和 macOS 版客户端 |
-| `core/initialize/`、`core/skills/` | 初始化和几条工作流：选课、考前复习、课程学习、我的一周、交作业 |
-
-引擎是 DeepSeek Harness（`@deepseek-ai/dsh`）。第三方代码和素材的许可见 [第三方声明](THIRD_PARTY_NOTICES.md)。
-
-## 致谢
-
-钉钉 v2 账号库的支持来自 @YidanPan 的 #4，Mac 版插件加载失败的问题是 @Silhouette-my 在 #5 里先发现的，Mac 上读微信、钉钉聊天的做法来自 @spdc-elm 给 weread-skill 和 dingtalk-skill 做的 macOS 支持。
+改 `plugin/host/` 后重启 dsh 生效；改 `plugin/client/` 后先跑 `npm run build`。本地开发时在 `plugin/bundle/` 里执行一次 `pnpm install`，让组合包通过 link 指向仓库里的实现包。
 
 ## 许可证
 
-项目自有代码采用 [GNU GPL v3（仅限第 3 版）](LICENSE)，SPDX 标识为 `GPL-3.0-only`。允许使用、修改和再分发；分发本项目或其衍生程序时，须按 GPL 提供相应源码并保留许可。
-
-第三方代码、依赖和素材沿用各自许可，见 [第三方声明](THIRD_PARTY_NOTICES.md)。
+项目自有代码采用 [GNU GPL v3（仅限第 3 版）](LICENSE)，SPDX 标识为 `GPL-3.0-only`。第三方代码、依赖和素材沿用各自许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

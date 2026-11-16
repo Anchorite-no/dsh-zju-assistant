@@ -2,6 +2,8 @@
 
 教务网（zdbk）、研究生教务网（yjsy）、学在浙大（xuezai）、PTA（pta）、大物实验课（lab）、智云课堂（zhiyun）、超星学习通（chaoxing）、电子书（ebook）、知网（cnki）。下表是 `zju` 的 `args`。
 
+学在浙大视频的倍速、OCS 联播配置或异常暂停，按[播放与诊断]({{core}}/skills/course-playback/SKILL.md)；只有用户要求播放或排障时才读取。
+
 | 用户目标 | 调用 |
 |---|---|
 | 某天的课、下节课、教室 | `campus_schedule` 的 `read`；只看教务原始周课表时 `zdbk timetable` |

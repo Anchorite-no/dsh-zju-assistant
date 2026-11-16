@@ -23,7 +23,7 @@ const PARTS = [
   'dingtalk/SKILL.md', 'dingtalk/package.json', 'dingtalk/lib', 'dingtalk/scripts', 'dingtalk/references',
   'chat/common.mjs',
   'learn/SKILL.md', 'learn/references', 'learn/engine', 'learn/tools/prep',
-  'skills/course-selection', 'skills/course-study', 'skills/exam-prep', 'skills/homework-submit', 'skills/my-week',
+  'skills/course-selection', 'skills/course-study', 'skills/course-playback', 'skills/exam-prep', 'skills/homework-submit', 'skills/my-week',
   'initialize',
 ]
 const copy = (from, to) => copyPublicTree(from, to, source)

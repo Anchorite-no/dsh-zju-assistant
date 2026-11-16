@@ -17,7 +17,7 @@
     "typecheck:core": "node core/zju/node_modules/typescript/bin/tsc --noEmit -p core/zju",
     "typecheck:weread": "node core/weread/node_modules/typescript/bin/tsc --noEmit -p core/weread",
     "typecheck:dingtalk": "node core/dingtalk/node_modules/typescript/bin/tsc --noEmit -p core/dingtalk",
-    "verify": "npm run typecheck && node --test plugin/*.test.mjs plugin/host/*.test.mjs plugin/client/*.test.mjs scripts/private-paths.test.mjs scripts/learn.test.mjs core/zju/tests/*.test.ts core/zju/tests/*.test.mjs core/weread/tests/*.test.ts core/weread/tests/*.test.mjs core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts",
+    "verify": "npm run typecheck && node --test plugin/*.test.mjs plugin/host/*.test.mjs plugin/client/*.test.mjs scripts/private-paths.test.mjs scripts/learn.test.mjs scripts/course-playback.test.mjs core/zju/tests/*.test.ts core/zju/tests/*.test.mjs core/weread/tests/*.test.ts core/weread/tests/*.test.mjs core/chat/*.test.mjs core/wechat/tests/*.test.mjs core/dingtalk/tests/*.test.ts",
     "test:plugin": "node --test plugin/*.test.mjs plugin/host/*.test.mjs plugin/client/*.test.mjs",
     "test:core": "node --test core/zju/tests/*.test.ts core/zju/tests/*.test.mjs",
     "test:weread": "node --test core/weread/tests/*.test.ts core/weread/tests/*.test.mjs",
